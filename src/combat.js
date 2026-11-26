@@ -56,7 +56,7 @@ async function nextTurn(){
     u.acted=true;
     if(u.st.asleep&&!u.st.surprised&&C.round>=2&&Math.random()<.5){delete u.st.asleep;float(u,"AWAKE!","#ffffff");}
     if(u.st.asleep){busy=true;buildPanel();float(u,"ZZZ","#c0a0ff");await say(`The ${u.name} is fast asleep.`,600);continue;}
-    if(u.side==="m"){busy=true;buildPanel();await sporesHalo(u);if(u.hp<=0)continue;if(u.boss)u.legend=2;if(await conditionTurn(u))continue;}
+    if(u.side==="m"){busy=true;buildPanel();await sporesHalo(u);if(u.hp<=0)continue;if(u.boss)u.legend=2;if(await conditionTurn(u))continue;if(await monsterPreTurn(u))continue;}
     if(fireAt(u.x,u.y)){busy=true;buildPanel();await say(`The ${u.name} is standing in flames!`,600);await dealDamage(u,roll("2d4").total,"fire",{});}
     if(gnd(u.x,u.y)===GROUND.acid&&(u.side==="h"||u.hp>0)){busy=true;buildPanel();await say(`Acid eats at the ${u.name}!`,600);await dealDamage(u,roll("1d6+1").total,"acid",{});}
     if((u.side==="m"&&u.hp<=0)||u.down||u.dead)continue;
@@ -149,7 +149,7 @@ function featButtons(u){const B=[];const info=u.info;
     let dis=!costOK||(F.res&&left<=0);if(f==="reckless")dis=C.reckless;if(f==="frenzy")dis=dis||!u.st.raging;if(f==="giantsmight")dis=dis||!!u.st.giant;if(f==="symbiotic")dis=dis||!!u.st.symbiotic;
     if(F.cost==="free"&&F.res&&f!=="actionsurge"){const armedK={mtrip:"trip",mpush:"push",mmenace:"menace",mprecise:"precise",guidedstrike:"guided"}[f];if(armedK){if(C.armed===armedK){B.push({t:"✓ "+F.name.toUpperCase(),sub:"armed for your next attack · tap to disarm",sel:true,f:()=>{C.armed=null;buildPanel();}});continue;}dis=dis||!canAttack();}}if(f==="secondwind")dis=dis||u.hp>=u.maxHp;if(f==="rage")dis=dis||u.st.raging;
     B.push({t:F.name.toUpperCase(),sub:`${F.cost==="free"?"free":F.cost==="bonus"?"bonus action":"action"}${left!==null?` · ${left} left`:""}`,dis,f:()=>FEAT_RUN[f](u)});}
-  for(const s of spellsOf(u)){const sp=SPELLS[s];const maxLvl=u.slots.length;
+  for(const s of spellsOf(u).filter(s=>isPrepared(u,s))){const sp=SPELLS[s];const maxLvl=u.slots.length;
     if(s==="shield"){B.push({t:"SHIELD",sub:"Reaction · used automatically when hit",dis:true});continue;}
     if(sp.lvl>maxLvl){B.push({t:sp.name.toUpperCase(),sub:`Unlocks at party level ${sp.lvl===3?5:3}`,dis:true});continue;}
     if(s==="huntersmark"&&u.conc&&u.conc.type==="mark"&&!u.conc.target){B.push({t:"MOVE MARK",sub:"Bonus action · no slot",dis:!C.bonus,f:()=>targetMode({kind:"enemy",range:18,label:"Move Hunter's Mark: tap an enemy.",onPick:async(x,y,t)=>{C.bonus=false;u.conc.target=t;await say(`The Ranger marks the ${t.name}.`,800);}})});continue;}
@@ -326,6 +326,7 @@ async function victory(){mode="combatEnd";busy=true;buildPanel();const xp=C.xp;a
   for(const h of G.party){if(h.conc)endConc(h);const keep=h.st.poisoned;h.st={};if(keep)h.st.poisoned=keep;h.thp=0;}
   for(const h of G.party)if(h.frenzied&&!h.dead){h.frenzied=false;await addExh(h,1,"the frenzy wears off");}
   if(G.party.some(h=>h.down&&!h.dead)&&heroesUp().length)await tendTheDying();
+  await offerRevivify();
   const fallen=G.party.filter(h=>h.dead);G.fallen=(G.fallen||[]).concat(fallen);G.party=G.party.filter(h=>!h.dead);
   for(const m of G.mons){m.st={};if(m.state==="combat")m.state="idle";}G.entangle.clear();G.spikes.clear();
   C=null;mode="explore";showCombatUI(false);fov();hud();

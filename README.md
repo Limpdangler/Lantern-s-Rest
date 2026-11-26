@@ -34,6 +34,7 @@ python3 build.py
 | `classfx.js` | Class signature abilities, feats, inspiration, reactions |
 | `save.js` | Saving and resuming runs (automatic) |
 | `effects.js` | **The trigger system**: every class/race/subclass/feat/item effect that changes attacks or damage, each in one labelled entry |
+| `social.js` | Monster surrender & questioning, calling for help, languages, haggling, Revivify, prepared spells |
 | `ui.js` | Drawing the screen, menus, party sheets, shop, settings |
 | `main.js` | Start-up, controls, saving settings |
 | `style.css`, `body.html` | Page layout and look |

@@ -1540,7 +1540,7 @@ async function nextTurn(){
     u.acted=true;
     if(u.st.asleep&&!u.st.surprised&&C.round>=2&&Math.random()<.5){delete u.st.asleep;float(u,"AWAKE!","#ffffff");}
     if(u.st.asleep){busy=true;buildPanel();float(u,"ZZZ","#c0a0ff");await say(`The ${u.name} is fast asleep.`,600);continue;}
-    if(u.side==="m"){busy=true;buildPanel();await sporesHalo(u);if(u.hp<=0)continue;if(u.boss)u.legend=2;if(await conditionTurn(u))continue;}
+    if(u.side==="m"){busy=true;buildPanel();await sporesHalo(u);if(u.hp<=0)continue;if(u.boss)u.legend=2;if(await conditionTurn(u))continue;if(await monsterPreTurn(u))continue;}
     if(fireAt(u.x,u.y)){busy=true;buildPanel();await say(`The ${u.name} is standing in flames!`,600);await dealDamage(u,roll("2d4").total,"fire",{});}
     if(gnd(u.x,u.y)===GROUND.acid&&(u.side==="h"||u.hp>0)){busy=true;buildPanel();await say(`Acid eats at the ${u.name}!`,600);await dealDamage(u,roll("1d6+1").total,"acid",{});}
     if((u.side==="m"&&u.hp<=0)||u.down||u.dead)continue;
@@ -1633,7 +1633,7 @@ function featButtons(u){const B=[];const info=u.info;
     let dis=!costOK||(F.res&&left<=0);if(f==="reckless")dis=C.reckless;if(f==="frenzy")dis=dis||!u.st.raging;if(f==="giantsmight")dis=dis||!!u.st.giant;if(f==="symbiotic")dis=dis||!!u.st.symbiotic;
     if(F.cost==="free"&&F.res&&f!=="actionsurge"){const armedK={mtrip:"trip",mpush:"push",mmenace:"menace",mprecise:"precise",guidedstrike:"guided"}[f];if(armedK){if(C.armed===armedK){B.push({t:"✓ "+F.name.toUpperCase(),sub:"armed for your next attack · tap to disarm",sel:true,f:()=>{C.armed=null;buildPanel();}});continue;}dis=dis||!canAttack();}}if(f==="secondwind")dis=dis||u.hp>=u.maxHp;if(f==="rage")dis=dis||u.st.raging;
     B.push({t:F.name.toUpperCase(),sub:`${F.cost==="free"?"free":F.cost==="bonus"?"bonus action":"action"}${left!==null?` · ${left} left`:""}`,dis,f:()=>FEAT_RUN[f](u)});}
-  for(const s of spellsOf(u)){const sp=SPELLS[s];const maxLvl=u.slots.length;
+  for(const s of spellsOf(u).filter(s=>isPrepared(u,s))){const sp=SPELLS[s];const maxLvl=u.slots.length;
     if(s==="shield"){B.push({t:"SHIELD",sub:"Reaction · used automatically when hit",dis:true});continue;}
     if(sp.lvl>maxLvl){B.push({t:sp.name.toUpperCase(),sub:`Unlocks at party level ${sp.lvl===3?5:3}`,dis:true});continue;}
     if(s==="huntersmark"&&u.conc&&u.conc.type==="mark"&&!u.conc.target){B.push({t:"MOVE MARK",sub:"Bonus action · no slot",dis:!C.bonus,f:()=>targetMode({kind:"enemy",range:18,label:"Move Hunter's Mark: tap an enemy.",onPick:async(x,y,t)=>{C.bonus=false;u.conc.target=t;await say(`The Ranger marks the ${t.name}.`,800);}})});continue;}
@@ -1810,6 +1810,7 @@ async function victory(){mode="combatEnd";busy=true;buildPanel();const xp=C.xp;a
   for(const h of G.party){if(h.conc)endConc(h);const keep=h.st.poisoned;h.st={};if(keep)h.st.poisoned=keep;h.thp=0;}
   for(const h of G.party)if(h.frenzied&&!h.dead){h.frenzied=false;await addExh(h,1,"the frenzy wears off");}
   if(G.party.some(h=>h.down&&!h.dead)&&heroesUp().length)await tendTheDying();
+  await offerRevivify();
   const fallen=G.party.filter(h=>h.dead);G.fallen=(G.fallen||[]).concat(fallen);G.party=G.party.filter(h=>!h.dead);
   for(const m of G.mons){m.st={};if(m.state==="combat")m.state="idle";}G.entangle.clear();G.spikes.clear();
   C=null;mode="explore";showCombatUI(false);fov();hud();
@@ -1962,21 +1963,34 @@ async function interact(o){
     $("tBox").hidden=true;hud();return;}
   if(o.type==="merchant"){openShop(o);return;}}
 async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&&q.hp>0);grp.forEach(q=>q.bubble=now()+900);const toll=10*G.floor;
-  const per=bestAt("persuasion"),inti=bestAt("intimidation"),dec=bestAt("deception");const roarB=heroesUp().find(h=>h.id==="barbarian"&&(h.res.rage||0)>0&&!h.wild);const liar=grp.some(q=>q.treach);
-  const ins=heroesUp().slice().sort((a,b)=>passive(b,"insight")-passive(a,"insight"))[0];const sensed=liar&&passive(ins,"insight")-2*exhOf(ins)>=13;
-  if(liar)log(`${esc(ins.name)}'s Passive Insight ${passive(ins,"insight")} vs their Deception 13: ${sensed?"sees through them":"doesn't notice anything off"}.`,"miss");
-  const c=await choose(`${grp.length>1?`${grp.length} ${m.name}s`:`A ${m.name}`} block${grp.length>1?"":"s"} the way: "Halt! Pay ${toll} gold or turn back!"${sensed?` (The ${ins.name} can tell they're lying: they'll attack once you've paid.)`:""}${loreKnown(m)?"":""}`,
-    [{t:"PAY",sub:`${toll} gold`,dis:G.gold<toll},{t:"PERSUADE",sub:oddsTag(per,"persuasion",liar?16:13)},{t:"DECEIVE",sub:`${oddsTag(dec,"deception",14)} · "We work for your boss." If it works, they'll never see you coming`},{t:"INTIMIDATE",sub:oddsTag(inti,"intimidation",14)},{t:"ROAR",sub:roarB?`${roarB.name}: uses a Rage · Intimidation with advantage`:"Needs a barbarian with Rage left",dis:!roarB},{t:"ATTACK",sub:"They're ready for you"}]);
+  const per=bestAt("persuasion"),inti=bestAt("intimidation"),dec=bestAt("deception");const roarB=heroesUp().find(h=>h.id==="barbarian"&&(h.res.rage||0)>0&&!h.wild);let liar=grp.some(q=>q.treach);
+  const tongue=speakerFor(m),lang=MLANG[m.key];const talk={adv:!!tongue};
+  const ins=heroesUp().slice().sort((a,b)=>passive(b,"insight")-passive(a,"insight"))[0];const sensed=liar&&(!!tongue||passive(ins,"insight")-2*exhOf(ins)>=13);
+  if(liar){if(tongue)log(`${esc(tongue.name)} understands the ${esc(lang)} they mutter to each other: they plan to attack once you've paid.`,"miss");else log(`${esc(ins.name)}'s Passive Insight ${passive(ins,"insight")} vs their Deception 13: ${sensed?"sees through them":"doesn't notice anything off"}.`,"miss");}
   const calm=f=>{for(const q of grp){q.peace=true;q.parley=0;q.state="idle";if(f)q.fooled=true;}};
   const fight=async(t)=>{await say(t,1000,true);grp.forEach(q=>{q.parley=0;q.peace=false;});busy=false;startCombat({by:grp});};
-  approve(["toll","persuade","deceive","intimidate","intimidate","attackfirst"][c]||"");
-  if(c===0){G.gold-=toll;hud();if(liar){await fight("They pocket the gold... and draw their blades. \"Thanks, fools!\"");return;}calm();await say("They pocket the gold and wave you through.",1200,true);}
-  else if(c===1){const r=await check(per,"persuasion",liar?16:13);if(r.ok){calm();await say(`"Fine, fine. Go on." (${r.txt})`,1200,true);}else{await fight(`"Nice try!" (${r.txt}) They attack!`);return;}}
-  else if(c===2){const r=await check(dec,"deception",14);if(r.ok){calm(true);await say(`"Oh! Sorry, boss's orders, go right ahead." (${r.txt}) They buy it completely.`,1300,true);}else{await fight(`"Liar!" (${r.txt}) They attack!`);return;}}
-  else if(c===4&&roarB){roarB.res.rage--;const r=await check(roarB,"intimidation",14,{adv:true});await say("The barbarian lets out a bone-shaking ROAR!",900,true);if(r.ok){for(const q of grp){G.mons.splice(G.mons.indexOf(q),1);}const xp=Math.floor(grp.reduce((a,q)=>a+q.xp,0)/2);await say(`They flee for their lives! (${r.txt}) +${xp} XP.`,1200,true);for(const msg of gainXpNow(xp))await say(msg,1300,true);}else{await fight(`They hold their ground. (${r.txt}) Attack!`);return;}}
-  else if(c===3){const r=await check(inti,"intimidation",14);if(r.ok){for(const q of grp){G.mons.splice(G.mons.indexOf(q),1);}const xp=Math.floor(grp.reduce((a,q)=>a+q.xp,0)/2);await say(`They scatter in terror! (${r.txt}) +${xp} XP.`,1200,true);for(const msg of gainXpNow(xp))await say(msg,1300,true);}
-    else{await fight(`They laugh at you. (${r.txt}) Attack!`);return;}}
-  else{grp.forEach(q=>q.parley=0);busy=false;startCombat({by:grp});return;}
+  const flee=async(r,t)=>{for(const q of grp){G.mons.splice(G.mons.indexOf(q),1);}const xp=Math.floor(grp.reduce((a,q)=>a+q.xp,0)/2);await say(`${t} (${r.txt}) +${xp} XP.`,1200,true);for(const msg of gainXpNow(xp))await say(msg,1300,true);};
+  let att=0;// attitude: 0 hostile, 1 indifferent (they'll haggle), 2 friendly
+  for(let turn=0;;turn++){
+    if(turn>=4){await fight(`"Enough talking!" They lose patience and attack!`);return;}
+    const price=att===1?Math.ceil(toll/2):toll;const pdc=liar?16:13;
+    const who=`${grp.length>1?`${grp.length} ${m.name}s`:`A ${m.name}`}`;
+    const q=(att===0?`${who} block${grp.length>1?"":"s"} the way: "Halt! Pay ${toll} gold or turn back!"`:`${grp.length>1?`The ${m.name}s look at each other`:`The ${m.name} thinks it over`}. "Fine... ${price} gold and you can pass." (They're Indifferent now: talk them round and they may become Friendly.)`)
+      +(tongue?` The ${tongue.name} speaks ${lang}, so talking to them has advantage.`:lang?` They speak ${lang}; nobody in the party does.`:"")
+      +(sensed?` (They're lying: they'll attack once you've paid.)`:"");
+    const c=await choose(q,[{t:"PAY",sub:`${price} gold`,dis:G.gold<price},{t:"PERSUADE",sub:`${oddsTag(per,"persuasion",pdc)} · win big and they turn Friendly`},{t:"DECEIVE",sub:`${oddsTag(dec,"deception",14)} · "We work for your boss." If it works, they'll never see you coming`},{t:"INTIMIDATE",sub:oddsTag(inti,"intimidation",14)},{t:"ROAR",sub:roarB?`${roarB.name}: uses a Rage · Intimidation with advantage`:"Needs a barbarian with Rage left",dis:!roarB},{t:"ATTACK",sub:"They're ready for you"}]);
+    approve(["toll","persuade","deceive","intimidate","intimidate","attackfirst"][c]||"");
+    if(c===0){G.gold-=price;hud();if(liar){await fight("They pocket the gold... and draw their blades. \"Thanks, fools!\"");return;}calm();await say("They pocket the gold and wave you through.",1200,true);break;}
+    else if(c===1){const r=await check(per,"persuasion",pdc,talk);
+      if(r.ok){att=Math.min(2,att+(r.total>=pdc+5?2:1));
+        if(att===2){calm();grp.forEach(q=>q.treach=false);await say(`"Alright, alright, friend. Go on through." (${r.txt}) They're Friendly now, and chatty...`,1300,true);await shareSecret(grp);break;}
+        await say(`"Hmm. Maybe we can work something out." (${r.txt})`,1100,true);continue;}
+      if(att>0){att=0;await say(`"Now you're just wasting our time." (${r.txt}) They're back to the full price.`,1200,true);continue;}
+      await fight(`"Nice try!" (${r.txt}) They attack!`);return;}
+    else if(c===2){const r=await check(dec,"deception",14,talk);if(r.ok){calm(true);await say(`"Oh! Sorry, boss's orders, go right ahead." (${r.txt}) They buy it completely.`,1300,true);break;}else{await fight(`"Liar!" (${r.txt}) They attack!`);return;}}
+    else if(c===4&&roarB){roarB.res.rage--;const r=await check(roarB,"intimidation",14,{adv:true});await say("The barbarian lets out a bone-shaking ROAR!",900,true);if(r.ok){await flee(r,"They flee for their lives!");break;}else{await fight(`They hold their ground. (${r.txt}) Attack!`);return;}}
+    else if(c===3){const r=await check(inti,"intimidation",14,talk);if(r.ok){await flee(r,"They scatter in terror!");break;}else{await fight(`They laugh at you. (${r.txt}) Attack!`);return;}}
+    else{grp.forEach(q=>q.parley=0);busy=false;startCombat({by:grp});return;}}
   $("tBox").hidden=true;hud();}
 async function stairsPrompt(){const c=await choose(`A ladder leads down to floor ${G.floor+1}. The party can camp safely at the bottom.`,[{t:"CLIMB DOWN"},{t:"NOT YET",sub:"Keep exploring this floor"}]);
   if(c!==0)return;if(G.goal&&G.goal.type==="relic"&&!G.goal.done&&G.bag.relic){takeItem("relic");await goalDone("You hand the idol to a waiting scout.");}
@@ -2823,7 +2837,7 @@ effect("critRange","Champion crits on 19–20; sleeping and surprised-by-assassi
   if(c.d>=critMin(c.a))c.crit=true;
   if(c.hit&&(c.t.st.asleep&&cheb(c.a,c.t)<=1||(isHero(c.a)&&c.a.sub==="assassin"&&c.t.st.surprised)))c.crit=true;}});
 effect("shield","Wizard: Shield reaction (+5 AC) can turn a hit into a miss",{beforeHit:async c=>{const t=c.t;
-  if(!c.crit&&isHero(t)&&t.id==="wizard"&&!t.wild&&canReact(t)&&slotAvail(t,1)&&c.total<c.ac+5&&await askReact(t,`The ${c.a.name} rolled ${c.total} against the Wizard's AC ${c.ac}. Cast Shield (+5 AC, uses a level 1 slot) to make it miss?`)){
+  if(!c.crit&&isHero(t)&&t.id==="wizard"&&!t.wild&&isPrepared(t,"shield")&&canReact(t)&&slotAvail(t,1)&&c.total<c.ac+5&&await askReact(t,`The ${c.a.name} rolled ${c.total} against the Wizard's AC ${c.ac}. Cast Shield (+5 AC, uses a level 1 slot) to make it miss?`)){
     useSlot(t,1);t.reaction=false;t.st.shieldSpell=true;fx.push({type:"ring",u:t,col:"#9fd0ff",t:now()});if(t.sub==="abjurer")t.ward=Math.min(wardMax(t),(t.ward||0)+2);
     c.miss=true;c.msg=`The Wizard casts Shield! AC ${c.ac} → ${c.ac+5}. Miss!`;}}});
 effect("subclassDamage","Colossus Slayer, Giant's Might, Dread Ambusher, Symbiotic Entity, manoeuvres",{onHit:async c=>{c.total+=await subOnHit(c.a,c.t,c.w,c.crit,c.parts);}});
@@ -2957,6 +2971,82 @@ const itemWeight=id=>WEIGHT[id]!==undefined?WEIGHT[id]:ITEMS[id]&&ITEMS[id].kind
 function packLoad(){let w=0;for(const id in G.bag)w+=itemWeight(id)*(G.bag[id]||0);return Math.round(w*10)/10;}
 function packCap(){return 10+heroesUp().filter(h=>h.id!=="beast").reduce((a,h)=>a+Math.max(2,Math.floor(score(h,"str")/3)),0);}
 const overloaded=()=>!!(G&&G.bag&&!G.demo&&packLoad()>packCap());
+
+// ================= monster behaviour, talking, haggling, revivify, prepared spells (5e rules, batch 3) =================
+EVT.spare={kind:2,pious:1,ruthless:-1};EVT.finish={ruthless:2,kind:-2,pious:-1};EVT.haggle={greedy:2,pious:-1};EVT.revive={kind:1,pious:1};
+ITEMS.scroll_revivify={name:"Scroll of Revivify",kind:"keep",price:150,floor:2,w:1,desc:"Brings back a hero who died within the last minute, with 1 HP. Offered right after a fight, or read it from the bag."};
+
+// ---------- helpers ----------
+function dirTo(a,b){const dx=b.x-a.x,dy=b.y-a.y;const ns=Math.abs(dy)>Math.abs(dx)/2?(dy<0?"north":"south"):"";const ew=Math.abs(dx)>Math.abs(dy)/2?(dx<0?"west":"east"):"";return ns&&ew?ns+"-"+ew:ns||ew||"nearby";}
+// what a captured or friendly monster tells you: who has the key, where the traps are, the way down
+async function shareSecret(who){const tips=[];const L=G.party[0];
+  const own=who.find(q=>q.hasKey);if(own){own.hasKey=false;addItem("key");tips.push("hands over a rusty key");}
+  else{const kh=G.mons.find(q=>q.hp>0&&q.hasKey&&!who.includes(q));if(kh)tips.push(`says the ${kh.name} to the ${dirTo(L,kh)} carries the key`);}
+  const traps=G.traps.filter(t=>!t.found&&!t.done);if(traps.length){traps.forEach(t=>t.found=true);tips.push(`warns you about ${traps.length} hidden trap${traps.length>1?"s":""} (now marked)`);}
+  const st=G.stairs;if(st&&!(G.explored[st.y]&&G.explored[st.y][st.x])){for(let y=st.y-1;y<=st.y+1;y++)for(let x=st.x-1;x<=st.x+1;x++)if(G.explored[y]&&x>=0&&x<G.W)G.explored[y][x]=true;tips.push(`points the way to the ladder down, to the ${dirTo(L,st)} (now on your map)`);}
+  const name=who[0]?who[0].name:"creature";
+  await say(tips.length?`The ${name} ${tips.slice(0,2).join(", and ")}.`:`The ${name} doesn't know anything useful.`,1500,true);}
+
+// ---------- languages ----------
+const MLANG={goblin:"Goblin",archer:"Goblin",shaman:"Goblin",goblinboss:"Goblin",kobold:"Draconic",orc:"Orc",ogre:"Giant",boss:"Giant"};
+const RACE_LANG={dwarf:["Dwarvish","Goblin"],halforc:["Orc"],tiefling:["Infernal"],elf:["Elvish"],halfling:["Halfling"],human:["Orc"]};
+const CLASS_LANG={wizard:["Draconic","Goblin"],druid:["Druidic"],rogue:["Thieves' Cant"],cleric:["Celestial"]};
+function langsOf(h){return ["Common"].concat(RACE_LANG[h.race]||[],CLASS_LANG[h.id]||[]);}
+function speakerFor(m){const l=MLANG[m.key];if(!l)return null;return heroesUp().find(h=>!h.wild&&h.id!=="beast"&&langsOf(h).includes(l))||null;}
+
+// ---------- smarter monsters ----------
+// clever monsters pile onto whoever is already badly hurt, and go after spellcasters holding a spell
+{const base=threatScore;threatScore=(m,h,w)=>{const smart=m.tr&&m.tr.mind==="smart";return base(m,h,w)-(smart&&h.hp<=h.maxHp*.35?3:0)-(smart&&h.conc?1:0);};}
+const isSmart=m=>m.side==="m"&&m.tr&&m.tr.mind==="smart"&&!m.boss;
+// runs at the start of every monster's turn; returns true if the turn is used up
+async function monsterPreTurn(m){if(!C||m.hp<=0)return false;
+  // call for help: the first time a clever monster gets hurt or sees its friends fall, it may shout for the next group over
+  if(isSmart(m)&&!m.called&&(m.hp<m.maxHp||C.units.some(u=>u.side==="m"&&u.gid===m.gid&&u.hp<=0))&&Math.random()<.4){m.called=true;
+    const near=G.mons.filter(q=>q.hp>0&&!q.inCombat&&!q.peace&&q.gid!==m.gid&&cheb(q,m)<=14).sort((a,b)=>cheb(a,m)-cheb(b,m));
+    if(near.length){const gid=near[0].gid;const come=near.filter(q=>q.gid===gid);float(m,"HELP!","#ffe060");await say(`The ${m.name} shouts for help! ${come.length>1?`${come.length} more creatures come`:"Something comes"} running from the ${dirTo(m,come[0])}.`,1100);
+      for(const q of come){q.inCombat=true;q.state="combat";q.lurk=false;q.acted=false;q.bubble=now()+900;q.init=rnd(20)+abm(q,"dex");C.units.push(q);}renderStrip();}}
+  // surrender: the last clever monster standing, badly hurt, may throw down its weapon
+  if(isSmart(m)&&!m.yieldAsked&&m.hp<=m.maxHp*.35&&!C.units.some(u=>u.side==="m"&&u!==m&&u.hp>0&&u.inCombat)&&Math.random()<.6){m.yieldAsked=true;
+    float(m,"MERCY!","#ffffff");const tongue=speakerFor(m);
+    const c=await choose(`The ${m.name} throws down its weapon. "${tongue||!MLANG[m.key]?"Mercy! I yield! I'll tell you things!":"(It babbles in "+MLANG[m.key]+", hands raised.)"}"`,
+      [{t:"SPARE & QUESTION",sub:"Full XP. It tells you what it knows, then runs"},{t:"FINISH IT",sub:"Full XP"},{t:"LET IT GO",sub:"Full XP, no questions"}]);
+    if(c===1){approve("finish");await say(`No mercy.`,600);await dealDamage(m,m.hp+20,"piercing",{src:heroesUp()[0]});return true;}
+    approve("spare");m.inCombat=false;m.peace=true;C.xp+=m.xp;const k=G.mons.indexOf(m);if(k>=0)G.mons.splice(k,1);
+    if(c===0){if(!MLANG[m.key]||tongue)await shareSecret([m]);else await say(`Nobody in the party speaks ${MLANG[m.key]}, so its answers are just noise. It flees.`,1300);}
+    else await say(`The ${m.name} scrambles away into the dark.`,900);
+    renderStrip();return true;}
+  return false;}
+
+// ---------- haggling ----------
+function shopPrice(id){const base=id==="arrows"?10:ITEMS[id].price;return Math.max(1,Math.round(base*((shopObj&&shopObj.mult)||1)));}
+async function haggle(){if(!shopObj||shopObj.haggled)return;shopObj.haggled=true;const h=bestAt("persuasion");const r=await check(h,"persuasion",13,{quiet:true,adv:!!(shopObj.lang&&langsOf(h).includes(shopObj.lang))});approve("haggle");
+  shopObj.mult=r.ok?0.8:1.1;shopObj.haggleMsg=r.ok?`The ${h.name} talks the merchant down: everything is 20% cheaper. (${r.txt})`:`The merchant takes offence and puts the prices up 10%. (${r.txt})`;renderShop();}
+
+// ---------- revivify ----------
+function revive(h,how){h.dead=false;h.down=false;h.stable=false;h.hp=1;h.ds={s:0,f:0};h.st={};approve("revive");float(h,"REVIVED","#fff0a0");fx.push({type:"heal",u:h,t:now()});log(`✦ ${esc(h.name)} is brought back by ${how}.`,"lv");hud();fov();if(C)renderStrip();}
+async function offerRevivify(){if(!G)return;for(const h of G.party.filter(q=>q.dead&&q.id!=="beast"&&!q.revAsked)){
+    const cl=G.party.find(c=>c.id==="cleric"&&!c.dead&&!c.down&&slotAvail(c,3));const sc=(G.bag.scroll_revivify||0)>0;if(!cl&&!sc)continue;h.revAsked=true;
+    const c=await choose(`${h.name} died moments ago. Revivify can still bring them back, but only within the minute.`,[
+      {t:"READ THE SCROLL",sub:sc?"Uses the Scroll of Revivify":"You don't have one",dis:!sc},
+      {t:"CLERIC CASTS REVIVIFY",sub:cl?`Uses a level 3 spell slot and 100 gold of diamond dust`:"Needs a cleric with a level 3 slot",dis:!cl||G.gold<100},
+      {t:"LET THEM REST"}]);
+    if(c===0){takeItem("scroll_revivify");revive(h,"a Scroll of Revivify");await say(`The scroll crumbles to light. ${h.name} gasps back to life with 1 HP!`,1500,true);}
+    else if(c===1){useSlot(cl,3);G.gold-=100;revive(h,"the cleric's Revivify");await say(`The ${cl.name} presses glittering diamond dust to the wound. ${h.name} gasps back to life with 1 HP!`,1500,true);}}}
+{const base=heroDies;heroDies=async(h,massive)=>{await base(h,massive);if(!C&&mode==="explore")await offerRevivify();};}
+
+// ---------- prepared spells (cleric, druid, wizard) ----------
+const PREP_CLASSES=["cleric","druid","wizard"];
+const alwaysReady=(h,s)=>((subOf(h)||{}).spells||[]).includes(s);
+function prepPool(h){return spellsOf(h).filter(s=>SPELLS[s]&&SPELLS[s].lvl<=h.slots.length&&!alwaysReady(h,s));}
+function prepCount(h){return Math.max(1,G.level+abm(h,h.info.castAbil||"wis"));}
+function isPrepared(h,s){if(!h||h.side!=="h"||!PREP_CLASSES.includes(h.id)||!h.prepared||alwaysReady(h,s))return true;return h.prepared.includes(s);}
+async function prepareSpells(h){const pool=prepPool(h),n=prepCount(h);if(pool.length<=n){h.prepared=pool.slice();return;}
+  let sel=(h.prepared||pool).filter(s=>pool.includes(s)).slice(0,n);
+  for(let i=0;i<24;i++){const opts=[{t:"DONE",sub:`${sel.length} of ${n} prepared`}].concat(pool.map(s=>({t:(sel.includes(s)?"✓ ":"")+SPELLS[s].name.toUpperCase(),sub:`Level ${SPELLS[s].lvl}${sel.includes(s)?" · prepared, tap to drop":""}`,dis:!sel.includes(s)&&sel.length>=n})));
+    const c=await choose(`The ${h.name} prepares today's spells: ${n} from ${pool.length} (level + ${(h.info.castAbil||"wis").toUpperCase()} modifier). ${subOf(h)&&subOf(h).spells?"Subclass spells are always ready. ":""}Tap a spell to add or drop it.`,opts);
+    if(c<=0)break;const s=pool[c-1];if(sel.includes(s))sel=sel.filter(x=>x!==s);else if(sel.length<n)sel.push(s);}
+  h.prepared=sel;log(`${esc(h.name)} prepared: ${sel.map(s=>SPELLS[s].name).join(", ")}.`,"magic");}
+{const base=applyLongRest;applyLongRest=async camp=>{const lines=await base(camp);for(const h of G.party)if(!h.dead&&PREP_CLASSES.includes(h.id))await prepareSpells(h);return lines;};}
 
 // ================= sprites =================
 const sprCache={};
@@ -3248,6 +3338,7 @@ function renderMenu(){const el=$("menuBody");["party","bag","rest"].forEach(t=>$
       if(id==="potion"||id==="gpotion"&&isKnown(id))for(const h of G.party)btn(`GIVE: ${h.name.toUpperCase()}`,()=>{takeItem(id);heal(h,roll(id==="potion"?"2d4+2":"4d4+4").total);renderMenu();hud();},h.hp>=h.maxHp&&!h.down);
       if(COPYABLE[id]&&isKnown(id)){const wz=G.party.find(h=>h.id==="wizard"&&!h.dead);if(wz)btn(`COPY INTO SPELLBOOK (25g)`,()=>{if(G.gold<25){alertMenu("You need 25 gold for the special inks.");return;}const sp=COPYABLE[id];wz.learned=wz.learned||[];if(spellsOf(wz).includes(sp)){alertMenu("The wizard already knows that spell.");return;}G.gold-=25;takeItem(id);wz.learned.push(sp);renderMenu();hud();alertMenu(`The ${wz.name} copies ${SPELLS[sp].name} into the spellbook. It's theirs to cast now.`);});}
       if(id==="poisonvial")for(const h of G.party.filter(h=>!h.dead&&!h.down&&h.id!=="beast"))btn(`COAT: ${h.name.toUpperCase()}`,()=>{takeItem(id);h.coat={name:"poison",type:"poison",dice:"2d4"};renderMenu();alertMenu(`The ${h.name}'s weapon is coated in poison for one attack.`);},!!h.coat);
+      if(id==="scroll_revivify")for(const h of G.party.filter(q=>q.dead&&q.id!=="beast"))btn(`READ ON: ${h.name.toUpperCase()}`,()=>{takeItem(id);revive(h,"a Scroll of Revivify");renderMenu();});
       if(id==="scroll_cure"&&isKnown(id))for(const h of G.party)btn(`READ ON: ${h.name.toUpperCase()}`,()=>{takeItem(id);heal(h,roll("2d8+3").total);renderMenu();hud();},h.hp>=h.maxHp);
       if(id==="antitoxin")for(const h of G.party)if(h.st.poisoned)btn(`GIVE: ${h.name.toUpperCase()}`,()=>{takeItem(id);delete h.st.poisoned;renderMenu();hud();});
       if(id==="torch")btn("PLACE HERE",()=>{takeItem(id);const L=G.party[0];G.dropLights.push({x:L.x,y:L.y});fov();renderMenu();});
@@ -3284,7 +3375,9 @@ function openShop(o){shopObj=o;renderShop();show("ovShop");}
 function renderShop(){const el=$("shopBody");el.innerHTML=`<p>"Lamp oil, rope, bombs? Ah, no bombs. Take a look!" · You have <b>${G.gold}</b> gold.</p><h3>BUY</h3>`;
   const row=(id,price,label,f,dis)=>{const it=ITEMS[id];const d=document.createElement("div");d.className="item";const ic=document.createElement("canvas");ic.width=ic.height=16;d.appendChild(ic);drawIconTo(ic,id);
     d.insertAdjacentHTML("beforeend",`<div><b>${esc(label.startsWith("BUY")?it.name:itemName(id))}</b><br><span class="sm">${esc(label.startsWith("BUY")?it.desc:itemDesc(id))}</span></div>`);const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=`${label} ${price}g`;b.disabled=!!dis;b.addEventListener("click",f);d.appendChild(b);el.appendChild(d);};
-  shopObj.stock.forEach((id,i)=>row(id,id==="arrows"?10:ITEMS[id].price,id==="arrows"?"BUY 10":"BUY",()=>{G.gold-=id==="arrows"?10:ITEMS[id].price;addItem(id,id==="arrows"?10:1);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<ITEMS[id].price));
+  if(shopObj.haggleMsg)el.insertAdjacentHTML("beforeend",`<p class="help">${esc(shopObj.haggleMsg)}</p>`);
+  else{const hb=document.createElement("button");hb.type="button";hb.className="chip";hb.textContent=`HAGGLE · ${oddsTag(bestAt("persuasion"),"persuasion",13)}`;hb.addEventListener("click",()=>haggle());el.appendChild(hb);}
+  shopObj.stock.forEach((id,i)=>{const pr=shopPrice(id);row(id,pr,id==="arrows"?"BUY 10":"BUY",()=>{G.gold-=pr;addItem(id,id==="arrows"?10:1);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<pr);});
   el.insertAdjacentHTML("beforeend","<h3>SELL</h3>");const ids=Object.keys(G.bag).filter(id=>ITEMS[id].price>0);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Nothing to sell.</p>");
   for(const id of ids){const p=Math.floor(ITEMS[id].price/2);row(id,p,`SELL (${G.bag[id]})`,()=>{takeItem(id);G.gold+=p;shopObj.stock.push(id);renderShop();hud();});
     if(!isKnown(id))row(id,20,"IDENTIFY",()=>{G.gold-=20;G.known.add(id);renderShop();hud();},G.gold<20);}}
