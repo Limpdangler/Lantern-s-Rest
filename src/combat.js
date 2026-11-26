@@ -49,7 +49,7 @@ async function nextTurn(){
     const u=C.units[C.idx];
     if(u.side==="m"&&(u.hp<=0||!u.inCombat))continue;if(u.side==="h"&&u.dead)continue;
     C.cur=u;C.sel=null;C.tgt=null;C.mode="move";C.panel="main";C.turnFlags={};C.armed=null;C.objUsed=false;renderStrip();hud();
-    for(const x of G.mons.concat(G.party))if(x.st.helped===u)delete x.st.helped;
+    for(const x of G.mons.concat(G.party))if(x.st.helped===u){delete x.st.helped;delete x.st.helpFor;}
     u.reaction=true;delete u.st.dodge;delete u.st.shieldSpell;delete u.st.reckless;u.disengaged=false;
     if(u.side==="h"&&u.down){busy=true;buildPanel();if(S.rules.deathSaves&&!u.stable){await wait(250);await deathSave(u);}delete u.st.surprised;continue;}
     if(u.st.surprised){delete u.st.surprised;u.acted=true;busy=true;buildPanel();float(u,"!?","#ffffff");await say(`The ${u.name} is caught by surprise and loses this turn!`,750);continue;}
@@ -67,9 +67,9 @@ async function nextTurn(){
     heroTurn(u);return;}}
 function attacksPer(u){if(u.wild)return u.wild.form==="bear"?2:1;return u.info.extra&&G.level>=5?2:1;}
 const canAttack=()=>C.attacksLeft>0||C.actions>0||C.extraAtk>0;
-function useAttack(u){if(C.attacksLeft<=0&&C.actions<=0&&C.extraAtk>0){C.extraAtk--;C.dreadHit=true;return;}if(C.attacksLeft<=0){C.actions--;C.attacksLeft=attacksPer(u);}C.attacksLeft--;}
+function useAttack(u){C.attackedOnce=true;if(C.attacksLeft<=0&&C.actions<=0&&C.extraAtk>0){C.extraAtk--;C.dreadHit=true;return;}if(C.attacksLeft<=0){C.actions--;C.attacksLeft=attacksPer(u);}C.attacksLeft--;}
 const hasAction=()=>C.actions>0;
-function heroTurn(u){u.readied=null;C.meleeAttacked=false;C.moveLeft=speedOf(u);C.actions=1;C.bonus=true;C.attacksLeft=0;C.disengaged=false;C.reckless=false;C.sneakUsed=false;C.objUsed=false;C.mode="move";C.tgt=null;C.sel=null;C.weapon="main";C.panel="main";C.pending=null;
+function heroTurn(u){u.readied=null;C.meleeAttacked=false;C.moveLeft=speedOf(u);C.actions=1;C.bonus=true;C.attacksLeft=0;C.disengaged=false;C.reckless=false;C.attackedOnce=false;C.sneakUsed=false;C.objUsed=false;C.mode="move";C.tgt=null;C.sel=null;C.weapon="main";C.panel="main";C.pending=null;
   if(u.st.prone){delete u.st.prone;C.moveLeft=Math.floor(C.moveLeft/2);float(u,"STANDS UP","#ffffff");log(`${esc(u.name)} stands up (half movement).`,"miss");}
   C.extraAtk=0;if(u.sub==="gloom"&&!u.dreadDone){u.dreadDone=true;C.moveLeft+=2;C.extraAtk=1;log(`Dread Ambusher: ${esc(u.name)} gets +2 speed and an extra attack this turn.`,"magic");}
   if(u.st.restrained)C.moveLeft=0;
@@ -146,7 +146,7 @@ function featButtons(u){const B=[];const info=u.info;
     B.push({t:"REVERT",sub:"Bonus action: leave beast form",dis:!C.bonus,f:async()=>{busy=true;C.bonus=false;u.wild=null;computeLight();fov();await say(`${u.name} returns to normal form.`,700);afterAction();}});return B;}
   if(info.alt.save)B.push({t:"SACRED FLAME",sub:"Cantrip · action · DEX save · ignores cover",dis:!hasAction()||C.attacksLeft>0,f:()=>targetMode({kind:"enemy",range:12,label:"Sacred Flame: tap an enemy within 12 squares.",onPick:async(x,y,t)=>{C.actions--;await sacredFlame(u,t);}})});
   for(const f of featsOf(u)){const F=FEATS[f];const left=F.res?u.res[F.res]||0:null;const costOK=F.cost==="bonus"?C.bonus:F.cost==="action"?hasAction()&&C.attacksLeft===0:true;
-    let dis=!costOK||(F.res&&left<=0);if(f==="reckless")dis=C.reckless;if(f==="frenzy")dis=dis||!u.st.raging;if(f==="giantsmight")dis=dis||!!u.st.giant;if(f==="symbiotic")dis=dis||!!u.st.symbiotic;
+    let dis=!costOK||(F.res&&left<=0);if(f==="reckless")dis=C.reckless||C.attackedOnce;if(f==="frenzy")dis=dis||!u.st.raging;if(f==="giantsmight")dis=dis||!!u.st.giant;if(f==="symbiotic")dis=dis||!!u.st.symbiotic;
     if(F.cost==="free"&&F.res&&f!=="actionsurge"){const armedK={mtrip:"trip",mpush:"push",mmenace:"menace",mprecise:"precise",guidedstrike:"guided"}[f];if(armedK){if(C.armed===armedK){B.push({t:"✓ "+F.name.toUpperCase(),sub:"armed for your next attack · tap to disarm",sel:true,f:()=>{C.armed=null;buildPanel();}});continue;}dis=dis||!canAttack();}}if(f==="secondwind")dis=dis||u.hp>=u.maxHp;if(f==="rage")dis=dis||u.st.raging;
     B.push({t:F.name.toUpperCase(),sub:`${F.cost==="free"?"free":F.cost==="bonus"?"bonus action":"action"}${left!==null?` · ${left} left`:""}`,dis,f:()=>FEAT_RUN[f](u)});}
   for(const s of spellsOf(u).filter(s=>isPrepared(u,s))){const sp=SPELLS[s];const maxLvl=u.slots.length;
@@ -229,8 +229,10 @@ function actionButtons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;
   B.push({t:"DASH",sub:"Action: double movement",dis:!act,f:async()=>{busy=true;C.actions--;C.moveLeft+=speedOf(u);await say(`Dash! ${C.moveLeft} movement left.`,700);afterAction();}});
   B.push({t:"DODGE",sub:"Action: attacks vs you get disadvantage",dis:!act,f:async()=>{busy=true;C.actions--;u.st.dodge=true;fx.push({type:"ring",u,col:"#9fd0ff",t:now()});await say(`The ${u.name} focuses on dodging. Attacks against them have disadvantage until their next turn.`,950);afterAction();}});
   B.push({t:"DISENGAGE",sub:"Action: move without opportunity attacks",dis:!act||C.disengaged,f:async()=>{busy=true;C.actions--;C.disengaged=true;await say("Disengage: moving won't provoke opportunity attacks this turn.",850);afterAction();}});
-  B.push({t:"HELP",sub:"Action: next ally attack vs an adjacent foe has advantage",dis:!act,f:()=>targetMode({kind:"adjfoe",range:1,label:"Help: tap an enemy next to you.",onPick:async(x,y,t)=>{C.actions--;t.st.helped=u;float(t,"DISTRACTED","#ffffff");await say(`The ${u.name} distracts the ${t.name}. The next ally attack against it has advantage.`,950);}})});
-  B.push({t:"SHOVE",sub:"Uses an attack: push 1 square or knock prone",dis:!canAttack(),f:()=>targetMode({kind:"adjfoe",range:1,barrel:true,label:"Shove: tap an enemy (or an oil barrel) next to you. Push them into hazards, traps or off ledges!",
+  B.push({t:"HELP",sub:"Action: distract an enemy next to you so an ally of your choice gets advantage on it",dis:!act,f:()=>targetMode({kind:"adjfoe",range:1,label:"Help: tap an enemy next to you.",onPick:async(x,y,t)=>{const allies=heroesUp().filter(h=>h!==u);let ally=null;
+    if(allies.length>1){const c=await choose(`Help which ally attack the ${t.name}?`,allies.map(h=>({t:(h.nick||h.name).toUpperCase(),sub:`${h.name} · ${cheb(h,t)<=1?"next to it":cheb(h,t)+" squares away"}`})).concat([{t:"CANCEL"}]));if(c<0||c>=allies.length){afterAction();return;}ally=allies[c];}else ally=allies[0]||null;
+    C.actions--;t.st.helped=u;t.st.helpFor=ally;float(t,"DISTRACTED","#ffffff");await say(`The ${u.name} distracts the ${t.name}.${ally?` The ${ally.name}'s next attack against it has advantage.`:" The next attack against it has advantage."}`,950);}})});
+  B.push({t:"SHOVE",sub:"Uses an attack: shove a creature or object next to you",dis:!canAttack(),f:()=>targetMode({kind:"adjfoe",range:1,barrel:true,label:"Shove: who do you shove?",
     onPick:async(x,y,t)=>{useAttack(u);await shove(u,t);}})});
   B.push({t:"HIDE",sub:"Action: Stealth check in darkness or behind cover",dis:!act,f:async()=>{busy=true;C.actions--;await tryHide(u);afterAction();}});
   if(u.st.restrained)B.push({t:"ESCAPE",sub:`Action: break free (DC ${u.st.restrained.dc})`,dis:!act,f:async()=>{busy=true;C.actions--;const sk=skillBonus(u,"athletics")>=skillBonus(u,"acrobatics")?"athletics":"acrobatics";const c=await check(u,sk,u.st.restrained.dc);

@@ -240,6 +240,13 @@ input.err{border-color:var(--bad);background:#4a1f26}
 .march{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:10px 0 4px;padding-top:10px;border-top:1px solid #2a4a4c;font-size:13px;color:var(--muted)}
 .march span{flex:1 1 100%}
 
+.abadge{display:inline-flex;align-items:center;justify-content:center;width:1.35em;height:1.35em;border-radius:50%;background:#c83a4a;color:#fff;font-family:var(--pixel);font-size:.7em;vertical-align:middle;box-shadow:0 2px 0 #7a1a28}
+#kA.glow{animation:aglow 1.2s ease-out 2}
+@keyframes aglow{0%{box-shadow:0 0 0 0 rgba(255,220,120,.9)}100%{box-shadow:0 0 0 14px rgba(255,220,120,0)}}
+
+.maptitle{flex:1;font-family:var(--pixel);font-size:10px;color:var(--gold);align-self:center}
+.mapcv{display:block;max-width:100%;margin:8px auto;image-rendering:pixelated;border:2px solid #2a4a4c;border-radius:4px}
+
 </style>
 
 <div class="app" id="app">
@@ -247,6 +254,7 @@ input.err{border-color:var(--bad);background:#4a1f26}
     <h1>LANTERN CRAWL</h1>
     <div class="btns">
       <button class="chip" id="btnNew" type="button">NEW RUN</button>
+      <button class="chip" id="btnMap" type="button">MAP</button>
       <button class="chip" id="btnSettings" type="button">SETTINGS</button>
     </div>
   </div>
@@ -260,7 +268,7 @@ input.err{border-color:var(--bad);background:#4a1f26}
   <div class="party" id="party"></div>
   <div class="hud"><span>FLOOR <b id="flT">–</b></span><span>LV <b id="lvT">–</b></span><span>GOLD <b id="goT">–</b></span><span id="faW">FATIGUE <b id="faT">–</b></span><span>FOOD <b id="fdT">–</b></span><span>WOOD <b id="wdT">–</b></span><span>LIGHT <b id="liT">–</b></span><span>GOAL <b id="glT">–</b></span></div>
   <div class="fxrow" id="fxRow" hidden></div>
-  <div class="tgl" id="tglRow"><button class="chip" id="tgSneak" type="button">SNEAK</button><button class="chip" id="tgLight" type="button">LANTERN ON</button><button class="chip" id="tgSearch" type="button">SEARCH</button><button class="chip" id="tgSkills" type="button">ABILITIES</button></div>
+  <div class="tgl" id="tglRow"><button class="chip" id="tgSneak" type="button">SNEAK</button><button class="chip" id="tgLight" type="button">LIGHT ON</button><button class="chip" id="tgSearch" type="button">SEARCH</button><button class="chip" id="tgSkills" type="button">ABILITIES</button></div>
   <div class="log" id="log" aria-live="polite"></div>
   <div class="controls" id="controls">
     <div class="dpad" aria-label="Movement">
@@ -313,6 +321,11 @@ input.err{border-color:var(--bad);background:#4a1f26}
     <div id="shopBody"></div>
   </div>
 
+  <div class="ov" id="ovMap" hidden>
+    <div class="tabs"><b id="mapTitle" class="maptitle">MAP</b><button class="chip" id="mapClose" type="button">CLOSE</button></div>
+    <canvas id="mapCv" class="mapcv"></canvas>
+    <p class="help" id="mapKey"></p>
+  </div>
   <div class="ov" id="ovSettings" hidden>
     <h2>Settings</h2>
     <p>Change any number, then press Save. Changes start with a new run and stay saved on this phone.</p>
@@ -1348,7 +1361,7 @@ function coverOf(a,t){if(cheb(a,t)<=1)return 0;const cs=[[.05,.05],[.95,.05],[.0
 function attackMods(a,t,w,o){o=o||{};const adv=[],dis=[],notes=[];let bonus=atkBonus(a,w);const ranged=!w.melee;
   if(t.st.restrained)adv.push("target restrained");if(t.st.asleep)adv.push("target asleep");
   if(t.st.prone){if(cheb(a,t)<=1)adv.push("target prone");else dis.push("target prone, far away");}
-  if(t.st.helped)adv.push("ally helping");if(t.st.guided)adv.push("Guiding Bolt");if(t.st.reckless)adv.push("target reckless");
+  if(t.st.helped&&(!t.st.helpFor||t.st.helpFor===a))adv.push("ally helping");if(t.st.guided)adv.push("Guiding Bolt");if(t.st.reckless)adv.push("target reckless");
   if(a.st.hidden)adv.push("you're hidden");if(o.adv)adv.push(o.adv);
   if(a.side==="h"&&C&&C.cur===a&&C.reckless&&w.melee&&!w.spell)adv.push("reckless");
   if((a.side==="m"&&a.tr.pack)||(a.side==="h"&&a.wild)){if(friendsOf(a).some(f=>cheb(f,t)<=1&&!f.st.prone))adv.push("pack tactics");}
@@ -1378,7 +1391,7 @@ async function attackInner(a,t,w,o){o=o||{};const coat=a.coat&&!w.spell?a.coat:n
   if(a.side==="h"&&canReroll(a)&&d.r<20&&d.r+md.bonus+extraRoll<md.ac){spendReroll(a,"an attack");d=d20(mode>0,mode<0,a);await dice(t,d.r,d.pair);}
   const bless=a.st.blessed?rnd(4):0;const tot=d.r+md.bonus+bless+extraRoll;const hit0=d.r>=critMin(a)||(d.r!==1&&tot>=md.ac);
   let crit=fire("critCheck",{a,t,w,d:d.r,crit:false,hit:hit0}).crit;const hit=crit||(d.r!==1&&tot>=md.ac);
-  delete t.st.helped;delete t.st.guided;delete a.st.hidden;
+  if(!t.st.helpFor||t.st.helpFor===a){delete t.st.helped;delete t.st.helpFor;}delete t.st.guided;delete a.st.hidden;
   const nm=`${a.name}'s ${w.name}`;const how=mode>0?" with advantage":mode<0?" with disadvantage":"";const rl=`${d.r}${sgn(md.bonus)}${bless?"+"+bless+" bless":""}${extraRoll?"+"+extraRoll:""} = ${tot}`;
   if(hit){const bh=await fireAsync("beforeHit",{a,t,w,total:tot,ac:md.ac,crit,miss:false,msg:""});if(bh.miss){await say(`${nm}: ${rl}${how}. ${bh.msg}`,1000);await done(false);return {hit:false};}}
   if(!hit){float(t,"MISS","#ffffff");await say(`${nm}: ${rl}${acKnown(t)?" vs AC "+md.ac:""}${how}. ${d.r===1?"Fumble!":"Miss!"}`);await done(false);return {hit:false};}
@@ -1411,7 +1424,7 @@ async function dealDamage(u,amt,type,o){o=o||{};if(u.dead||(u.side==="m"&&(u.hp<
   if(tr&&tr.resist&&tr.resist.includes(type))n=Math.floor(n/2);
   if(tr&&tr.vuln&&tr.vuln.includes(type)){n*=2;float(u,"WEAK!","#ffe060");}
   {const e=await fireAsync("damageIn",{u,n,type,o});n=e.n;}
-  if(u.st.asleep){delete u.st.asleep;float(u,"AWAKE!","#ffffff");}
+  if(u.st.asleep){delete u.st.asleep;if(n>0&&n<u.hp)float(u,"AWAKE!","#ffffff");}
   if(n<=0){float(u,"0","#ffffff");hud();return 0;}
   fx.push({type:"flash",u,t:now()});
   if(u.wild){u.wild.hp-=n;float(u,"-"+n,"#ff7a6a");hud();if(u.wild.hp<=0){const over=-u.wild.hp;u.wild=null;computeLight();await say(`${u.name} is forced out of wolf form!`,800);hud();if(over>0)return n+await dealDamage(u,over,type,Object.assign({},o,{attack:false}));}return n;}
@@ -1481,14 +1494,15 @@ async function onEnter(u,x,y,o){o=o||{};const res={stop:false};
   if(g===GROUND.acid){await say(`Acid burns the ${u.name}!`,600);await dealDamage(u,roll("1d6+1").total,"acid",{});}
   if(u.side==="h"&&!C)collectItems(u);
   return res;}
+const trapN=()=>1+Math.floor((((G&&G.floor)||1)-1)/2);// trap damage dice: 1 on floors 1-2, 2 on 3-4, 3 on 5+
 async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?`The ${u.name}`:`The ${u.name}`;{const r=await triggerNewTrap(t,u);if(r!==null)return r;}
   if(t.type==="darts"){const r=rnd(20)+5;const hit=r>=acOf(u);fx.push({type:"shot",from:{x:t.x-2,y:t.y},to:{x:t.x,y:t.y},t:now(),col:"#d0d0d0"});
     await say(`Click! Darts fly from the walls at ${who}: ${r} vs AC ${acOf(u)}. ${hit?"Hit!":"Miss!"}`,950);
-    if(hit){await dealDamage(u,roll("2d4").total,"piercing",{});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
+    if(hit){await dealDamage(u,roll(`${trapN()}d4`).total,"piercing",{});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
   if(t.type==="pit"){G.ground[t.y][t.x]=GROUND.rubble;buildTerrain();const s=saveRoll(u,"dex",t.dc);
     if(s.ok){await say(`A pit trap! ${who} leaps clear as the floor drops. (${s.txt})`,950);return false;}
-    u.st.prone=true;await say(`A pit trap! ${who} falls in. (${s.txt})`,950);await dealDamage(u,roll("2d6").total,"bludgeoning",{});return true;}
-  if(t.type==="fire"){const s=saveRoll(u,"dex",t.dc);const dm=roll("2d6").total;fx.push({type:"boom",x:t.x,y:t.y,t:now()});
+    u.st.prone=true;await say(`A pit trap! ${who} falls in. (${s.txt})`,950);await dealDamage(u,roll(`${trapN()}d6`).total,"bludgeoning",{});return true;}
+  if(t.type==="fire"){const s=saveRoll(u,"dex",t.dc);const dm=roll(`${trapN()}d6`).total;fx.push({type:"boom",x:t.x,y:t.y,t:now()});
     await say(`Flames roar from a vent under ${who}! (${s.txt})`,950);await dealDamage(u,s.ok?Math.floor(dm/2):dm,"fire",{});
     for(const [dx,dy] of DIRS8)if(gnd(t.x+dx,t.y+dy)===GROUND.oil)igniteAt(t.x+dx,t.y+dy);return false;}
   if(t.type==="alarm"){await say(`${who} snaps a hidden wire. Bells clang through the dungeon!`,1100);alarm(t.x,t.y);return false;}
@@ -1605,7 +1619,7 @@ async function nextTurn(){
     const u=C.units[C.idx];
     if(u.side==="m"&&(u.hp<=0||!u.inCombat))continue;if(u.side==="h"&&u.dead)continue;
     C.cur=u;C.sel=null;C.tgt=null;C.mode="move";C.panel="main";C.turnFlags={};C.armed=null;C.objUsed=false;renderStrip();hud();
-    for(const x of G.mons.concat(G.party))if(x.st.helped===u)delete x.st.helped;
+    for(const x of G.mons.concat(G.party))if(x.st.helped===u){delete x.st.helped;delete x.st.helpFor;}
     u.reaction=true;delete u.st.dodge;delete u.st.shieldSpell;delete u.st.reckless;u.disengaged=false;
     if(u.side==="h"&&u.down){busy=true;buildPanel();if(S.rules.deathSaves&&!u.stable){await wait(250);await deathSave(u);}delete u.st.surprised;continue;}
     if(u.st.surprised){delete u.st.surprised;u.acted=true;busy=true;buildPanel();float(u,"!?","#ffffff");await say(`The ${u.name} is caught by surprise and loses this turn!`,750);continue;}
@@ -1623,9 +1637,9 @@ async function nextTurn(){
     heroTurn(u);return;}}
 function attacksPer(u){if(u.wild)return u.wild.form==="bear"?2:1;return u.info.extra&&G.level>=5?2:1;}
 const canAttack=()=>C.attacksLeft>0||C.actions>0||C.extraAtk>0;
-function useAttack(u){if(C.attacksLeft<=0&&C.actions<=0&&C.extraAtk>0){C.extraAtk--;C.dreadHit=true;return;}if(C.attacksLeft<=0){C.actions--;C.attacksLeft=attacksPer(u);}C.attacksLeft--;}
+function useAttack(u){C.attackedOnce=true;if(C.attacksLeft<=0&&C.actions<=0&&C.extraAtk>0){C.extraAtk--;C.dreadHit=true;return;}if(C.attacksLeft<=0){C.actions--;C.attacksLeft=attacksPer(u);}C.attacksLeft--;}
 const hasAction=()=>C.actions>0;
-function heroTurn(u){u.readied=null;C.meleeAttacked=false;C.moveLeft=speedOf(u);C.actions=1;C.bonus=true;C.attacksLeft=0;C.disengaged=false;C.reckless=false;C.sneakUsed=false;C.objUsed=false;C.mode="move";C.tgt=null;C.sel=null;C.weapon="main";C.panel="main";C.pending=null;
+function heroTurn(u){u.readied=null;C.meleeAttacked=false;C.moveLeft=speedOf(u);C.actions=1;C.bonus=true;C.attacksLeft=0;C.disengaged=false;C.reckless=false;C.attackedOnce=false;C.sneakUsed=false;C.objUsed=false;C.mode="move";C.tgt=null;C.sel=null;C.weapon="main";C.panel="main";C.pending=null;
   if(u.st.prone){delete u.st.prone;C.moveLeft=Math.floor(C.moveLeft/2);float(u,"STANDS UP","#ffffff");log(`${esc(u.name)} stands up (half movement).`,"miss");}
   C.extraAtk=0;if(u.sub==="gloom"&&!u.dreadDone){u.dreadDone=true;C.moveLeft+=2;C.extraAtk=1;log(`Dread Ambusher: ${esc(u.name)} gets +2 speed and an extra attack this turn.`,"magic");}
   if(u.st.restrained)C.moveLeft=0;
@@ -1702,7 +1716,7 @@ function featButtons(u){const B=[];const info=u.info;
     B.push({t:"REVERT",sub:"Bonus action: leave beast form",dis:!C.bonus,f:async()=>{busy=true;C.bonus=false;u.wild=null;computeLight();fov();await say(`${u.name} returns to normal form.`,700);afterAction();}});return B;}
   if(info.alt.save)B.push({t:"SACRED FLAME",sub:"Cantrip · action · DEX save · ignores cover",dis:!hasAction()||C.attacksLeft>0,f:()=>targetMode({kind:"enemy",range:12,label:"Sacred Flame: tap an enemy within 12 squares.",onPick:async(x,y,t)=>{C.actions--;await sacredFlame(u,t);}})});
   for(const f of featsOf(u)){const F=FEATS[f];const left=F.res?u.res[F.res]||0:null;const costOK=F.cost==="bonus"?C.bonus:F.cost==="action"?hasAction()&&C.attacksLeft===0:true;
-    let dis=!costOK||(F.res&&left<=0);if(f==="reckless")dis=C.reckless;if(f==="frenzy")dis=dis||!u.st.raging;if(f==="giantsmight")dis=dis||!!u.st.giant;if(f==="symbiotic")dis=dis||!!u.st.symbiotic;
+    let dis=!costOK||(F.res&&left<=0);if(f==="reckless")dis=C.reckless||C.attackedOnce;if(f==="frenzy")dis=dis||!u.st.raging;if(f==="giantsmight")dis=dis||!!u.st.giant;if(f==="symbiotic")dis=dis||!!u.st.symbiotic;
     if(F.cost==="free"&&F.res&&f!=="actionsurge"){const armedK={mtrip:"trip",mpush:"push",mmenace:"menace",mprecise:"precise",guidedstrike:"guided"}[f];if(armedK){if(C.armed===armedK){B.push({t:"✓ "+F.name.toUpperCase(),sub:"armed for your next attack · tap to disarm",sel:true,f:()=>{C.armed=null;buildPanel();}});continue;}dis=dis||!canAttack();}}if(f==="secondwind")dis=dis||u.hp>=u.maxHp;if(f==="rage")dis=dis||u.st.raging;
     B.push({t:F.name.toUpperCase(),sub:`${F.cost==="free"?"free":F.cost==="bonus"?"bonus action":"action"}${left!==null?` · ${left} left`:""}`,dis,f:()=>FEAT_RUN[f](u)});}
   for(const s of spellsOf(u).filter(s=>isPrepared(u,s))){const sp=SPELLS[s];const maxLvl=u.slots.length;
@@ -1785,8 +1799,10 @@ function actionButtons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;
   B.push({t:"DASH",sub:"Action: double movement",dis:!act,f:async()=>{busy=true;C.actions--;C.moveLeft+=speedOf(u);await say(`Dash! ${C.moveLeft} movement left.`,700);afterAction();}});
   B.push({t:"DODGE",sub:"Action: attacks vs you get disadvantage",dis:!act,f:async()=>{busy=true;C.actions--;u.st.dodge=true;fx.push({type:"ring",u,col:"#9fd0ff",t:now()});await say(`The ${u.name} focuses on dodging. Attacks against them have disadvantage until their next turn.`,950);afterAction();}});
   B.push({t:"DISENGAGE",sub:"Action: move without opportunity attacks",dis:!act||C.disengaged,f:async()=>{busy=true;C.actions--;C.disengaged=true;await say("Disengage: moving won't provoke opportunity attacks this turn.",850);afterAction();}});
-  B.push({t:"HELP",sub:"Action: next ally attack vs an adjacent foe has advantage",dis:!act,f:()=>targetMode({kind:"adjfoe",range:1,label:"Help: tap an enemy next to you.",onPick:async(x,y,t)=>{C.actions--;t.st.helped=u;float(t,"DISTRACTED","#ffffff");await say(`The ${u.name} distracts the ${t.name}. The next ally attack against it has advantage.`,950);}})});
-  B.push({t:"SHOVE",sub:"Uses an attack: push 1 square or knock prone",dis:!canAttack(),f:()=>targetMode({kind:"adjfoe",range:1,barrel:true,label:"Shove: tap an enemy (or an oil barrel) next to you. Push them into hazards, traps or off ledges!",
+  B.push({t:"HELP",sub:"Action: distract an enemy next to you so an ally of your choice gets advantage on it",dis:!act,f:()=>targetMode({kind:"adjfoe",range:1,label:"Help: tap an enemy next to you.",onPick:async(x,y,t)=>{const allies=heroesUp().filter(h=>h!==u);let ally=null;
+    if(allies.length>1){const c=await choose(`Help which ally attack the ${t.name}?`,allies.map(h=>({t:(h.nick||h.name).toUpperCase(),sub:`${h.name} · ${cheb(h,t)<=1?"next to it":cheb(h,t)+" squares away"}`})).concat([{t:"CANCEL"}]));if(c<0||c>=allies.length){afterAction();return;}ally=allies[c];}else ally=allies[0]||null;
+    C.actions--;t.st.helped=u;t.st.helpFor=ally;float(t,"DISTRACTED","#ffffff");await say(`The ${u.name} distracts the ${t.name}.${ally?` The ${ally.name}'s next attack against it has advantage.`:" The next attack against it has advantage."}`,950);}})});
+  B.push({t:"SHOVE",sub:"Uses an attack: shove a creature or object next to you",dis:!canAttack(),f:()=>targetMode({kind:"adjfoe",range:1,barrel:true,label:"Shove: who do you shove?",
     onPick:async(x,y,t)=>{useAttack(u);await shove(u,t);}})});
   B.push({t:"HIDE",sub:"Action: Stealth check in darkness or behind cover",dis:!act,f:async()=>{busy=true;C.actions--;await tryHide(u);afterAction();}});
   if(u.st.restrained)B.push({t:"ESCAPE",sub:`Action: break free (DC ${u.st.restrained.dc})`,dis:!act,f:async()=>{busy=true;C.actions--;const sk=skillBonus(u,"athletics")>=skillBonus(u,"acrobatics")?"athletics":"acrobatics";const c=await check(u,sk,u.st.restrained.dc);
@@ -1913,21 +1929,21 @@ async function doMove(dx,dy,act){// act: true when the player chose to use what 
 if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const [h]=G.party.splice(i,1);G.party.unshift(h);hud();}}const L=G.party[0];L.face=dy<0?"b":dy>0?"f":"s";if(dx)L.flip=dx<0;const nx=L.x+dx,ny=L.y+dy;
   const m=monAt(nx,ny);if(m){
     if(isHiddenMon(m)){m.spotted=true;m.lurk=false;await say(`${cap(aN(m.name))} lunges out of the shadows!`,900,true);busy=false;startCombat({bumped:m,by:[m]});return;}
-    if(m.peace){if(!act){toast(`The ${m.name} let you pass. Press A to deal with them.`);return;}const c=await choose(`The ${m.name} watches you warily. They agreed to let you pass.`,[{t:"ATTACK THEM",sub:m.fooled?"They think you're friends: they'll be surprised":"They're watching you: no surprise"},{t:"LEAVE THEM BE"}]);
+    if(m.peace){if(!act){hintA(`The ${m.name} lets you pass.`);return;}const c=await choose(`The ${m.name} watches you warily. They agreed to let you pass.`,[{t:"ATTACK THEM",sub:m.fooled?"They think you're friends: they'll be surprised":"They're watching you: no surprise"},{t:"LEAVE THEM BE"}]);
       if(c===0){for(const q of G.mons)if(q.gid===m.gid)q.peace=false;busy=false;startCombat({bumped:m,partyFirst:true});}return;}
     busy=false;startCombat({bumped:m,partyFirst:true});return;}
-  if(G.npc&&G.npc.x===nx&&G.npc.y===ny){if(!act){toast("A lost adventurer. Press A to talk to them.");return;}await recruit();return;}
-  const d=doorAt(nx,ny);if(d&&!d.open){if(!act){toast("A closed door. Press A to open it.");return;}await doorInteract(d);return;}
+  if(G.npc&&G.npc.x===nx&&G.npc.y===ny){if(!act){hintA("A lost adventurer.");return;}await recruit();return;}
+  const d=doorAt(nx,ny);if(d&&!d.open){if(!act){hintA("A closed door.");return;}await doorInteract(d);return;}
   const o=objAt(nx,ny);
   if(o&&(o.type==="rubble"||o.type==="cavein")&&L.wild&&L.wild.form==="rat"){const bx=nx+dx,by=ny+dy;if(!isWall(bx,by)){G.owl={x:bx,y:by,until:G.steps+10};fov();if(o.type==="rubble")o.loose=true;
       toast(o.type==="rubble"?"The rat squeezes through the rocks and scouts the far side. It spots a loose stone: the rubble will be easier to shift now.":"The rat wriggles through a gap in the collapse and peers out the other side.");hud();return;}}
-  if(o&&BLOCKERS[o.type]){if(!act&&o.type!=="boulder"){toast(`${BUMP_NAME[o.type]||"Something"} is in the way. Press A to use it.`);return;}await interact(o);return;}
+  if(o&&BLOCKERS[o.type]){if(!act&&o.type!=="boulder"){hintA(`${BUMP_NAME[o.type]||"Something"} is in the way.`);return;}await interact(o);return;}
   if(isWall(nx,ny))return;
   const up=elevAt(nx,ny)>elevAt(L.x,L.y),down=elevAt(nx,ny)<elevAt(L.x,L.y),noRamp=!isRamp(nx,ny)&&!isRamp(L.x,L.y);
   if(up&&noRamp){const c=L.sub==="thief"||(L.wild&&L.wild.form==="spider")?{ok:true}:await check(L,"athletics",10,{quiet:true});G.steps+=2;
     if(!c.ok){if(c.total<=5){toast(`The ${L.name} slips off the ledge and lands hard! (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{});}else toast(`The ${L.name} can't get a grip on the ledge. (${c.txt}) Try again, or use the ramp.`);return;}}
   if(down&&noRamp){const c=await check(L,"acrobatics",10,{quiet:true});if(!c.ok){toast(`The ${L.name} jumps down and lands badly. (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{});if(L.down)return;}}
-  const t=trapAt(nx,ny);if(t&&t.found&&!act&&!t.done&&!t.disarmed){toast(`A ${TRAPS[t.type].name}. Press A for options, or walk around it.`);return;}if(t&&t.found){const dz=bestAt("thieves"),iv=bestAt("investigation");
+  const t=trapAt(nx,ny);if(t&&t.found&&!act&&!t.done&&!t.disarmed){hintA(`A ${TRAPS[t.type].name}.`);return;}if(t&&t.found){const dz=bestAt("thieves"),iv=bestAt("investigation");
     const c=await choose(`${cap(aN(TRAPS[t.type].name))} lies ahead.${t.easy?" You've worked out how it works.":""}`,[{t:"DISARM IT",sub:t.disFail?"You already tried":`${oddsTag(dz,"thieves",t.dc,{adv:!!t.easy})}${toolNote(dz)}`},{t:"STUDY IT",sub:t.studied?"Already studied":`${oddsTag(iv,"investigation",t.dc)} · success makes disarming easier`},{t:"STEP ON IT",sub:"Set it off on purpose"},{t:"LEAVE IT"}].concat(heroesUp().some(h=>h.sub==="trickster")?[{t:"MAGE HAND",sub:"Arcane Trickster disarms it from a safe distance (a failure just sets it off harmlessly)"}]:[]));
     if(c===4){const tr=heroesUp().find(h=>h.sub==="trickster");const r=await check(tr,"thieves",t.dc,{adv:!!t.easy});t.done=true;if(r.ok){t.disarmed=true;await say(`A spectral hand dismantles the trap. (${r.txt}) +10 XP.`,1100,true);for(const m of gainXpNow(10))await say(m,1200,true);}else await say(`The spectral hand sets it off: it fires harmlessly into the air. (${r.txt})`,1200,true);$("tBox").hidden=true;hud();return;}
     if(c===0){if(t.disFail){toast(t.disFail);return;}await disarm(dz,t);hud();return;}
@@ -1942,12 +1958,12 @@ if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const
   if(G.sneak&&areaKey(L.x,L.y)!==G.sneakArea)rollSneak();
   fov();await onEnter(L,nx,ny,{});collectItems(L);
   await huntStep();if(G.sneak)await huntStep();wanderStep();if(Math.floor(G.steps/150)>Math.floor(before/150))wakeWanderers();await factionClash();if(mode!=="explore")return;
-  if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){if(act)await stairsPrompt();else toast("A ladder leads down to the next floor. Press A to climb down.");return;}
+  if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){if(act)await stairsPrompt();else hintA("A ladder leads down to the next floor.");return;}
   passiveDetect();spotLurkers();fov();hud();autoSave();await loreCheck();if(G.level>=3&&G.party.some(h=>!h.dead&&!h.sub&&SUBS[h.id]))await chooseSubclasses();if(G.level>=4&&G.party.some(h=>!h.dead&&h.id!=="beast"&&(h.picks||0)<(G.level>=8?2:1)))await chooseFeats();await checkAwareness();}
 async function huntStep(){for(const m of G.mons){if(m.state!=="hunt"||m.hp<=0)continue;const dist=dijkstra(m,40);let best=null,bd=1e9;
     for(const h of G.party){if(h.dead)continue;for(const [ax,ay] of DIRS8){const k=(h.y+ay)*G.W+h.x+ax;const v=dist.get(k);if(v&&v.c<bd){bd=v.c;best=k;}}}
     if(best!==null){const p=pathTo(dist,best);const step=p.slice(0,1);if(step.length&&!unitAt(step[0]%G.W,(step[0]/G.W)|0)){m.x=step[0]%G.W;m.y=(step[0]/G.W)|0;}}}}
-async function checkAwareness(){if(mode!=="explore"||!G||G.over)return;
+async function checkAwareness(){if(mode!=="explore"||!G||G.over)return;stirSleepers();
   const aware=G.mons.filter(m=>m.hp>0&&!m.peace&&(m.state==="hunt"&&G.party.some(h=>!h.dead&&cheb(h,m)<=1)||noticesParty(m)));if(!aware.length)return;
   const p=aware.find(m=>m.parley&&m.state!=="hunt");if(p&&!aware.some(m=>!m.parley)){await parley(p);return;}
   const dr=heroesUp().find(h=>h.id==="druid"&&!h.wild);const gid=aware[0].gid;
@@ -2132,6 +2148,15 @@ async function pressA(){if(sayState){sayState.skip();return;}if(mode!=="explore"
   for(const [dx,dy] of dirs){const x=L.x+dx,y=L.y+dy;const k=aKind(x,y);if(!k)continue;if(k==="bump"&&dx&&dy){if(monAt(x,y)){await exploreTap(x,y);return;}continue;}
     if(k==="bump")await tryMove(dx,dy,true);else{faceToward(L,dx,dy);await exploreTap(x,y);}return;}
   toast("Nothing to use here. Face a door, chest, torch, body or creature and press A. (SEARCH looks for hidden things.)");}
+
+// sleeping monsters can be woken by a party that isn't sneaking: the closer and noisier you are, the likelier
+function stirSleepers(){if(G.sneak)return;const up=heroesUp();const done=new Set();
+  for(const m of G.mons){if(m.state!=="sleep"||m.peace||m.hp<=0||m.boss||done.has(m.gid))continue;
+    const near=up.filter(h=>cheb(h,m)<=4&&(cheb(h,m)<=2||los(m.x,m.y,h.x,h.y)));if(!near.length)continue;
+    const clank=near.some(h=>h.side==="h"&&h.info&&h.info.armour==="heavy"&&!h.wild);const close=near.some(h=>cheb(h,m)<=2);
+    if(Math.random()<.1+.07*near.length+(clank?.12:0)+(close?.15:0)){done.add(m.gid);
+      for(const q of G.mons)if(q.gid===m.gid&&q.state==="sleep"){q.state="idle";q.bubble=now()+900;}
+      log(`${esc(m.name)}${G.mons.filter(q=>q.gid===m.gid).length>1?"s stir":" stirs"}, woken by the noise.`,"miss");}}}
 
 // ================= 5e exploration: searching, stealth & surprise, lore, light, exhaustion, camping =================
 // ---------- areas: you get one search per room (corridors are split into 6×6 chunks) ----------
@@ -3053,9 +3078,9 @@ function drawSmoke(camX,camY,t){if(!G.smoke)return;for(const k of G.smoke.keys()
 // ---------- the two new traps ----------
 async function triggerNewTrap(t,u){
   if(t.type==="gas"){await say(`Hiss! A cloud of green gas billows up around the ${u.name}!`,900);G.smoke=G.smoke||new Map();addSmoke(t.x,t.y,3);
-    for(const v of G.party.concat(G.mons))if(!v.dead&&!(v.side==="m"&&v.hp<=0)&&!(v.side==="h"&&v.down)&&cheb(v,t)<=1){const s=saveRoll(v,"con",12);const dm=roll("2d6").total;if(!s.ok&&!(v.tr&&v.tr.immune&&v.tr.immune.includes("poison")))v.st.poisoned=3;
+    for(const v of G.party.concat(G.mons))if(!v.dead&&!(v.side==="m"&&v.hp<=0)&&!(v.side==="h"&&v.down)&&cheb(v,t)<=1){const s=saveRoll(v,"con",12);const dm=roll(`${trapN()}d6`).total;if(!s.ok&&!(v.tr&&v.tr.immune&&v.tr.immune.includes("poison")))v.st.poisoned=3;
       log(`${esc(v.name)}: ${s.txt}.`,"hurt");await dealDamage(v,s.ok?Math.floor(dm/2):dm,"poison",{});}return true;}
-  if(t.type==="ceiling"){const s=saveRoll(u,"dex",13);const dm=roll("2d8").total;cam.shake=now();makeNoise(t.x,t.y,12);await say(`CRACK! The ceiling caves in on the ${u.name}! (${s.txt})`,1000);
+  if(t.type==="ceiling"){const s=saveRoll(u,"dex",13);const dm=roll(`${trapN()}d8`).total;cam.shake=now();makeNoise(t.x,t.y,12);await say(`CRACK! The ceiling caves in on the ${u.name}! (${s.txt})`,1000);
     G.ground[t.y][t.x]=GROUND.rubble;buildTerrain();await dealDamage(u,s.ok?Math.floor(dm/2):dm,"bludgeoning",{});return true;}
   return null;}
 // ---------- listening at doors ----------
@@ -3071,7 +3096,7 @@ async function listenAtDoor(d){const h=bestAt("perception");const dc=d.iron?15:1
 const WEIGHT={firewood:2,ration:1,oil:1,torch:1,relic:2,key:0,arrows:.05};
 const itemWeight=id=>WEIGHT[id]!==undefined?WEIGHT[id]:ITEMS[id]&&ITEMS[id].kind==="gear"?1:.5;
 function packLoad(){let w=0;for(const id in G.bag)w+=itemWeight(id)*(G.bag[id]||0);return Math.round(w*10)/10;}
-function packCap(){return 10+heroesUp().filter(h=>h.id!=="beast").reduce((a,h)=>a+Math.max(2,Math.floor(score(h,"str")/3)),0);}
+function packCap(){return 12+heroesUp().filter(h=>h.id!=="beast").reduce((a,h)=>a+Math.max(4,Math.floor(score(h,"str")/2)+Math.max(0,abm(h,"con"))*2),0);}// 12 + each hero: half their STR + 2 per CON bonus
 const overloaded=()=>!!(G&&G.bag&&!G.demo&&packLoad()>packCap());
 
 // ================= monster behaviour, talking, haggling, revivify, prepared spells (5e rules, batch 3) =================
@@ -3203,7 +3228,7 @@ function hud(){if(!G||G.demo)return;const box=$("party");box.innerHTML="";
   $("glT").textContent=G.goal?(G.goal.done?"✓ ":G.goal.failed?"✗ ":"")+G.goal.desc:"–";$("fdT").textContent=G.bag.ration||0;$("wdT").textContent=G.bag.firewood||0;
   $("liT").textContent=G.light&&G.fuel>0?Math.ceil(G.fuel/FUEL_MAX*100)+"%":"OFF";
   $("tgSneak").classList.toggle("on",!!G.sneak);$("tgSneak").textContent=G.sneak?"SNEAKING":"SNEAK";
-  $("tgLight").classList.toggle("on",!(G.light&&G.fuel>0));$("tgLight").textContent=G.light&&G.fuel>0?"LANTERN ON":"LANTERN OFF";
+  $("tgLight").classList.toggle("on",!(G.light&&G.fuel>0));$("tgLight").textContent=G.light&&G.fuel>0?"LIGHT ON":"LIGHT OFF";
   $("flT").textContent=`${G.floor}/${S.dungeon.floors}`;$("lvT").textContent=`${G.level} (${G.xp}/${xpNeed()} XP)`;$("goT").textContent=G.gold;$("faT").textContent=fat;$("faW").hidden=!S.rules.fatigue;}
 const logEl=$("log");
 function log(html,cls){const p=document.createElement("p");p.innerHTML=html;if(cls)p.className=cls;logEl.appendChild(p);while(logEl.children.length>150)logEl.removeChild(logEl.firstChild);logEl.scrollTop=logEl.scrollHeight;}
@@ -3367,7 +3392,7 @@ function drawD20(x,y,n,dim,crit,fum){x=Math.round(x);y=Math.round(y);const r=8;c
   ctx.fillStyle=crit?"#ffd84a":fum?"#ff7060":"#f4f0e2";ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle=OUT;ctx.stroke();ctx.fillStyle=OUT;ctx.font="600 8px 'Pixelify Sans', sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(String(n),x,y+.5);ctx.restore();ctx.textBaseline="alphabetic";}
 
 // ================= overlays =================
-function show(id){["ovTown","ovClass","ovEnd","ovSettings","ovMenu","ovShop"].forEach(o=>$(o).hidden=o!==id);}
+function show(id){["ovTown","ovClass","ovEnd","ovSettings","ovMenu","ovShop","ovMap"].forEach(o=>$(o).hidden=o!==id);}
 function showEnd(won,line){$("endTitle").textContent=won?"Victory!":"Your party fell";
   const coins=bankRun(won);clearRun();const seedTxt=`<br><span class="sm">Dungeon seed: ${G.seed}</span>`;$("endStats").innerHTML=`${line}<br>Party: ${G.party.concat(G.fallen||[]).map(h=>esc(heroLabel(h))+(h.dead?" (fell)":"")).join(", ")}<br><b>+${coins} coins for the town</b> (you have ${TOWN.coins})${seedTxt}<br>Level ${G.level} · floor ${G.floor} of ${S.dungeon.floors}<br>Monsters defeated: ${G.kills}<br>Gold: ${G.gold}`;
   setTimeout(()=>show("ovEnd"),500);}
@@ -3442,7 +3467,7 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
     const cl=floorCleared();
     mk("SHORT REST",`${maxShort()-G.shortRests} left · ${cl?"floor cleared: safe":"ambush risk "+Math.round(campRisk("short")*100)+"%"}`,()=>doRest(false),G.shortRests>=maxShort());
     mk("MAKE CAMP (LONG REST)",`${S.rules.fatigue&&G.fatigue<3?"Only when Tired":cl?"Floor cleared: safe":"Fire "+Math.round(campRisk("fire")*100)+"% / cold "+Math.round(campRisk("cold")*100)+"% ambush risk"}`,()=>doRest(true),S.rules.fatigue&&G.fatigue<3);}}
-function alertMenu(t){const el=$("menuBody");el.insertAdjacentHTML("afterbegin",`<p class="msg">${esc(t)}</p>`);}
+function alertMenu(t){const el=$("menuBody");el.querySelectorAll(".msg").forEach(m=>m.remove());el.insertAdjacentHTML("afterbegin",`<p class="msg">${esc(t)}</p>`);}
 function drawIconTo(canvas,id){const c2=canvas.getContext("2d");if(id==="potion"||id==="gpotion"){c2.drawImage(monSpr("potion",id==="gpotion"?{r:"#4a7ae0",R:"#2a4aa0"}:null),0,0);return;}drawIconBase(c2,id);}
 function drawIconBase(c,id){const sx=0,sy=0;const it=ITEMS[id]||{};
   if(id==="key"){c.fillStyle="#d8b040";c.fillRect(3,6,4,4);c.fillRect(7,7,7,2);c.fillRect(11,9,1,2);c.fillRect(13,9,1,2);c.fillStyle="#3c3446";c.fillRect(4,7,2,2);return;}
@@ -3495,6 +3520,27 @@ function readSettings(){const ns=clone(S);let errs=0;
 // every message shown outside combat is kept in the NOTES tab, so nothing you learn is lost
 function note(text){if(!G||G.demo||mode==="combat"||!text)return;G.notes=G.notes||[];const last=G.notes[G.notes.length-1];if(last&&last.t===text)return;G.notes.push({f:G.floor,t:text});if(G.notes.length>200)G.notes.shift();}
 const BUMP_NAME={barrel:"A barrel",chest:"A chest",shrine:"A shrine",runes:"A rune stone",merchant:"A merchant",wood:"A wooden barricade",captive:"A captive",relic:"The relic",coffer:"A coffer",rubble:"Fallen rock",cavein:"A cave-in",furniture:"Old furniture",alchemy:"An alchemy bench"};
+
+// a short "you could interact with this" hint: the text plus a little A button symbol, and the real A button glows
+function hintA(text){if(mode==="combat")return;toast(text);const t=$("tText");if(t&&!t.querySelector(".abadge"))t.insertAdjacentHTML("beforeend",' <span class="abadge">A</span>');
+  const k=$("kA");if(k){k.classList.remove("glow");void k.offsetWidth;k.classList.add("glow");}}
+
+// ---------- the map: everything you've explored on this floor ----------
+function openMap(){if(!G||G.demo||mode!=="explore"||busy)return;const cv=$("mapCv");const S2=Math.max(3,Math.min(8,Math.floor(Math.min(innerWidth-48,560)/G.W)));cv.width=G.W*S2;cv.height=G.H*S2;const x=cv.getContext("2d");
+  x.fillStyle="#0a0810";x.fillRect(0,0,cv.width,cv.height);const P={floor:"#8c8070",wall:"#3c3646",water:"#3a6ab0",deep:"#24467a",rubble:"#6a5a48",acid:"#7ab040",oil:"#4a3a2a",crack:"#8c8070"};
+  for(let y=0;y<G.H;y++)for(let X=0;X<G.W;X++){if(!G.explored[y][X])continue;let c;
+    if(isWall(X,y)){const nearFloor=DIRS8.some(([a,b])=>inB(X+a,y+b)&&!isWall(X+a,y+b)&&G.explored[y+b][X+a]);if(!nearFloor)continue;c=P.wall;}
+    else{const g=gnd(X,y);c=g===GROUND.water?P.water:g===GROUND.deep?P.deep:g===GROUND.rubble?P.rubble:g===GROUND.acid?P.acid:g===GROUND.oil?P.oil:P.floor;}
+    x.fillStyle=c;x.fillRect(X*S2,y*S2,S2,S2);}
+  const dot=(X,y,c,r)=>{x.fillStyle=c;x.fillRect(X*S2+(S2-r)/2,y*S2+(S2-r)/2,r,r);};
+  for(const o of G.objs){if(o.gone||!G.explored[o.y][o.x])continue;if(o.type==="door")dot(o.x,o.y,o.locked?"#c0a040":o.open?"#7a5030":"#b07040",S2);else if(o.type==="chest"&&!o.opened)dot(o.x,o.y,"#f0c040",S2-1);else if(o.type==="shrine")dot(o.x,o.y,"#a0e0ff",S2-1);else if(o.type==="merchant")dot(o.x,o.y,"#e0a0ff",S2-1);}
+  for(const t of G.traps)if((t.found||t.done)&&G.explored[t.y][t.x])dot(t.x,t.y,t.done||t.disarmed?"#7a4a4a":"#ff4040",Math.max(2,S2-2));
+  for(const t of G.torches)if(G.explored[t.y][t.x]&&!t.out)dot(t.x,t.y,"#ffb040",Math.max(2,S2-3));
+  const st=G.stairs;if(st&&G.explored[st.y][st.x]){x.fillStyle="#fff";x.fillRect(st.x*S2-1,st.y*S2-1,S2+2,S2+2);dot(st.x,st.y,"#40d0a0",S2);}
+  for(const m of G.mons)if(m.hp>0&&seen(m.x,m.y)&&!isHiddenMon(m))dot(m.x,m.y,m.peace?"#c0c0c0":"#ff6060",S2);
+  G.party.forEach((h,i)=>{if(!h.dead)dot(h.x,h.y,i===0?"#ffffff":"#f0e080",S2);});
+  $("mapTitle").textContent=`MAP · FLOOR ${G.floor}`;$("mapKey").innerHTML='<span style="color:#fff">■</span> leader &nbsp;<span style="color:#f0e080">■</span> party &nbsp;<span style="color:#40d0a0">■</span> ladder down &nbsp;<span style="color:#b07040">■</span> door &nbsp;<span style="color:#f0c040">■</span> chest &nbsp;<span style="color:#ffb040">■</span> torch &nbsp;<span style="color:#ff4040">■</span> trap &nbsp;<span style="color:#ff6060">■</span> enemy in sight';
+  show("ovMap");}
 
 // ================= the hotbar: Baldur's Gate / Solasta-style combat buttons, and tappable status icons =================
 // Every combat option is a square icon you can tap straight away (no sub-menus). A coloured corner shows what it costs:
@@ -3681,7 +3727,7 @@ window.addEventListener("blur",()=>{held=null;});
 const tap=(el,fn)=>{el.addEventListener("click",fn);el.addEventListener("contextmenu",e=>e.preventDefault());};
 async function waitStep(){if(mode!=="explore"||busy||!G||G.over)return;busy=true;G.steps++;await huntStep();if(G.fire.size)tickFire();fov();busy=false;await checkAwareness();}
 hold($("kU"),()=>tryMove(0,-1));hold($("kD"),()=>tryMove(0,1));hold($("kL"),()=>tryMove(-1,0));hold($("kR"),()=>tryMove(1,0));
-tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("tgSkills"),quickAbilities);tap($("kB"),()=>openMenu());
+tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("tgSkills"),quickAbilities);tap($("btnMap"),openMap);tap($("mapClose"),()=>show(null));tap($("mapCv"),()=>show(null));tap($("kB"),()=>openMenu());
 function tileFromEvent(e){const r=cv.getBoundingClientRect();const sx=(e.clientX-r.left)/r.width*SW,sy=(e.clientY-r.top)/r.height*SH;const wx=sx+cam.x,wy=sy+cam.y;
   for(const u of G.party.concat(G.mons)){if(u.dead)continue;const e2=elevAt(u.x,u.y)*3;if(wx>=u.x*TS&&wx<u.x*TS+TS&&wy>=u.y*TS-(u.side==="h"||HUMAN[u.sprite]?12:0)-e2&&wy<u.y*TS+TS-e2)return {x:u.x,y:u.y};}
   return {x:Math.floor(wx/TS),y:Math.floor(wy/TS)};}
@@ -3693,7 +3739,7 @@ document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;con
   if(choosing){const n=parseInt(k,10);if(n>=1&&n<=6){const b=$("ch-"+(n-1));if(b&&!b.disabled)b.click();}if(k==="escape")choosing.cancel();return;}
   if(mode==="combat"){if(k==="e")endHeroTurn();if(k==="escape")cancelTarget();return;}
   const map={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
-  if(map[k]){e.preventDefault();if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="f")search();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="m")openMenu();else if(k===".")waitStep();});
+  if(map[k]){e.preventDefault();if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="f")search();else if(k==="m")openMap();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="m")openMenu();else if(k===".")waitStep();});
 $("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)autoSave(true);showTown(G&&!G.over&&!G.demo&&peekRun()?"Your run is saved. Continue it any time.":"");});
 $("btnContinue").addEventListener("click",()=>{if(!resumeRun())showTown("That saved run couldn't be loaded, sorry.");});
 $("btnSetOut").addEventListener("click",()=>{buildClassCards();show("ovClass");});$("btnTownSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});

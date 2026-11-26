@@ -3,6 +3,7 @@
     <h1>LANTERN CRAWL</h1>
     <div class="btns">
       <button class="chip" id="btnNew" type="button">NEW RUN</button>
+      <button class="chip" id="btnMap" type="button">MAP</button>
       <button class="chip" id="btnSettings" type="button">SETTINGS</button>
     </div>
   </div>
@@ -16,7 +17,7 @@
   <div class="party" id="party"></div>
   <div class="hud"><span>FLOOR <b id="flT">–</b></span><span>LV <b id="lvT">–</b></span><span>GOLD <b id="goT">–</b></span><span id="faW">FATIGUE <b id="faT">–</b></span><span>FOOD <b id="fdT">–</b></span><span>WOOD <b id="wdT">–</b></span><span>LIGHT <b id="liT">–</b></span><span>GOAL <b id="glT">–</b></span></div>
   <div class="fxrow" id="fxRow" hidden></div>
-  <div class="tgl" id="tglRow"><button class="chip" id="tgSneak" type="button">SNEAK</button><button class="chip" id="tgLight" type="button">LANTERN ON</button><button class="chip" id="tgSearch" type="button">SEARCH</button><button class="chip" id="tgSkills" type="button">ABILITIES</button></div>
+  <div class="tgl" id="tglRow"><button class="chip" id="tgSneak" type="button">SNEAK</button><button class="chip" id="tgLight" type="button">LIGHT ON</button><button class="chip" id="tgSearch" type="button">SEARCH</button><button class="chip" id="tgSkills" type="button">ABILITIES</button></div>
   <div class="log" id="log" aria-live="polite"></div>
   <div class="controls" id="controls">
     <div class="dpad" aria-label="Movement">
@@ -69,6 +70,11 @@
     <div id="shopBody"></div>
   </div>
 
+  <div class="ov" id="ovMap" hidden>
+    <div class="tabs"><b id="mapTitle" class="maptitle">MAP</b><button class="chip" id="mapClose" type="button">CLOSE</button></div>
+    <canvas id="mapCv" class="mapcv"></canvas>
+    <p class="help" id="mapKey"></p>
+  </div>
   <div class="ov" id="ovSettings" hidden>
     <h2>Settings</h2>
     <p>Change any number, then press Save. Changes start with a new run and stay saved on this phone.</p>

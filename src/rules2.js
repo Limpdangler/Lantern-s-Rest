@@ -83,9 +83,9 @@ function drawSmoke(camX,camY,t){if(!G.smoke)return;for(const k of G.smoke.keys()
 // ---------- the two new traps ----------
 async function triggerNewTrap(t,u){
   if(t.type==="gas"){await say(`Hiss! A cloud of green gas billows up around the ${u.name}!`,900);G.smoke=G.smoke||new Map();addSmoke(t.x,t.y,3);
-    for(const v of G.party.concat(G.mons))if(!v.dead&&!(v.side==="m"&&v.hp<=0)&&!(v.side==="h"&&v.down)&&cheb(v,t)<=1){const s=saveRoll(v,"con",12);const dm=roll("2d6").total;if(!s.ok&&!(v.tr&&v.tr.immune&&v.tr.immune.includes("poison")))v.st.poisoned=3;
+    for(const v of G.party.concat(G.mons))if(!v.dead&&!(v.side==="m"&&v.hp<=0)&&!(v.side==="h"&&v.down)&&cheb(v,t)<=1){const s=saveRoll(v,"con",12);const dm=roll(`${trapN()}d6`).total;if(!s.ok&&!(v.tr&&v.tr.immune&&v.tr.immune.includes("poison")))v.st.poisoned=3;
       log(`${esc(v.name)}: ${s.txt}.`,"hurt");await dealDamage(v,s.ok?Math.floor(dm/2):dm,"poison",{});}return true;}
-  if(t.type==="ceiling"){const s=saveRoll(u,"dex",13);const dm=roll("2d8").total;cam.shake=now();makeNoise(t.x,t.y,12);await say(`CRACK! The ceiling caves in on the ${u.name}! (${s.txt})`,1000);
+  if(t.type==="ceiling"){const s=saveRoll(u,"dex",13);const dm=roll(`${trapN()}d8`).total;cam.shake=now();makeNoise(t.x,t.y,12);await say(`CRACK! The ceiling caves in on the ${u.name}! (${s.txt})`,1000);
     G.ground[t.y][t.x]=GROUND.rubble;buildTerrain();await dealDamage(u,s.ok?Math.floor(dm/2):dm,"bludgeoning",{});return true;}
   return null;}
 // ---------- listening at doors ----------
@@ -101,5 +101,5 @@ async function listenAtDoor(d){const h=bestAt("perception");const dc=d.iron?15:1
 const WEIGHT={firewood:2,ration:1,oil:1,torch:1,relic:2,key:0,arrows:.05};
 const itemWeight=id=>WEIGHT[id]!==undefined?WEIGHT[id]:ITEMS[id]&&ITEMS[id].kind==="gear"?1:.5;
 function packLoad(){let w=0;for(const id in G.bag)w+=itemWeight(id)*(G.bag[id]||0);return Math.round(w*10)/10;}
-function packCap(){return 10+heroesUp().filter(h=>h.id!=="beast").reduce((a,h)=>a+Math.max(2,Math.floor(score(h,"str")/3)),0);}
+function packCap(){return 12+heroesUp().filter(h=>h.id!=="beast").reduce((a,h)=>a+Math.max(4,Math.floor(score(h,"str")/2)+Math.max(0,abm(h,"con"))*2),0);}// 12 + each hero: half their STR + 2 per CON bonus
 const overloaded=()=>!!(G&&G.bag&&!G.demo&&packLoad()>packCap());

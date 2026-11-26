@@ -51,7 +51,7 @@ function hud(){if(!G||G.demo)return;const box=$("party");box.innerHTML="";
   $("glT").textContent=G.goal?(G.goal.done?"✓ ":G.goal.failed?"✗ ":"")+G.goal.desc:"–";$("fdT").textContent=G.bag.ration||0;$("wdT").textContent=G.bag.firewood||0;
   $("liT").textContent=G.light&&G.fuel>0?Math.ceil(G.fuel/FUEL_MAX*100)+"%":"OFF";
   $("tgSneak").classList.toggle("on",!!G.sneak);$("tgSneak").textContent=G.sneak?"SNEAKING":"SNEAK";
-  $("tgLight").classList.toggle("on",!(G.light&&G.fuel>0));$("tgLight").textContent=G.light&&G.fuel>0?"LANTERN ON":"LANTERN OFF";
+  $("tgLight").classList.toggle("on",!(G.light&&G.fuel>0));$("tgLight").textContent=G.light&&G.fuel>0?"LIGHT ON":"LIGHT OFF";
   $("flT").textContent=`${G.floor}/${S.dungeon.floors}`;$("lvT").textContent=`${G.level} (${G.xp}/${xpNeed()} XP)`;$("goT").textContent=G.gold;$("faT").textContent=fat;$("faW").hidden=!S.rules.fatigue;}
 const logEl=$("log");
 function log(html,cls){const p=document.createElement("p");p.innerHTML=html;if(cls)p.className=cls;logEl.appendChild(p);while(logEl.children.length>150)logEl.removeChild(logEl.firstChild);logEl.scrollTop=logEl.scrollHeight;}
@@ -215,7 +215,7 @@ function drawD20(x,y,n,dim,crit,fum){x=Math.round(x);y=Math.round(y);const r=8;c
   ctx.fillStyle=crit?"#ffd84a":fum?"#ff7060":"#f4f0e2";ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle=OUT;ctx.stroke();ctx.fillStyle=OUT;ctx.font="600 8px 'Pixelify Sans', sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(String(n),x,y+.5);ctx.restore();ctx.textBaseline="alphabetic";}
 
 // ================= overlays =================
-function show(id){["ovTown","ovClass","ovEnd","ovSettings","ovMenu","ovShop"].forEach(o=>$(o).hidden=o!==id);}
+function show(id){["ovTown","ovClass","ovEnd","ovSettings","ovMenu","ovShop","ovMap"].forEach(o=>$(o).hidden=o!==id);}
 function showEnd(won,line){$("endTitle").textContent=won?"Victory!":"Your party fell";
   const coins=bankRun(won);clearRun();const seedTxt=`<br><span class="sm">Dungeon seed: ${G.seed}</span>`;$("endStats").innerHTML=`${line}<br>Party: ${G.party.concat(G.fallen||[]).map(h=>esc(heroLabel(h))+(h.dead?" (fell)":"")).join(", ")}<br><b>+${coins} coins for the town</b> (you have ${TOWN.coins})${seedTxt}<br>Level ${G.level} · floor ${G.floor} of ${S.dungeon.floors}<br>Monsters defeated: ${G.kills}<br>Gold: ${G.gold}`;
   setTimeout(()=>show("ovEnd"),500);}
@@ -290,7 +290,7 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
     const cl=floorCleared();
     mk("SHORT REST",`${maxShort()-G.shortRests} left · ${cl?"floor cleared: safe":"ambush risk "+Math.round(campRisk("short")*100)+"%"}`,()=>doRest(false),G.shortRests>=maxShort());
     mk("MAKE CAMP (LONG REST)",`${S.rules.fatigue&&G.fatigue<3?"Only when Tired":cl?"Floor cleared: safe":"Fire "+Math.round(campRisk("fire")*100)+"% / cold "+Math.round(campRisk("cold")*100)+"% ambush risk"}`,()=>doRest(true),S.rules.fatigue&&G.fatigue<3);}}
-function alertMenu(t){const el=$("menuBody");el.insertAdjacentHTML("afterbegin",`<p class="msg">${esc(t)}</p>`);}
+function alertMenu(t){const el=$("menuBody");el.querySelectorAll(".msg").forEach(m=>m.remove());el.insertAdjacentHTML("afterbegin",`<p class="msg">${esc(t)}</p>`);}
 function drawIconTo(canvas,id){const c2=canvas.getContext("2d");if(id==="potion"||id==="gpotion"){c2.drawImage(monSpr("potion",id==="gpotion"?{r:"#4a7ae0",R:"#2a4aa0"}:null),0,0);return;}drawIconBase(c2,id);}
 function drawIconBase(c,id){const sx=0,sy=0;const it=ITEMS[id]||{};
   if(id==="key"){c.fillStyle="#d8b040";c.fillRect(3,6,4,4);c.fillRect(7,7,7,2);c.fillRect(11,9,1,2);c.fillRect(13,9,1,2);c.fillStyle="#3c3446";c.fillRect(4,7,2,2);return;}
@@ -343,3 +343,24 @@ function readSettings(){const ns=clone(S);let errs=0;
 // every message shown outside combat is kept in the NOTES tab, so nothing you learn is lost
 function note(text){if(!G||G.demo||mode==="combat"||!text)return;G.notes=G.notes||[];const last=G.notes[G.notes.length-1];if(last&&last.t===text)return;G.notes.push({f:G.floor,t:text});if(G.notes.length>200)G.notes.shift();}
 const BUMP_NAME={barrel:"A barrel",chest:"A chest",shrine:"A shrine",runes:"A rune stone",merchant:"A merchant",wood:"A wooden barricade",captive:"A captive",relic:"The relic",coffer:"A coffer",rubble:"Fallen rock",cavein:"A cave-in",furniture:"Old furniture",alchemy:"An alchemy bench"};
+
+// a short "you could interact with this" hint: the text plus a little A button symbol, and the real A button glows
+function hintA(text){if(mode==="combat")return;toast(text);const t=$("tText");if(t&&!t.querySelector(".abadge"))t.insertAdjacentHTML("beforeend",' <span class="abadge">A</span>');
+  const k=$("kA");if(k){k.classList.remove("glow");void k.offsetWidth;k.classList.add("glow");}}
+
+// ---------- the map: everything you've explored on this floor ----------
+function openMap(){if(!G||G.demo||mode!=="explore"||busy)return;const cv=$("mapCv");const S2=Math.max(3,Math.min(8,Math.floor(Math.min(innerWidth-48,560)/G.W)));cv.width=G.W*S2;cv.height=G.H*S2;const x=cv.getContext("2d");
+  x.fillStyle="#0a0810";x.fillRect(0,0,cv.width,cv.height);const P={floor:"#8c8070",wall:"#3c3646",water:"#3a6ab0",deep:"#24467a",rubble:"#6a5a48",acid:"#7ab040",oil:"#4a3a2a",crack:"#8c8070"};
+  for(let y=0;y<G.H;y++)for(let X=0;X<G.W;X++){if(!G.explored[y][X])continue;let c;
+    if(isWall(X,y)){const nearFloor=DIRS8.some(([a,b])=>inB(X+a,y+b)&&!isWall(X+a,y+b)&&G.explored[y+b][X+a]);if(!nearFloor)continue;c=P.wall;}
+    else{const g=gnd(X,y);c=g===GROUND.water?P.water:g===GROUND.deep?P.deep:g===GROUND.rubble?P.rubble:g===GROUND.acid?P.acid:g===GROUND.oil?P.oil:P.floor;}
+    x.fillStyle=c;x.fillRect(X*S2,y*S2,S2,S2);}
+  const dot=(X,y,c,r)=>{x.fillStyle=c;x.fillRect(X*S2+(S2-r)/2,y*S2+(S2-r)/2,r,r);};
+  for(const o of G.objs){if(o.gone||!G.explored[o.y][o.x])continue;if(o.type==="door")dot(o.x,o.y,o.locked?"#c0a040":o.open?"#7a5030":"#b07040",S2);else if(o.type==="chest"&&!o.opened)dot(o.x,o.y,"#f0c040",S2-1);else if(o.type==="shrine")dot(o.x,o.y,"#a0e0ff",S2-1);else if(o.type==="merchant")dot(o.x,o.y,"#e0a0ff",S2-1);}
+  for(const t of G.traps)if((t.found||t.done)&&G.explored[t.y][t.x])dot(t.x,t.y,t.done||t.disarmed?"#7a4a4a":"#ff4040",Math.max(2,S2-2));
+  for(const t of G.torches)if(G.explored[t.y][t.x]&&!t.out)dot(t.x,t.y,"#ffb040",Math.max(2,S2-3));
+  const st=G.stairs;if(st&&G.explored[st.y][st.x]){x.fillStyle="#fff";x.fillRect(st.x*S2-1,st.y*S2-1,S2+2,S2+2);dot(st.x,st.y,"#40d0a0",S2);}
+  for(const m of G.mons)if(m.hp>0&&seen(m.x,m.y)&&!isHiddenMon(m))dot(m.x,m.y,m.peace?"#c0c0c0":"#ff6060",S2);
+  G.party.forEach((h,i)=>{if(!h.dead)dot(h.x,h.y,i===0?"#ffffff":"#f0e080",S2);});
+  $("mapTitle").textContent=`MAP · FLOOR ${G.floor}`;$("mapKey").innerHTML='<span style="color:#fff">■</span> leader &nbsp;<span style="color:#f0e080">■</span> party &nbsp;<span style="color:#40d0a0">■</span> ladder down &nbsp;<span style="color:#b07040">■</span> door &nbsp;<span style="color:#f0c040">■</span> chest &nbsp;<span style="color:#ffb040">■</span> torch &nbsp;<span style="color:#ff4040">■</span> trap &nbsp;<span style="color:#ff6060">■</span> enemy in sight';
+  show("ovMap");}

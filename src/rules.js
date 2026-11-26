@@ -75,7 +75,7 @@ function coverOf(a,t){if(cheb(a,t)<=1)return 0;const cs=[[.05,.05],[.95,.05],[.0
 function attackMods(a,t,w,o){o=o||{};const adv=[],dis=[],notes=[];let bonus=atkBonus(a,w);const ranged=!w.melee;
   if(t.st.restrained)adv.push("target restrained");if(t.st.asleep)adv.push("target asleep");
   if(t.st.prone){if(cheb(a,t)<=1)adv.push("target prone");else dis.push("target prone, far away");}
-  if(t.st.helped)adv.push("ally helping");if(t.st.guided)adv.push("Guiding Bolt");if(t.st.reckless)adv.push("target reckless");
+  if(t.st.helped&&(!t.st.helpFor||t.st.helpFor===a))adv.push("ally helping");if(t.st.guided)adv.push("Guiding Bolt");if(t.st.reckless)adv.push("target reckless");
   if(a.st.hidden)adv.push("you're hidden");if(o.adv)adv.push(o.adv);
   if(a.side==="h"&&C&&C.cur===a&&C.reckless&&w.melee&&!w.spell)adv.push("reckless");
   if((a.side==="m"&&a.tr.pack)||(a.side==="h"&&a.wild)){if(friendsOf(a).some(f=>cheb(f,t)<=1&&!f.st.prone))adv.push("pack tactics");}
@@ -105,7 +105,7 @@ async function attackInner(a,t,w,o){o=o||{};const coat=a.coat&&!w.spell?a.coat:n
   if(a.side==="h"&&canReroll(a)&&d.r<20&&d.r+md.bonus+extraRoll<md.ac){spendReroll(a,"an attack");d=d20(mode>0,mode<0,a);await dice(t,d.r,d.pair);}
   const bless=a.st.blessed?rnd(4):0;const tot=d.r+md.bonus+bless+extraRoll;const hit0=d.r>=critMin(a)||(d.r!==1&&tot>=md.ac);
   let crit=fire("critCheck",{a,t,w,d:d.r,crit:false,hit:hit0}).crit;const hit=crit||(d.r!==1&&tot>=md.ac);
-  delete t.st.helped;delete t.st.guided;delete a.st.hidden;
+  if(!t.st.helpFor||t.st.helpFor===a){delete t.st.helped;delete t.st.helpFor;}delete t.st.guided;delete a.st.hidden;
   const nm=`${a.name}'s ${w.name}`;const how=mode>0?" with advantage":mode<0?" with disadvantage":"";const rl=`${d.r}${sgn(md.bonus)}${bless?"+"+bless+" bless":""}${extraRoll?"+"+extraRoll:""} = ${tot}`;
   if(hit){const bh=await fireAsync("beforeHit",{a,t,w,total:tot,ac:md.ac,crit,miss:false,msg:""});if(bh.miss){await say(`${nm}: ${rl}${how}. ${bh.msg}`,1000);await done(false);return {hit:false};}}
   if(!hit){float(t,"MISS","#ffffff");await say(`${nm}: ${rl}${acKnown(t)?" vs AC "+md.ac:""}${how}. ${d.r===1?"Fumble!":"Miss!"}`);await done(false);return {hit:false};}
@@ -138,7 +138,7 @@ async function dealDamage(u,amt,type,o){o=o||{};if(u.dead||(u.side==="m"&&(u.hp<
   if(tr&&tr.resist&&tr.resist.includes(type))n=Math.floor(n/2);
   if(tr&&tr.vuln&&tr.vuln.includes(type)){n*=2;float(u,"WEAK!","#ffe060");}
   {const e=await fireAsync("damageIn",{u,n,type,o});n=e.n;}
-  if(u.st.asleep){delete u.st.asleep;float(u,"AWAKE!","#ffffff");}
+  if(u.st.asleep){delete u.st.asleep;if(n>0&&n<u.hp)float(u,"AWAKE!","#ffffff");}
   if(n<=0){float(u,"0","#ffffff");hud();return 0;}
   fx.push({type:"flash",u,t:now()});
   if(u.wild){u.wild.hp-=n;float(u,"-"+n,"#ff7a6a");hud();if(u.wild.hp<=0){const over=-u.wild.hp;u.wild=null;computeLight();await say(`${u.name} is forced out of wolf form!`,800);hud();if(over>0)return n+await dealDamage(u,over,type,Object.assign({},o,{attack:false}));}return n;}
@@ -208,14 +208,15 @@ async function onEnter(u,x,y,o){o=o||{};const res={stop:false};
   if(g===GROUND.acid){await say(`Acid burns the ${u.name}!`,600);await dealDamage(u,roll("1d6+1").total,"acid",{});}
   if(u.side==="h"&&!C)collectItems(u);
   return res;}
+const trapN=()=>1+Math.floor((((G&&G.floor)||1)-1)/2);// trap damage dice: 1 on floors 1-2, 2 on 3-4, 3 on 5+
 async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?`The ${u.name}`:`The ${u.name}`;{const r=await triggerNewTrap(t,u);if(r!==null)return r;}
   if(t.type==="darts"){const r=rnd(20)+5;const hit=r>=acOf(u);fx.push({type:"shot",from:{x:t.x-2,y:t.y},to:{x:t.x,y:t.y},t:now(),col:"#d0d0d0"});
     await say(`Click! Darts fly from the walls at ${who}: ${r} vs AC ${acOf(u)}. ${hit?"Hit!":"Miss!"}`,950);
-    if(hit){await dealDamage(u,roll("2d4").total,"piercing",{});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
+    if(hit){await dealDamage(u,roll(`${trapN()}d4`).total,"piercing",{});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
   if(t.type==="pit"){G.ground[t.y][t.x]=GROUND.rubble;buildTerrain();const s=saveRoll(u,"dex",t.dc);
     if(s.ok){await say(`A pit trap! ${who} leaps clear as the floor drops. (${s.txt})`,950);return false;}
-    u.st.prone=true;await say(`A pit trap! ${who} falls in. (${s.txt})`,950);await dealDamage(u,roll("2d6").total,"bludgeoning",{});return true;}
-  if(t.type==="fire"){const s=saveRoll(u,"dex",t.dc);const dm=roll("2d6").total;fx.push({type:"boom",x:t.x,y:t.y,t:now()});
+    u.st.prone=true;await say(`A pit trap! ${who} falls in. (${s.txt})`,950);await dealDamage(u,roll(`${trapN()}d6`).total,"bludgeoning",{});return true;}
+  if(t.type==="fire"){const s=saveRoll(u,"dex",t.dc);const dm=roll(`${trapN()}d6`).total;fx.push({type:"boom",x:t.x,y:t.y,t:now()});
     await say(`Flames roar from a vent under ${who}! (${s.txt})`,950);await dealDamage(u,s.ok?Math.floor(dm/2):dm,"fire",{});
     for(const [dx,dy] of DIRS8)if(gnd(t.x+dx,t.y+dy)===GROUND.oil)igniteAt(t.x+dx,t.y+dy);return false;}
   if(t.type==="alarm"){await say(`${who} snaps a hidden wire. Bells clang through the dungeon!`,1100);alarm(t.x,t.y);return false;}

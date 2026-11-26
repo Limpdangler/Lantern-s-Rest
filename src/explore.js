@@ -15,21 +15,21 @@ async function doMove(dx,dy,act){// act: true when the player chose to use what 
 if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const [h]=G.party.splice(i,1);G.party.unshift(h);hud();}}const L=G.party[0];L.face=dy<0?"b":dy>0?"f":"s";if(dx)L.flip=dx<0;const nx=L.x+dx,ny=L.y+dy;
   const m=monAt(nx,ny);if(m){
     if(isHiddenMon(m)){m.spotted=true;m.lurk=false;await say(`${cap(aN(m.name))} lunges out of the shadows!`,900,true);busy=false;startCombat({bumped:m,by:[m]});return;}
-    if(m.peace){if(!act){toast(`The ${m.name} let you pass. Press A to deal with them.`);return;}const c=await choose(`The ${m.name} watches you warily. They agreed to let you pass.`,[{t:"ATTACK THEM",sub:m.fooled?"They think you're friends: they'll be surprised":"They're watching you: no surprise"},{t:"LEAVE THEM BE"}]);
+    if(m.peace){if(!act){hintA(`The ${m.name} lets you pass.`);return;}const c=await choose(`The ${m.name} watches you warily. They agreed to let you pass.`,[{t:"ATTACK THEM",sub:m.fooled?"They think you're friends: they'll be surprised":"They're watching you: no surprise"},{t:"LEAVE THEM BE"}]);
       if(c===0){for(const q of G.mons)if(q.gid===m.gid)q.peace=false;busy=false;startCombat({bumped:m,partyFirst:true});}return;}
     busy=false;startCombat({bumped:m,partyFirst:true});return;}
-  if(G.npc&&G.npc.x===nx&&G.npc.y===ny){if(!act){toast("A lost adventurer. Press A to talk to them.");return;}await recruit();return;}
-  const d=doorAt(nx,ny);if(d&&!d.open){if(!act){toast("A closed door. Press A to open it.");return;}await doorInteract(d);return;}
+  if(G.npc&&G.npc.x===nx&&G.npc.y===ny){if(!act){hintA("A lost adventurer.");return;}await recruit();return;}
+  const d=doorAt(nx,ny);if(d&&!d.open){if(!act){hintA("A closed door.");return;}await doorInteract(d);return;}
   const o=objAt(nx,ny);
   if(o&&(o.type==="rubble"||o.type==="cavein")&&L.wild&&L.wild.form==="rat"){const bx=nx+dx,by=ny+dy;if(!isWall(bx,by)){G.owl={x:bx,y:by,until:G.steps+10};fov();if(o.type==="rubble")o.loose=true;
       toast(o.type==="rubble"?"The rat squeezes through the rocks and scouts the far side. It spots a loose stone: the rubble will be easier to shift now.":"The rat wriggles through a gap in the collapse and peers out the other side.");hud();return;}}
-  if(o&&BLOCKERS[o.type]){if(!act&&o.type!=="boulder"){toast(`${BUMP_NAME[o.type]||"Something"} is in the way. Press A to use it.`);return;}await interact(o);return;}
+  if(o&&BLOCKERS[o.type]){if(!act&&o.type!=="boulder"){hintA(`${BUMP_NAME[o.type]||"Something"} is in the way.`);return;}await interact(o);return;}
   if(isWall(nx,ny))return;
   const up=elevAt(nx,ny)>elevAt(L.x,L.y),down=elevAt(nx,ny)<elevAt(L.x,L.y),noRamp=!isRamp(nx,ny)&&!isRamp(L.x,L.y);
   if(up&&noRamp){const c=L.sub==="thief"||(L.wild&&L.wild.form==="spider")?{ok:true}:await check(L,"athletics",10,{quiet:true});G.steps+=2;
     if(!c.ok){if(c.total<=5){toast(`The ${L.name} slips off the ledge and lands hard! (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{});}else toast(`The ${L.name} can't get a grip on the ledge. (${c.txt}) Try again, or use the ramp.`);return;}}
   if(down&&noRamp){const c=await check(L,"acrobatics",10,{quiet:true});if(!c.ok){toast(`The ${L.name} jumps down and lands badly. (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{});if(L.down)return;}}
-  const t=trapAt(nx,ny);if(t&&t.found&&!act&&!t.done&&!t.disarmed){toast(`A ${TRAPS[t.type].name}. Press A for options, or walk around it.`);return;}if(t&&t.found){const dz=bestAt("thieves"),iv=bestAt("investigation");
+  const t=trapAt(nx,ny);if(t&&t.found&&!act&&!t.done&&!t.disarmed){hintA(`A ${TRAPS[t.type].name}.`);return;}if(t&&t.found){const dz=bestAt("thieves"),iv=bestAt("investigation");
     const c=await choose(`${cap(aN(TRAPS[t.type].name))} lies ahead.${t.easy?" You've worked out how it works.":""}`,[{t:"DISARM IT",sub:t.disFail?"You already tried":`${oddsTag(dz,"thieves",t.dc,{adv:!!t.easy})}${toolNote(dz)}`},{t:"STUDY IT",sub:t.studied?"Already studied":`${oddsTag(iv,"investigation",t.dc)} · success makes disarming easier`},{t:"STEP ON IT",sub:"Set it off on purpose"},{t:"LEAVE IT"}].concat(heroesUp().some(h=>h.sub==="trickster")?[{t:"MAGE HAND",sub:"Arcane Trickster disarms it from a safe distance (a failure just sets it off harmlessly)"}]:[]));
     if(c===4){const tr=heroesUp().find(h=>h.sub==="trickster");const r=await check(tr,"thieves",t.dc,{adv:!!t.easy});t.done=true;if(r.ok){t.disarmed=true;await say(`A spectral hand dismantles the trap. (${r.txt}) +10 XP.`,1100,true);for(const m of gainXpNow(10))await say(m,1200,true);}else await say(`The spectral hand sets it off: it fires harmlessly into the air. (${r.txt})`,1200,true);$("tBox").hidden=true;hud();return;}
     if(c===0){if(t.disFail){toast(t.disFail);return;}await disarm(dz,t);hud();return;}
@@ -44,12 +44,12 @@ if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const
   if(G.sneak&&areaKey(L.x,L.y)!==G.sneakArea)rollSneak();
   fov();await onEnter(L,nx,ny,{});collectItems(L);
   await huntStep();if(G.sneak)await huntStep();wanderStep();if(Math.floor(G.steps/150)>Math.floor(before/150))wakeWanderers();await factionClash();if(mode!=="explore")return;
-  if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){if(act)await stairsPrompt();else toast("A ladder leads down to the next floor. Press A to climb down.");return;}
+  if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){if(act)await stairsPrompt();else hintA("A ladder leads down to the next floor.");return;}
   passiveDetect();spotLurkers();fov();hud();autoSave();await loreCheck();if(G.level>=3&&G.party.some(h=>!h.dead&&!h.sub&&SUBS[h.id]))await chooseSubclasses();if(G.level>=4&&G.party.some(h=>!h.dead&&h.id!=="beast"&&(h.picks||0)<(G.level>=8?2:1)))await chooseFeats();await checkAwareness();}
 async function huntStep(){for(const m of G.mons){if(m.state!=="hunt"||m.hp<=0)continue;const dist=dijkstra(m,40);let best=null,bd=1e9;
     for(const h of G.party){if(h.dead)continue;for(const [ax,ay] of DIRS8){const k=(h.y+ay)*G.W+h.x+ax;const v=dist.get(k);if(v&&v.c<bd){bd=v.c;best=k;}}}
     if(best!==null){const p=pathTo(dist,best);const step=p.slice(0,1);if(step.length&&!unitAt(step[0]%G.W,(step[0]/G.W)|0)){m.x=step[0]%G.W;m.y=(step[0]/G.W)|0;}}}}
-async function checkAwareness(){if(mode!=="explore"||!G||G.over)return;
+async function checkAwareness(){if(mode!=="explore"||!G||G.over)return;stirSleepers();
   const aware=G.mons.filter(m=>m.hp>0&&!m.peace&&(m.state==="hunt"&&G.party.some(h=>!h.dead&&cheb(h,m)<=1)||noticesParty(m)));if(!aware.length)return;
   const p=aware.find(m=>m.parley&&m.state!=="hunt");if(p&&!aware.some(m=>!m.parley)){await parley(p);return;}
   const dr=heroesUp().find(h=>h.id==="druid"&&!h.wild);const gid=aware[0].gid;
@@ -234,3 +234,12 @@ async function pressA(){if(sayState){sayState.skip();return;}if(mode!=="explore"
   for(const [dx,dy] of dirs){const x=L.x+dx,y=L.y+dy;const k=aKind(x,y);if(!k)continue;if(k==="bump"&&dx&&dy){if(monAt(x,y)){await exploreTap(x,y);return;}continue;}
     if(k==="bump")await tryMove(dx,dy,true);else{faceToward(L,dx,dy);await exploreTap(x,y);}return;}
   toast("Nothing to use here. Face a door, chest, torch, body or creature and press A. (SEARCH looks for hidden things.)");}
+
+// sleeping monsters can be woken by a party that isn't sneaking: the closer and noisier you are, the likelier
+function stirSleepers(){if(G.sneak)return;const up=heroesUp();const done=new Set();
+  for(const m of G.mons){if(m.state!=="sleep"||m.peace||m.hp<=0||m.boss||done.has(m.gid))continue;
+    const near=up.filter(h=>cheb(h,m)<=4&&(cheb(h,m)<=2||los(m.x,m.y,h.x,h.y)));if(!near.length)continue;
+    const clank=near.some(h=>h.side==="h"&&h.info&&h.info.armour==="heavy"&&!h.wild);const close=near.some(h=>cheb(h,m)<=2);
+    if(Math.random()<.1+.07*near.length+(clank?.12:0)+(close?.15:0)){done.add(m.gid);
+      for(const q of G.mons)if(q.gid===m.gid&&q.state==="sleep"){q.state="idle";q.bubble=now()+900;}
+      log(`${esc(m.name)}${G.mons.filter(q=>q.gid===m.gid).length>1?"s stir":" stirs"}, woken by the noise.`,"miss");}}}

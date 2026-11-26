@@ -12,7 +12,7 @@ async def main():
     out=await pg.evaluate("""(async()=>{const t=__t,G=t.G;const out={};G.mons=[];
       const d=G.objs.find(o=>o.type==='door'&&!o.open);const L=G.party[0];let dir=null;
       for(const [dx,dy] of [[0,1],[0,-1],[1,0],[-1,0]]){const x=d.x+dx,y=d.y+dy;if(!t.isWall(x,y)&&!t.doorAt(x,y)&&t.enterable(L,x,y)){L.x=x;L.y=y;dir=[-dx,-dy];break;}}
-      await t.tryMove(dir[0],dir[1]);out.dpadChoice=!!t.choosing;out.hint=document.getElementById('tText').textContent;
+      await t.tryMove(dir[0],dir[1]);out.dpadChoice=!!t.choosing;out.hint=document.getElementById('tText').innerHTML;
       t.say('The runes are a map!',500,true);await new Promise(r=>setTimeout(r,2500));out.stillShowing=!!t.sayState&&!document.getElementById('tBox').hidden;
       return out;})()""")
     await pg.wait_for_timeout(500);await pg.click("#kA");await pg.wait_for_timeout(300)
@@ -20,6 +20,6 @@ async def main():
     await pg.click("#kB");await pg.wait_for_timeout(300);await pg.click("#tab-notes");await pg.wait_for_timeout(200)
     out["notes"]=await pg.evaluate("document.getElementById('menuBody').textContent.includes('The runes are a map!')")
     await pg.screenshot(path="/tmp/claude-0/-home-claude/e4be4f78-7f4f-54ca-8cba-52dad9108be2/scratchpad/notes.png")
-    print(out,errs);ok=not errs and not out["dpadChoice"] and "Press A" in out["hint"] and out["stillShowing"] and out["closedAfterTap"] and out["notes"]
+    print(out,errs);ok=not errs and not out["dpadChoice"] and "abadge" in out["hint"] and out["stillShowing"] and out["closedAfterTap"] and out["notes"]
     print("PASS" if ok else "FAIL");await b.close()
 asyncio.run(main())
