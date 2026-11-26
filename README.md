@@ -59,4 +59,6 @@ Automated browser tests (Python + Playwright). `bot.py <class> <steps>` plays th
 
 ## Playing
 
-The current build is published as a Claude artifact. `dist/lantern-crawl.html` can also be opened directly in any browser.
+- **On the web / phones:** https://limpdangler.github.io/Lantern-s-Rest/ (served from the `docs/` folder by GitHub Pages). On a phone, use *Add to Home Screen* to install it as an app that works offline.
+- `build.py` writes both `dist/lantern-crawl.html` (single file, also published as a Claude artifact) and `docs/` (the phone-installable version: `index.html`, `manifest.json`, `sw.js` for offline play, and icons).
+- `tools/make_icon.py` redraws the home-screen icon; `tools/sw_template.js` is the offline helper (its version updates automatically on every build).
