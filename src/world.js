@@ -72,7 +72,11 @@ function genFloorInner(){
   // doors
   for(const r of rooms)for(const e of entrances(r))if(e.door&&!doorAt(e.x,e.y)&&Math.random()<.3)G.objs.push({type:"door",x:e.x,y:e.y,open:false,locked:false,iron:G.floor>=2&&Math.random()<.25});
   // vault: a room whose every entrance can hold a door
-  const vc=rooms.filter(r=>!r.role&&entrances(r).length>0&&entrances(r).every(e=>e.door));
+  // ...and only a dead end: locking it must never cut the way to the ladder (or any other room)
+  const deadEnd=v=>{const blocked=new Set(entrances(v).map(e=>e.y*G.W+e.x));const W2=G.W;const s0=start.cy*W2+start.cx;const seenT=new Set([s0]);const q=[s0];
+    while(q.length){const c=q.pop();const cx=c%W2,cy=(c/W2)|0;for(const [dx,dy] of DIRS4){const nx=cx+dx,ny=cy+dy,k=ny*W2+nx;if(seenT.has(k)||blocked.has(k)||isWall(nx,ny))continue;seenT.add(k);q.push(k);}}
+    return rooms.every(r=>r===v||seenT.has(r.cy*W2+r.cx));};
+  const vc=rooms.filter(r=>!r.role&&entrances(r).length>0&&entrances(r).every(e=>e.door)&&deadEnd(r));
   if(vc.length&&G.floor>=1){const v=pick(vc);v.role="vault";for(const e of entrances(v)){let d=doorAt(e.x,e.y);if(!d){d={type:"door",x:e.x,y:e.y,open:false};G.objs.push(d);}d.locked=true;d.iron=Math.random()<.6;}}
   trySecretRoom();
   // features per room

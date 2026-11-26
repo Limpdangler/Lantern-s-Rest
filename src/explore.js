@@ -91,7 +91,8 @@ async function doorInteract(d){
   const c=await choose(d.iron?"A heavy iron door, locked tight. It won't burn.":"A heavy wooden door, locked tight.",[{t:"USE KEY",sub:hasKey?"The rusty key":"You don't have a key",dis:!hasKey},
     {t:"PICK THE LOCK",sub:`${oddsTag(th,"thieves",15)}${toolNote(th)}`},
     {t:"FORCE IT",sub:`${oddsTag(st,"athletics",fdc)} · LOUD`},
-    {t:"RAGE AND SMASH",sub:barb?`${barb.name}: uses a Rage · always works on wood · LOUD`:"Needs a barbarian with Rage left",dis:!barb||d.iron},{t:"BURN IT",sub:d.iron?"Iron doesn't burn":canBurn?"Uses an oil flask or torch · slow, smoky, draws attention":"You need an oil flask or a torch",dis:!canBurn},{t:"LEAVE IT"}]);
+    {t:"RAGE AND SMASH",sub:barb?`${barb.name}: uses a Rage · always works on wood · LOUD`:"Needs a barbarian with Rage left",dis:!barb||d.iron},{t:"BURN IT",sub:d.iron?"Iron doesn't burn":canBurn?"Uses an oil flask or torch · slow, smoky, draws attention":"You need an oil flask or a torch",dis:!canBurn},
+    {t:d.iron?"WORK THE HINGES LOOSE":"HACK THROUGH IT",sub:(d.fail.pick||d.fail.force)?"Always works, but takes ages: the party tires and the racket may draw wanderers":"Try the other ways first",dis:!(d.fail.pick||d.fail.force)},{t:"LEAVE IT"}]);
   if(c===0){takeItem("key");d.locked=false;d.open=true;toast("The key turns. The door swings open.");}
   else if(c===1){if(d.fail.pick){toast(d.fail.pick);return;}const r=await check(th,"thieves",15);G.steps+=5;
     if(r.ok){d.locked=false;d.open=true;toast(`Click! (${r.txt})`);}
@@ -100,6 +101,10 @@ async function doorInteract(d){
     if(r.r===1){d.fail.force="The door holds. Your shoulder still aches from last time.";alarm(d.x,d.y);await say(`The ${st.name} slams into the door, slips and crashes into a rack of old armour. The din echoes through the whole floor. Everything down here heard that. (${r.txt})`,2000,true);$("tBox").hidden=true;}
     else{makeNoise(d.x,d.y,12);if(r.ok){d.locked=false;d.open=true;toast(`CRASH! The door bursts open. (${r.txt}) Something may have heard that...`);}else{d.fail.force="The door shudders but holds.";toast(`The door shudders but holds. (${r.txt}) The noise echoes...`);}}}
   else if(c===3){barb.res.rage--;d.locked=false;d.open=true;d.burnt=true;makeNoise(d.x,d.y,14);cam.shake=now();await say(`The ${barb.name} ROARS and smashes the door to splinters!`,1300,true);$("tBox").hidden=true;}
+  else if(c===5){// fail forward: there's always a way through, it just costs time, energy and noise
+    d.locked=false;d.open=true;d.burnt=!d.iron;G.steps+=60;if(S.rules.fatigue)G.fatigue=(G.fatigue||0)+2;makeNoise(d.x,d.y,16);
+    await say(d.iron?"It takes the best part of an hour, chipping and levering at the hinge pins, but at last the iron door groans off its hinges. Everyone's worn out, and the clanging carried a long way.":"It takes a long time and a lot of noise, but you hack a hole through the door big enough to squeeze through. Everyone's worn out.",2000,true);
+    $("tBox").hidden=true;if(typeof wakeWanderers==="function"&&Math.random()<.6)wakeWanderers();}
   else if(c===4){if(G.bag.oil)takeItem("oil");else takeItem("torch");setAlight(d);toast("You douse the door and set it alight. It'll take a while to burn through, and the smoke and light will carry...");}
   computeLight();fov();hud();}
 async function interact(o){
