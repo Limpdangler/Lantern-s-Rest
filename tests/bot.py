@@ -37,7 +37,7 @@ window.__step=async function(){const t=__t;const G=t.G;if(!G||G.demo)return 'nog
      const adj=[[1,0],[-1,0],[0,1],[0,-1]].map(([a,b])=>[g[0]+a,g[1]+b]).filter(([x,y])=>!t.isWall(x,y)&&G.explored[y][x]).sort((p,q)=>(Math.abs(p[0]-L.x)+Math.abs(p[1]-L.y))-(Math.abs(q[0]-L.x)+Math.abs(q[1]-L.y)));
      if(g[2]==='mon'){t.exploreTap(g[0],g[1]);return 'ambush';}
      if(adj.length&&!(L.x===adj[0][0]&&L.y===adj[0][1])&&Math.abs(L.x-g[0])+Math.abs(L.y-g[1])!==1)t.exploreTap(adj[0][0],adj[0][1]);
-     const L2=G.party[0];if(Math.abs(L2.x-g[0])+Math.abs(L2.y-g[1])===1){await new Promise(r=>{const ev=new KeyboardEvent('keydown',{key:g[0]>L2.x?'ArrowRight':g[0]<L2.x?'ArrowLeft':g[1]>L2.y?'ArrowDown':'ArrowUp'});document.dispatchEvent(ev);setTimeout(r,50);});}
+     const L2=G.party[0];if(Math.abs(L2.x-g[0])+Math.abs(L2.y-g[1])===1){await new Promise(r=>{const ev=new KeyboardEvent('keydown',{key:g[0]>L2.x?'ArrowRight':g[0]<L2.x?'ArrowLeft':g[1]>L2.y?'ArrowDown':'ArrowUp'});document.dispatchEvent(ev);setTimeout(()=>{document.dispatchEvent(new KeyboardEvent('keydown',{key:'e'}));setTimeout(r,50);},80);});}
    } else t.exploreTap(g[0],g[1]);
    const after=G.party[0].x+','+G.party[0].y;window.__stuck=before===after?(window.__stuck||0)+1:0;
    if(window.__stuck>5){window.__ign.add(g[0]+','+g[1]);}if(window.__stuck>14){for(const o of G.objs)if(o.type==='door'&&o.locked){o.locked=false;}window.__stuck=0;}

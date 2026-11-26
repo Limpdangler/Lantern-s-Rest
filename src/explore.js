@@ -44,7 +44,7 @@ if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const
   if(G.sneak&&areaKey(L.x,L.y)!==G.sneakArea)rollSneak();
   fov();await onEnter(L,nx,ny,{});collectItems(L);
   await huntStep();if(G.sneak)await huntStep();wanderStep();if(Math.floor(G.steps/150)>Math.floor(before/150))wakeWanderers();await factionClash();if(mode!=="explore")return;
-  if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){await stairsPrompt();return;}
+  if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){if(act)await stairsPrompt();else toast("A ladder leads down to the next floor. Press A to climb down.");return;}
   passiveDetect();spotLurkers();fov();hud();autoSave();await loreCheck();if(G.level>=3&&G.party.some(h=>!h.dead&&!h.sub&&SUBS[h.id]))await chooseSubclasses();if(G.level>=4&&G.party.some(h=>!h.dead&&h.id!=="beast"&&(h.picks||0)<(G.level>=8?2:1)))await chooseFeats();await checkAwareness();}
 async function huntStep(){for(const m of G.mons){if(m.state!=="hunt"||m.hp<=0)continue;const dist=dijkstra(m,40);let best=null,bd=1e9;
     for(const h of G.party){if(h.dead)continue;for(const [ax,ay] of DIRS8){const k=(h.y+ay)*G.W+h.x+ax;const v=dist.get(k);if(v&&v.c<bd){bd=v.c;best=k;}}}

@@ -27,9 +27,10 @@ function toast(text){if(mode==="combat")return;if(!text){$("tBox").hidden=true;r
 let choosing=null;
 function choose(q,opts){return new Promise(res=>{const panel=$("chPanel");const wasC=$("cPanel").hidden,wasCtl=$("controls").hidden;
     prompt(q);clearTimeout(toastT);$("cPanel").hidden=true;$("controls").hidden=true;panel.hidden=false;const box=$("chBtns");box.innerHTML="";
-    choosing={res};
+    choosing={res};const shownAt=performance.now();
     opts.forEach((o,i)=>{const b=document.createElement("button");b.type="button";b.className="cb";b.id="ch-"+i;b.disabled=!!o.dis;b.innerHTML=`<b>${esc(o.t)}</b>${o.sub?`<small>${esc(o.sub)}</small>`:""}`;
-      b.addEventListener("click",()=>done(i));box.appendChild(b);});
+      b.addEventListener("pointerdown",()=>{b._armed=true;});b.addEventListener("click",()=>{if(!b._armed&&performance.now()-shownAt<450)return;done(i);});// ignore the "ghost" tap from the finger that was already on the screen when the choices appeared
+      box.appendChild(b);});
     function done(i){panel.hidden=true;$("cPanel").hidden=wasC;$("controls").hidden=wasCtl;choosing=null;res(i);}
     choosing.cancel=()=>done(-1);});}
 
