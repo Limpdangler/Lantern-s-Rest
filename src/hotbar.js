@@ -122,3 +122,42 @@ async function quickAbilities(){if(mode!=="explore"||busy||!G||G.over)return;con
   if(!all.length){toast("Nobody has an ability to use right now.");return;}
   busy=true;let c;try{c=await choose("Use an ability:",all.concat([{t:"NEVER MIND"}]));}finally{busy=false;}
   $("tBox").hidden=true;if(c>=0&&c<all.length&&!all[c].dis)await all[c].f();hud();}
+
+// ---------- character card: tap a portrait ----------
+function portraitTap(i){const h=G&&G.party[i];if(!h||G.demo)return;
+  if(mode==="explore"){if(busy)return;openMenu("party",0,i);return;}
+  if(mode==="combat"){const fx=effectsOf(h).map(e=>e.label.toLowerCase()).join(", ");const hp=h.wild?`${h.wild.hp}/${h.wild.max} HP (${h.wild.form})`:h.dead?"dead":h.down?"down":`${h.hp}/${h.maxHp} HP`;
+    prompt(`${h.nick||h.name} the ${h.name}: ${hp}, AC ${acOf(h)}${fx?" · "+fx:""}.`);}}
+function cardBtn(el,o){const b=document.createElement("button");b.type="button";b.className="big alt";b.innerHTML=`${esc(o.t)}${o.sub?`<br><small>${esc(o.sub)}</small>`:""}`;b.disabled=!!o.dis;
+  b.addEventListener("click",async()=>{await o.f();if(!$("ovMenu").hidden)renderMenu();hud();});el.appendChild(b);}
+function heroUses(h){const U=[];const n=id=>(G.bag[id]||0)>0;const hurt=h.hp<h.maxHp||h.down;
+  if(h.dead){if(n("scroll_revivify"))U.push({t:"READ SCROLL OF REVIVIFY",sub:"Back with 1 HP",f:()=>{takeItem("scroll_revivify");revive(h,"a Scroll of Revivify");}});return U;}
+  if(n("potion"))U.push({t:`HEALING POTION (${G.bag.potion})`,sub:hurt?"Heals 2d4+2":"Already at full health",dis:!hurt,f:()=>{takeItem("potion");heal(h,roll("2d4+2").total);}});
+  if(n("gpotion")&&isKnown("gpotion"))U.push({t:`GREATER HEALING (${G.bag.gpotion})`,sub:hurt?"Heals 4d4+4":"Already at full health",dis:!hurt,f:()=>{takeItem("gpotion");heal(h,roll("4d4+4").total);}});
+  if(n("scroll_cure")&&isKnown("scroll_cure"))U.push({t:"READ CURE WOUNDS SCROLL",sub:hurt?"Heals 2d8+3":"Already at full health",dis:!hurt,f:()=>{takeItem("scroll_cure");heal(h,roll("2d8+3").total);}});
+  if(n("antitoxin")&&h.st.poisoned)U.push({t:"ANTITOXIN",sub:"Cures the poison",f:()=>{takeItem("antitoxin");delete h.st.poisoned;}});
+  if(n("poisonvial")&&h.id!=="beast")U.push({t:"COAT WEAPON IN POISON",sub:h.coat?`Already coated (${h.coat.name})`:"Extra poison damage on the next hit",dis:!!h.coat,f:()=>{takeItem("poisonvial");h.coat={name:"poison",type:"poison",dice:"2d4"};}});
+  return U;}
+function heroWild(h){const W=[];if(h.id!=="druid"||h.dead||h.down||mode!=="explore")return W;const n=h.res.wildshape||0;
+  if(h.wild){W.push({t:"REVERT TO NORMAL FORM",sub:`Currently a ${h.wild.form}`,f:()=>{h.wild=null;computeLight();fov();}});return W;}
+  W.push({t:"WILD SHAPE: WOLF",sub:`${n} left · fast, keen nose, pack tactics`,dis:n<=0,f:()=>{h.res.wildshape--;if(h.conc)endConc(h);startWild(h,"wolf");}});
+  if(h.sub==="moon")W.push({t:"WILD SHAPE: BROWN BEAR",sub:`${n} left · tough, two claw attacks`,dis:n<=0,f:()=>{h.res.wildshape--;if(h.conc)endConc(h);startWild(h,"bear");}});
+  return W;}
+function heroCardTop(el,i){const h=G.party[i];const N=G.party.length;
+  const nav=document.createElement("div");nav.className="cardnav";
+  const mk=(t,f,dis)=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=t;b.disabled=!!dis;b.addEventListener("click",f);return b;};
+  nav.appendChild(mk("◀",()=>{menuHero=(i-1+N)%N;renderMenu();},N<2));
+  const mid=document.createElement("div");mid.className="cardwho";const c=document.createElement("canvas");c.width=16;c.height=CH_H;const cx=c.getContext("2d");if(h.wild)cx.drawImage(wildSpr(h),0,10);else cx.drawImage(heroSpr(h.id,"f",0,h.race),0,0);mid.appendChild(c);
+  const hp=h.wild?`${h.wild.hp}/${h.wild.max} HP as a ${h.wild.form}`:h.dead?"Dead":h.down?"Down":`${h.hp}/${h.maxHp} HP`;
+  mid.insertAdjacentHTML("beforeend",`<div><b>${esc(h.nick||h.name)}</b><br><span class="sm">${esc(RACES[h.race||"human"].name)} ${esc(h.name)}${subOf(h)?" · "+esc(subOf(h).name):""} · ${hp} · AC ${acOf(h)}${i===0?" · LEADER":""}</span></div>`);nav.appendChild(mid);
+  nav.appendChild(mk("▶",()=>{menuHero=(i+1)%N;renderMenu();},N<2));el.appendChild(nav);
+  const fx=effectsOf(h);if(fx.length){const row=document.createElement("div");row.className="fxrow cardfx";fx.forEach(e=>row.appendChild(effectChip(h,e,false)));el.appendChild(row);}
+  const abil=heroWild(h).concat(classActions(h));
+  if(abil.length){el.insertAdjacentHTML("beforeend","<h3>ABILITIES</h3>");for(const a of abil)cardBtn(el,a);}
+  const uses=heroUses(h);if(uses.length){el.insertAdjacentHTML("beforeend",`<h3>USE AN ITEM ON ${esc((h.nick||h.name).toUpperCase())}</h3>`);for(const u of uses)cardBtn(el,u);}
+  if(!abil.length&&!uses.length)el.insertAdjacentHTML("beforeend",`<p class="help">Nothing to use right now.</p>`);}
+function heroCardBottom(el,i){const N=G.party.length;if(N<2)return;const row=document.createElement("div");row.className="march";
+  row.insertAdjacentHTML("beforeend",`<span>Marching order: #${i+1} of ${N}</span>`);
+  const sw=(a,b)=>{const A=G.party[a],B=G.party[b];[A.x,B.x]=[B.x,A.x];[A.y,B.y]=[B.y,A.y];G.party[a]=B;G.party[b]=A;};
+  const mk=(t,f,dis)=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=t;b.disabled=!!dis;b.addEventListener("click",()=>{f();fov();hud();renderMenu();});row.appendChild(b);};
+  mk("MAKE LEADER",()=>{for(let k=i;k>0;k--)sw(k,k-1);menuHero=0;},i===0);mk("▲",()=>{sw(i,i-1);menuHero=i-1;},i===0);mk("▼",()=>{sw(i,i+1);menuHero=i+1;},i===N-1);el.appendChild(row);}

@@ -216,6 +216,18 @@ input.err{border-color:var(--bad);background:#4a1f26}
 
 .pip.a{width:14px;padding:0;min-width:14px}
 
+/* character card */
+.cardnav{display:flex;align-items:center;gap:8px;margin:2px 0 8px}
+.cardnav .chip{flex:none;padding:10px 12px}
+.cardwho{flex:1;display:flex;align-items:center;gap:8px;min-width:0}
+.cardwho canvas{width:24px;height:42px;image-rendering:pixelated;flex:none}
+.cardwho .sm{font-size:13px}
+.cardfx{margin:0 0 6px}
+.fullsheet{margin:12px 0 4px}
+.fullsheet summary{font-family:var(--pixel);font-size:9px;padding:10px 0;cursor:pointer;color:var(--gold)}
+.march{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:10px 0 4px;padding-top:10px;border-top:1px solid #2a4a4c;font-size:13px;color:var(--muted)}
+.march span{flex:1 1 100%}
+
 </style>
 
 <div class="app" id="app">
@@ -3171,7 +3183,7 @@ function hud(){if(!G||G.demo)return;const box=$("party");box.innerHTML="";
     const hp=h.wild?h.wild.hp:h.hp,mx=h.wild?h.wild.max:h.maxHp;const p=Math.max(0,hp/mx);
     const tag=h.dead?"DEAD":h.down?(h.stable?"STABLE":S.rules.deathSaves?`DOWN ${h.ds.s}✓${h.ds.f}✗`:"DOWN"):`${hp}/${mx}${h.wild?" 🐺":""}`;
     const cond=[h.insp?"INSPIRED":"",h.luck?"LUCK "+h.luck:"",h.coat?h.coat.name.toUpperCase()+" BLADE":"",h.ward?"WARD "+h.ward:"",h.thp?"TEMP "+h.thp:"",h.st.giant?"GIANT":"",h.st.raging?"RAGE":"",h.st.poisoned?"PSN":"",h.st.restrained?"STUCK":"",h.st.prone?"PRONE":"",h.st.blessed?"BLESS":"",h.st.frightened?"FEAR":"",h.st.hidden?"HID":"",h.conc?"CONC":""].filter(Boolean).join(" ");
-    if(mode==="explore")d.addEventListener("click",()=>marchMenu(i));
+    d.addEventListener("click",()=>portraitTap(i));
     const ex=h.exh?` · EXH ${h.exh}`:"";
     d.insertAdjacentHTML("beforeend",`<div class="nm"${i===0&&mode==="explore"?' style="color:var(--gold)"':""}>${esc(h.name)}</div><div class="hb"><i style="width:${p*100}%;background:${p>.5?"var(--good)":p>.25?"var(--warn)":"var(--bad)"}"></i></div><div class="hp">${tag}${ex}${cond?" · "+cond:""}</div>`);
     box.appendChild(d);}
@@ -3361,10 +3373,12 @@ function buildRaceCards(ci){const box=$("classCards");box.innerHTML="";const c=S
   const back=document.createElement("button");back.className="big alt";back.type="button";back.textContent="BACK";back.addEventListener("click",buildClassCards);box.appendChild(back);}
 // ---------- party / bag / rest menu ----------
 let menuTab="party";
-function openMenu(tab,tries){if(!G||G.demo||mode!=="explore")return;if(busy){if((tries||0)<20)setTimeout(()=>openMenu(tab,(tries||0)+1),60);return;}menuTab=tab||menuTab;renderMenu();show("ovMenu");}
+let menuHero=null;// when set, the PARTY tab shows just this hero as a character card
+function openMenu(tab,tries,hero){if(!G||G.demo||mode!=="explore")return;if(busy){if((tries||0)<20)setTimeout(()=>openMenu(tab,(tries||0)+1,hero),60);return;}menuTab=tab||menuTab;menuHero=hero===undefined?null:hero;renderMenu();show("ovMenu");}
 function closeMenu(){show(null);}
 function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forEach(t=>$("tab-"+t).classList.toggle("on",menuTab===t));el.innerHTML="";
-  if(menuTab==="party"){G.party.forEach((h,idx)=>{const d=document.createElement("div");d.className="sheet";d.appendChild(spriteCanvas(h.id,0,0,h.race));
+  if(menuTab==="party"){const focus=menuHero!==null&&G.party[menuHero]?menuHero:null;if(focus!==null)heroCardTop(el,focus);
+    G.party.forEach((h,idx)=>{if(focus!==null&&idx!==focus)return;const d=document.createElement("div");d.className="sheet";d.appendChild(spriteCanvas(h.id,0,0,h.race));
       const w=weaponOf(h,"main"),a=weaponOf(h,"alt");const fxg=gearFx(h);
       const abl=ABILS.map(k=>`<div><b>${ABN[k]}</b>${score(h,k)}<i>${sgn(abm(h,k))}</i></div>`).join("");
       const sk=h.info.skills.map(s=>`${SKN[s]} ${sgn(skillBonus(h,s))}`).join(", ");
@@ -3377,14 +3391,14 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
       const gear=document.createElement("div");gear.className="gear";for(let i=0;i<3;i++){const id=h.gear[i];const g=document.createElement("button");g.type="button";g.className="gslot";
         if(id){g.innerHTML=`<b>${esc(ITEMS[id].name)}</b><small>${esc(ITEMS[id].desc)} · tap to unequip</small>`;g.addEventListener("click",()=>{if(ITEMS[id].cursed){alertMenu(`The ${ITEMS[id].name} won't come off! Pray at a shrine to lift the curse.`);return;}h.gear.splice(i,1);addItem(id);if(id==="wand")h.wand=0;applyLevel(h,false);h.hp=Math.min(h.hp,h.maxHp);renderMenu();hud();});}
         else{g.innerHTML="<small>Empty gear slot</small>";g.disabled=true;}gear.appendChild(g);}d.appendChild(gear);
-      for(const a of classActions(h)){const b=document.createElement("button");b.type="button";b.className="big alt";b.innerHTML=`${esc(a.t)}<br><small>${esc(a.sub||"")}</small>`;b.disabled=!!a.dis;b.addEventListener("click",a.f);d.appendChild(b);}
-      if(h.id==="druid"&&!h.dead&&!h.down&&mode==="explore"){const b=document.createElement("button");b.type="button";b.className="big alt";
+      if(focus===null)for(const a of classActions(h)){const b=document.createElement("button");b.type="button";b.className="big alt";b.innerHTML=`${esc(a.t)}<br><small>${esc(a.sub||"")}</small>`;b.disabled=!!a.dis;b.addEventListener("click",a.f);d.appendChild(b);}
+      if(focus===null&&h.id==="druid"&&!h.dead&&!h.down&&mode==="explore"){const b=document.createElement("button");b.type="button";b.className="big alt";
         if(h.wild){b.textContent="REVERT TO NORMAL FORM";b.addEventListener("click",()=>{h.wild=null;computeLight();fov();renderMenu();hud();});}
         else{const n=h.res.wildshape||0;b.textContent=`WILD SHAPE: WOLF (${n} left)`;b.disabled=n<=0;b.addEventListener("click",()=>{h.res.wildshape--;if(h.conc)endConc(h);startWild(h,"wolf");renderMenu();});
           if(h.sub==="moon"){const b2=document.createElement("button");b2.type="button";b2.className="big alt";b2.textContent=`WILD SHAPE: BROWN BEAR (${n} left)`;b2.disabled=n<=0;b2.addEventListener("click",()=>{h.res.wildshape--;if(h.conc)endConc(h);startWild(h,"bear");renderMenu();});d.appendChild(b2);}}
         d.appendChild(b);}
-      if(idx>0){const b=document.createElement("button");b.type="button";b.className="big alt";b.textContent="MAKE LEADER";b.addEventListener("click",()=>{G.party.splice(idx,1);G.party.unshift(h);renderMenu();hud();fov();});d.appendChild(b);}
-      el.appendChild(d);});}
+      if(idx>0&&focus===null){const b=document.createElement("button");b.type="button";b.className="big alt";b.textContent="MAKE LEADER";b.addEventListener("click",()=>{G.party.splice(idx,1);G.party.unshift(h);renderMenu();hud();fov();});d.appendChild(b);}
+      if(focus!==null){const det=document.createElement("details");det.className="fullsheet";det.innerHTML="<summary>FULL CHARACTER SHEET</summary>";det.appendChild(d);el.appendChild(det);heroCardBottom(el,focus);}else el.appendChild(d);});}
   if(menuTab==="bag"){const ld=packLoad(),cp=packCap();el.insertAdjacentHTML("beforeend",`<p>Gold: <b>${G.gold}</b> · Pack: <b${ld>cp?' style="color:#ff8a6a"':""}>${ld} / ${cp}</b>${ld>cp?" OVERLOADED: slower in combat, and every step takes longer. Drop something.":""}</p><p class="help">Firewood weighs 2, rations, oil and torches 1 each, gear 1, small things ½. Stronger heroes carry more.</p>`);const ids=Object.keys(G.bag);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Your bag is empty.</p>");
     for(const id of ids){const it=ITEMS[id];const d=document.createElement("div");d.className="item";const ic=document.createElement("canvas");ic.width=ic.height=16;d.appendChild(ic);
       const saved=ctx;drawIconTo(ic,id);d.insertAdjacentHTML("beforeend",`<div><b>${esc(itemName(id))} ×${G.bag[id]}</b><br><span class="sm">${esc(itemDesc(id))}</span></div>`);
@@ -3595,6 +3609,45 @@ async function quickAbilities(){if(mode!=="explore"||busy||!G||G.over)return;con
   busy=true;let c;try{c=await choose("Use an ability:",all.concat([{t:"NEVER MIND"}]));}finally{busy=false;}
   $("tBox").hidden=true;if(c>=0&&c<all.length&&!all[c].dis)await all[c].f();hud();}
 
+// ---------- character card: tap a portrait ----------
+function portraitTap(i){const h=G&&G.party[i];if(!h||G.demo)return;
+  if(mode==="explore"){if(busy)return;openMenu("party",0,i);return;}
+  if(mode==="combat"){const fx=effectsOf(h).map(e=>e.label.toLowerCase()).join(", ");const hp=h.wild?`${h.wild.hp}/${h.wild.max} HP (${h.wild.form})`:h.dead?"dead":h.down?"down":`${h.hp}/${h.maxHp} HP`;
+    prompt(`${h.nick||h.name} the ${h.name}: ${hp}, AC ${acOf(h)}${fx?" · "+fx:""}.`);}}
+function cardBtn(el,o){const b=document.createElement("button");b.type="button";b.className="big alt";b.innerHTML=`${esc(o.t)}${o.sub?`<br><small>${esc(o.sub)}</small>`:""}`;b.disabled=!!o.dis;
+  b.addEventListener("click",async()=>{await o.f();if(!$("ovMenu").hidden)renderMenu();hud();});el.appendChild(b);}
+function heroUses(h){const U=[];const n=id=>(G.bag[id]||0)>0;const hurt=h.hp<h.maxHp||h.down;
+  if(h.dead){if(n("scroll_revivify"))U.push({t:"READ SCROLL OF REVIVIFY",sub:"Back with 1 HP",f:()=>{takeItem("scroll_revivify");revive(h,"a Scroll of Revivify");}});return U;}
+  if(n("potion"))U.push({t:`HEALING POTION (${G.bag.potion})`,sub:hurt?"Heals 2d4+2":"Already at full health",dis:!hurt,f:()=>{takeItem("potion");heal(h,roll("2d4+2").total);}});
+  if(n("gpotion")&&isKnown("gpotion"))U.push({t:`GREATER HEALING (${G.bag.gpotion})`,sub:hurt?"Heals 4d4+4":"Already at full health",dis:!hurt,f:()=>{takeItem("gpotion");heal(h,roll("4d4+4").total);}});
+  if(n("scroll_cure")&&isKnown("scroll_cure"))U.push({t:"READ CURE WOUNDS SCROLL",sub:hurt?"Heals 2d8+3":"Already at full health",dis:!hurt,f:()=>{takeItem("scroll_cure");heal(h,roll("2d8+3").total);}});
+  if(n("antitoxin")&&h.st.poisoned)U.push({t:"ANTITOXIN",sub:"Cures the poison",f:()=>{takeItem("antitoxin");delete h.st.poisoned;}});
+  if(n("poisonvial")&&h.id!=="beast")U.push({t:"COAT WEAPON IN POISON",sub:h.coat?`Already coated (${h.coat.name})`:"Extra poison damage on the next hit",dis:!!h.coat,f:()=>{takeItem("poisonvial");h.coat={name:"poison",type:"poison",dice:"2d4"};}});
+  return U;}
+function heroWild(h){const W=[];if(h.id!=="druid"||h.dead||h.down||mode!=="explore")return W;const n=h.res.wildshape||0;
+  if(h.wild){W.push({t:"REVERT TO NORMAL FORM",sub:`Currently a ${h.wild.form}`,f:()=>{h.wild=null;computeLight();fov();}});return W;}
+  W.push({t:"WILD SHAPE: WOLF",sub:`${n} left · fast, keen nose, pack tactics`,dis:n<=0,f:()=>{h.res.wildshape--;if(h.conc)endConc(h);startWild(h,"wolf");}});
+  if(h.sub==="moon")W.push({t:"WILD SHAPE: BROWN BEAR",sub:`${n} left · tough, two claw attacks`,dis:n<=0,f:()=>{h.res.wildshape--;if(h.conc)endConc(h);startWild(h,"bear");}});
+  return W;}
+function heroCardTop(el,i){const h=G.party[i];const N=G.party.length;
+  const nav=document.createElement("div");nav.className="cardnav";
+  const mk=(t,f,dis)=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=t;b.disabled=!!dis;b.addEventListener("click",f);return b;};
+  nav.appendChild(mk("◀",()=>{menuHero=(i-1+N)%N;renderMenu();},N<2));
+  const mid=document.createElement("div");mid.className="cardwho";const c=document.createElement("canvas");c.width=16;c.height=CH_H;const cx=c.getContext("2d");if(h.wild)cx.drawImage(wildSpr(h),0,10);else cx.drawImage(heroSpr(h.id,"f",0,h.race),0,0);mid.appendChild(c);
+  const hp=h.wild?`${h.wild.hp}/${h.wild.max} HP as a ${h.wild.form}`:h.dead?"Dead":h.down?"Down":`${h.hp}/${h.maxHp} HP`;
+  mid.insertAdjacentHTML("beforeend",`<div><b>${esc(h.nick||h.name)}</b><br><span class="sm">${esc(RACES[h.race||"human"].name)} ${esc(h.name)}${subOf(h)?" · "+esc(subOf(h).name):""} · ${hp} · AC ${acOf(h)}${i===0?" · LEADER":""}</span></div>`);nav.appendChild(mid);
+  nav.appendChild(mk("▶",()=>{menuHero=(i+1)%N;renderMenu();},N<2));el.appendChild(nav);
+  const fx=effectsOf(h);if(fx.length){const row=document.createElement("div");row.className="fxrow cardfx";fx.forEach(e=>row.appendChild(effectChip(h,e,false)));el.appendChild(row);}
+  const abil=heroWild(h).concat(classActions(h));
+  if(abil.length){el.insertAdjacentHTML("beforeend","<h3>ABILITIES</h3>");for(const a of abil)cardBtn(el,a);}
+  const uses=heroUses(h);if(uses.length){el.insertAdjacentHTML("beforeend",`<h3>USE AN ITEM ON ${esc((h.nick||h.name).toUpperCase())}</h3>`);for(const u of uses)cardBtn(el,u);}
+  if(!abil.length&&!uses.length)el.insertAdjacentHTML("beforeend",`<p class="help">Nothing to use right now.</p>`);}
+function heroCardBottom(el,i){const N=G.party.length;if(N<2)return;const row=document.createElement("div");row.className="march";
+  row.insertAdjacentHTML("beforeend",`<span>Marching order: #${i+1} of ${N}</span>`);
+  const sw=(a,b)=>{const A=G.party[a],B=G.party[b];[A.x,B.x]=[B.x,A.x];[A.y,B.y]=[B.y,A.y];G.party[a]=B;G.party[b]=A;};
+  const mk=(t,f,dis)=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=t;b.disabled=!!dis;b.addEventListener("click",()=>{f();fov();hud();renderMenu();});row.appendChild(b);};
+  mk("MAKE LEADER",()=>{for(let k=i;k>0;k--)sw(k,k-1);menuHero=0;},i===0);mk("▲",()=>{sw(i,i-1);menuHero=i-1;},i===0);mk("▼",()=>{sw(i,i+1);menuHero=i+1;},i===N-1);el.appendChild(row);}
+
 // ================= settings storage, controls, start-up =================
 const KEY="lantern-crawl-settings-v4";
 function loadSettings(){try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);
@@ -3639,7 +3692,7 @@ $("btnCancel").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)show(null);e
 $("btnReset").addEventListener("click",()=>{S=clone(DEFAULTS);buildSettings();$("setMsg").textContent="Defaults loaded. Press Save to use them.";});
 $("btnSave").addEventListener("click",()=>{const ns=readSettings();if(!ns){$("setMsg").textContent="Some boxes need fixing (shown in red). Damage must look like 1d8+3 or 2d6.";return;}
   S=ns;saveSettings();buildClassCards();showTown("Settings saved.");});
-["party","bag","notes","rest"].forEach(t=>$("tab-"+t).addEventListener("click",()=>{menuTab=t;renderMenu();}));
+["party","bag","notes","rest"].forEach(t=>$("tab-"+t).addEventListener("click",()=>{menuTab=t;menuHero=null;renderMenu();}));
 $("menuClose").addEventListener("click",closeMenu);$("shopClose").addEventListener("click",()=>{show(null);hud();});
 
 buildClassCards();renderTown();

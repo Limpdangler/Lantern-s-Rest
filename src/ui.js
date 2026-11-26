@@ -43,7 +43,7 @@ function hud(){if(!G||G.demo)return;const box=$("party");box.innerHTML="";
     const hp=h.wild?h.wild.hp:h.hp,mx=h.wild?h.wild.max:h.maxHp;const p=Math.max(0,hp/mx);
     const tag=h.dead?"DEAD":h.down?(h.stable?"STABLE":S.rules.deathSaves?`DOWN ${h.ds.s}✓${h.ds.f}✗`:"DOWN"):`${hp}/${mx}${h.wild?" 🐺":""}`;
     const cond=[h.insp?"INSPIRED":"",h.luck?"LUCK "+h.luck:"",h.coat?h.coat.name.toUpperCase()+" BLADE":"",h.ward?"WARD "+h.ward:"",h.thp?"TEMP "+h.thp:"",h.st.giant?"GIANT":"",h.st.raging?"RAGE":"",h.st.poisoned?"PSN":"",h.st.restrained?"STUCK":"",h.st.prone?"PRONE":"",h.st.blessed?"BLESS":"",h.st.frightened?"FEAR":"",h.st.hidden?"HID":"",h.conc?"CONC":""].filter(Boolean).join(" ");
-    if(mode==="explore")d.addEventListener("click",()=>marchMenu(i));
+    d.addEventListener("click",()=>portraitTap(i));
     const ex=h.exh?` · EXH ${h.exh}`:"";
     d.insertAdjacentHTML("beforeend",`<div class="nm"${i===0&&mode==="explore"?' style="color:var(--gold)"':""}>${esc(h.name)}</div><div class="hb"><i style="width:${p*100}%;background:${p>.5?"var(--good)":p>.25?"var(--warn)":"var(--bad)"}"></i></div><div class="hp">${tag}${ex}${cond?" · "+cond:""}</div>`);
     box.appendChild(d);}
@@ -233,10 +233,12 @@ function buildRaceCards(ci){const box=$("classCards");box.innerHTML="";const c=S
   const back=document.createElement("button");back.className="big alt";back.type="button";back.textContent="BACK";back.addEventListener("click",buildClassCards);box.appendChild(back);}
 // ---------- party / bag / rest menu ----------
 let menuTab="party";
-function openMenu(tab,tries){if(!G||G.demo||mode!=="explore")return;if(busy){if((tries||0)<20)setTimeout(()=>openMenu(tab,(tries||0)+1),60);return;}menuTab=tab||menuTab;renderMenu();show("ovMenu");}
+let menuHero=null;// when set, the PARTY tab shows just this hero as a character card
+function openMenu(tab,tries,hero){if(!G||G.demo||mode!=="explore")return;if(busy){if((tries||0)<20)setTimeout(()=>openMenu(tab,(tries||0)+1,hero),60);return;}menuTab=tab||menuTab;menuHero=hero===undefined?null:hero;renderMenu();show("ovMenu");}
 function closeMenu(){show(null);}
 function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forEach(t=>$("tab-"+t).classList.toggle("on",menuTab===t));el.innerHTML="";
-  if(menuTab==="party"){G.party.forEach((h,idx)=>{const d=document.createElement("div");d.className="sheet";d.appendChild(spriteCanvas(h.id,0,0,h.race));
+  if(menuTab==="party"){const focus=menuHero!==null&&G.party[menuHero]?menuHero:null;if(focus!==null)heroCardTop(el,focus);
+    G.party.forEach((h,idx)=>{if(focus!==null&&idx!==focus)return;const d=document.createElement("div");d.className="sheet";d.appendChild(spriteCanvas(h.id,0,0,h.race));
       const w=weaponOf(h,"main"),a=weaponOf(h,"alt");const fxg=gearFx(h);
       const abl=ABILS.map(k=>`<div><b>${ABN[k]}</b>${score(h,k)}<i>${sgn(abm(h,k))}</i></div>`).join("");
       const sk=h.info.skills.map(s=>`${SKN[s]} ${sgn(skillBonus(h,s))}`).join(", ");
@@ -249,14 +251,14 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
       const gear=document.createElement("div");gear.className="gear";for(let i=0;i<3;i++){const id=h.gear[i];const g=document.createElement("button");g.type="button";g.className="gslot";
         if(id){g.innerHTML=`<b>${esc(ITEMS[id].name)}</b><small>${esc(ITEMS[id].desc)} · tap to unequip</small>`;g.addEventListener("click",()=>{if(ITEMS[id].cursed){alertMenu(`The ${ITEMS[id].name} won't come off! Pray at a shrine to lift the curse.`);return;}h.gear.splice(i,1);addItem(id);if(id==="wand")h.wand=0;applyLevel(h,false);h.hp=Math.min(h.hp,h.maxHp);renderMenu();hud();});}
         else{g.innerHTML="<small>Empty gear slot</small>";g.disabled=true;}gear.appendChild(g);}d.appendChild(gear);
-      for(const a of classActions(h)){const b=document.createElement("button");b.type="button";b.className="big alt";b.innerHTML=`${esc(a.t)}<br><small>${esc(a.sub||"")}</small>`;b.disabled=!!a.dis;b.addEventListener("click",a.f);d.appendChild(b);}
-      if(h.id==="druid"&&!h.dead&&!h.down&&mode==="explore"){const b=document.createElement("button");b.type="button";b.className="big alt";
+      if(focus===null)for(const a of classActions(h)){const b=document.createElement("button");b.type="button";b.className="big alt";b.innerHTML=`${esc(a.t)}<br><small>${esc(a.sub||"")}</small>`;b.disabled=!!a.dis;b.addEventListener("click",a.f);d.appendChild(b);}
+      if(focus===null&&h.id==="druid"&&!h.dead&&!h.down&&mode==="explore"){const b=document.createElement("button");b.type="button";b.className="big alt";
         if(h.wild){b.textContent="REVERT TO NORMAL FORM";b.addEventListener("click",()=>{h.wild=null;computeLight();fov();renderMenu();hud();});}
         else{const n=h.res.wildshape||0;b.textContent=`WILD SHAPE: WOLF (${n} left)`;b.disabled=n<=0;b.addEventListener("click",()=>{h.res.wildshape--;if(h.conc)endConc(h);startWild(h,"wolf");renderMenu();});
           if(h.sub==="moon"){const b2=document.createElement("button");b2.type="button";b2.className="big alt";b2.textContent=`WILD SHAPE: BROWN BEAR (${n} left)`;b2.disabled=n<=0;b2.addEventListener("click",()=>{h.res.wildshape--;if(h.conc)endConc(h);startWild(h,"bear");renderMenu();});d.appendChild(b2);}}
         d.appendChild(b);}
-      if(idx>0){const b=document.createElement("button");b.type="button";b.className="big alt";b.textContent="MAKE LEADER";b.addEventListener("click",()=>{G.party.splice(idx,1);G.party.unshift(h);renderMenu();hud();fov();});d.appendChild(b);}
-      el.appendChild(d);});}
+      if(idx>0&&focus===null){const b=document.createElement("button");b.type="button";b.className="big alt";b.textContent="MAKE LEADER";b.addEventListener("click",()=>{G.party.splice(idx,1);G.party.unshift(h);renderMenu();hud();fov();});d.appendChild(b);}
+      if(focus!==null){const det=document.createElement("details");det.className="fullsheet";det.innerHTML="<summary>FULL CHARACTER SHEET</summary>";det.appendChild(d);el.appendChild(det);heroCardBottom(el,focus);}else el.appendChild(d);});}
   if(menuTab==="bag"){const ld=packLoad(),cp=packCap();el.insertAdjacentHTML("beforeend",`<p>Gold: <b>${G.gold}</b> · Pack: <b${ld>cp?' style="color:#ff8a6a"':""}>${ld} / ${cp}</b>${ld>cp?" OVERLOADED: slower in combat, and every step takes longer. Drop something.":""}</p><p class="help">Firewood weighs 2, rations, oil and torches 1 each, gear 1, small things ½. Stronger heroes carry more.</p>`);const ids=Object.keys(G.bag);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Your bag is empty.</p>");
     for(const id of ids){const it=ITEMS[id];const d=document.createElement("div");d.className="item";const ic=document.createElement("canvas");ic.width=ic.height=16;d.appendChild(ic);
       const saved=ctx;drawIconTo(ic,id);d.insertAdjacentHTML("beforeend",`<div><b>${esc(itemName(id))} ×${G.bag[id]}</b><br><span class="sm">${esc(itemDesc(id))}</span></div>`);
