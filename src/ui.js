@@ -58,27 +58,7 @@ function log(html,cls){const p=document.createElement("p");p.innerHTML=html;if(c
 function clearLog(){logEl.innerHTML="";}
 
 // ================= battle panel =================
-function buildPanel(){if(!C)return;const u=C.cur;const my=!!(u&&u.side==="h"&&!busy&&mode==="combat");const st=$("cStat");
-  if(u&&u.side==="h"&&!u.down){const sl=u.slots.length?` · Slots ${u.slots.map((v,i)=>`L${i+1}:${v}`).join(" ")}`:"";
-    st.innerHTML=`<span>${C.moveLeft} move</span><span class="${C.actions>0||C.attacksLeft>0?"":"off"}">${C.attacksLeft?C.attacksLeft+" attack"+(C.attacksLeft>1?"s":""):C.actions>1?C.actions+" actions":"Action"}</span><span class="${C.bonus?"":"off"}">Bonus</span><span class="${u.reaction?"":"off"}">Reaction</span><em>${esc(sl)}</em>`;}
-  else st.innerHTML=`<span class="off">${u?esc(u.name)+"'s turn…":"Rolling initiative…"}</span>`;
-  const box=$("cBtns");box.innerHTML="";const add=(o)=>{const b=document.createElement("button");b.type="button";b.className="cb"+(o.cls?" "+o.cls:"")+(o.sel?" sel":"");b.disabled=!my||!!o.dis;
-    b.innerHTML=`<b>${esc(o.t)}</b>${o.sub?`<small>${esc(o.sub)}</small>`:""}`;b.addEventListener("click",()=>{if(!busy)o.f&&o.f();});box.appendChild(b);};
-  box.className="cbtns"+(C.panel!=="main"?" list":"");
-  if(!u||u.side!=="h"||u.down){["ATTACK","SKILLS ▸","ACTIONS ▸","ITEMS ▸"].forEach(t=>add({t,dis:true}));add({t:"END TURN",cls:"end wide",dis:true});return;}
-  if(C.panel==="target"){add({t:"CANCEL",sub:"Back to moving and attacking",cls:"wide",f:cancelTarget});return;}
-  if(C.panel==="main"){const fb=featButtons(u),ab=actionButtons(u),ib=itemButtons(u);const info=u.info;
-    for(const k of (u.wild?["main"]:["main","alt"])){const w=weaponOf(u,k);
-      if(k==="alt"&&info.alt.save){const sf=fb.find(b=>b.t==="SACRED FLAME");if(sf)add(Object.assign({},sf,{t:"SACRED FLAME",sub:"Cantrip · DEX save · range 12"}));continue;}
-      const on=C.weapon===k;add({t:w.name.toUpperCase(),sub:`${w.dice}${dmgBonus(u,w)?sgn(dmgBonus(u,w)):""} ${w.type} · ${w.melee?"melee":"range "+w.range}${attacksPer(u)>1&&!w.spell?" · 2 attacks":""}${u.coat?" · "+u.coat.name:""}`,dis:!canAttack(),sel:on&&C.mode==="move"&&canAttack(),f:()=>{C.weapon=k;tapAtk();}});}
-    add({t:"SKILLS ▸",sub:`${fb.filter(b=>!b.dis).length} ready`,f:()=>{C.panel="skills";buildPanel();}});
-    add({t:"ACTIONS ▸",sub:"Dash, Dodge, Shove, Help…",f:()=>{C.panel="actions";buildPanel();}});
-    add({t:"ITEMS ▸",sub:`${Object.values(G.bag).reduce((a,b)=>a+b,0)} in bag`,f:()=>{C.panel="items";buildPanel();}});
-    const nothing=C.moveLeft===0&&!canAttack()&&!C.bonus;add({t:"END TURN",cls:"end"+(nothing?" pulse":""),f:endHeroTurn});return;}
-  const list=C.panel==="skills"?featButtons(u):C.panel==="actions"?actionButtons(u):itemButtons(u);
-  for(const o of list)add(o);add({t:"◀ BACK",cls:"wide back",f:()=>{C.panel="main";buildPanel();}});}
-function tapAtk(){if(busy||!C||!C.cur||C.cur.side!=="h")return;C.mode="move";C.tgt=null;C.sel=null;C.panel="main";buildPanel();const u=C.cur;const w=weaponOf(u,C.weapon);
-  const t=foesOf(u).filter(f=>inReachW(u,f,w));prompt(t.length?"Tap a marked enemy to see your chance to hit, then tap it again to attack.":`No enemy in reach of your ${w.name}. Move closer first.`);}
+// buildPanel and tapAtk (the combat buttons) live in hotbar.js
 
 // ================= drawing =================
 let lastT=0;

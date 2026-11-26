@@ -162,7 +162,7 @@ input.err{border-color:var(--bad);background:#4a1f26}
 .sheet>canvas{width:36px;height:63px}
 
 .tgl{display:flex;gap:8px;margin:2px 0 6px}
-.tgl .chip{flex:1;font-size:11px;padding:7px 6px}
+.tgl .chip{flex:1;font-size:10px;padding:7px 3px;min-width:0;white-space:nowrap;overflow:hidden}
 .tgl .chip.on{background:var(--gold);color:#1a1208}
 .pc{cursor:pointer}
 
@@ -170,6 +170,51 @@ input.err{border-color:var(--bad);background:#4a1f26}
 .seedrow input{width:8em;font:inherit;padding:4px 6px;border-radius:6px;border:1px solid #6a5a48;background:#1e1814;color:#f0e6d2}
 
 .note{margin:0 0 8px;font-size:15px;line-height:1.3}
+
+/* ---------- hotbar (combat) ---------- */
+.cstat{align-items:center}
+.pip{display:inline-flex;align-items:center;justify-content:center;min-width:14px;height:14px;font-size:10px;font-weight:700;color:#fff;gap:0}
+.cstat .pip::before{display:none}
+.pip.a{background:#3aa04a;border-radius:50%;border:1px solid #1e6a2a;padding:0 2px}
+.pip.bn{width:0;height:0;min-width:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid #e88a2a;background:none}
+.pip.re{width:11px;height:11px;min-width:0;background:#9a5ad8;transform:rotate(45deg);border:1px solid #5a2a90}
+.pip.spent{filter:grayscale(1);opacity:.35}
+.cstat .mv::before,.cstat .slot::before,.cstat .who::before,.cstat .fxin::before{display:none}
+.cstat .mv{font-size:12px;font-weight:700;color:#2a5aa0}
+.cstat .slot{font-size:11px;color:#6a3a98;font-weight:700;letter-spacing:-1px}
+.fxin{display:flex!important;gap:3px;margin-left:auto}
+.hotbar{display:flex;flex-direction:column;gap:4px;flex:1;min-height:0}
+.hottabs{display:flex;gap:4px;align-items:stretch}
+.htab{flex:1;font-family:var(--pixel);font-size:8px;padding:6px 2px;border-radius:5px;border:2px solid #c8ccd4;background:#eef0f4;color:var(--box-ink)}
+.htab.on{background:var(--box-ink);color:#fff;border-color:var(--box-ink)}
+.hotend{flex:1.3;font-family:var(--pixel);font-size:9px;border-radius:5px;border:2px solid #c05050;background:#e86a5a;color:#fff;padding:6px 4px}
+.hotend.pulse{animation:pulse 1s ease-in-out infinite}
+.hotend.cancel{background:#eef0f4;color:var(--box-ink);border-color:#c8ccd4;padding:12px}
+.hotend:disabled{opacity:.4}
+.hotgrid{display:grid;grid-template-rows:repeat(2,auto);grid-auto-flow:column;grid-auto-columns:66px;gap:4px;overflow-x:auto;overflow-y:hidden;padding-bottom:2px;scrollbar-width:thin}
+.hot{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;width:66px;height:58px;padding:5px 2px 2px;background:#fff;border:2px solid #c8ccd4;border-radius:6px;color:var(--box-ink);font-family:var(--body);cursor:pointer;-webkit-touch-callout:none}
+.hot canvas{width:24px;height:24px;image-rendering:pixelated;flex:none}
+.hot span{font-size:9.5px;line-height:1.05;font-weight:600;text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:normal;word-break:normal;max-width:100%}
+.hot i{position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#3aa04a}
+.hot.c-bonus i{border-radius:0;width:0;height:0;background:none;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #e88a2a}
+.hot.c-reaction i{border-radius:0;background:#9a5ad8;transform:rotate(45deg);width:7px;height:7px;top:3px;left:3px}
+.hot.c-free i{background:#a0a4ac}
+.hot.c-move i{background:#58a8f0}
+.hot em{position:absolute;top:1px;right:3px;font-size:9px;font-style:normal;font-weight:700;color:#6a3a98}
+.hot.sel{border-color:#d08a20;background:#fff4dc}
+.hot.off{opacity:.38}
+.hot:not(.off):active{background:#f0ead8}
+.hotnone{grid-row:1/-1;font-size:13px;color:#5c6470;margin:8px 4px;white-space:nowrap}
+/* status chips */
+.fxrow{display:flex;flex-wrap:wrap;gap:5px;margin:0}
+.fxchip{display:inline-flex;align-items:center;gap:4px;padding:3px 7px 3px 4px;border-radius:12px;border:1px solid #2a4a4c;background:#163436;color:var(--cream);font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer}
+.fxchip canvas{width:16px;height:16px;image-rendering:pixelated}
+.fxchip.act{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.fxchip.dim{opacity:.6}
+.cpanel .fxchip{background:#fff;color:var(--box-ink);border-color:#c8ccd4;padding:1px 5px 1px 2px;font-size:10px}
+.cpanel .fxchip.act{border-color:#d08a20;box-shadow:none;background:#fff4dc}
+
+.pip.a{width:14px;padding:0;min-width:14px}
 
 </style>
 
@@ -190,7 +235,8 @@ input.err{border-color:var(--bad);background:#4a1f26}
   <div class="strip" id="strip" hidden></div>
   <div class="party" id="party"></div>
   <div class="hud"><span>FLOOR <b id="flT">–</b></span><span>LV <b id="lvT">–</b></span><span>GOLD <b id="goT">–</b></span><span id="faW">FATIGUE <b id="faT">–</b></span><span>FOOD <b id="fdT">–</b></span><span>WOOD <b id="wdT">–</b></span><span>LIGHT <b id="liT">–</b></span><span>GOAL <b id="glT">–</b></span></div>
-  <div class="tgl" id="tglRow"><button class="chip" id="tgSneak" type="button">SNEAK</button><button class="chip" id="tgLight" type="button">LANTERN ON</button><button class="chip" id="tgSearch" type="button">SEARCH</button></div>
+  <div class="fxrow" id="fxRow" hidden></div>
+  <div class="tgl" id="tglRow"><button class="chip" id="tgSneak" type="button">SNEAK</button><button class="chip" id="tgLight" type="button">LANTERN ON</button><button class="chip" id="tgSearch" type="button">SEARCH</button><button class="chip" id="tgSkills" type="button">ABILITIES</button></div>
   <div class="log" id="log" aria-live="polite"></div>
   <div class="controls" id="controls">
     <div class="dpad" aria-label="Movement">
@@ -3140,27 +3186,7 @@ function log(html,cls){const p=document.createElement("p");p.innerHTML=html;if(c
 function clearLog(){logEl.innerHTML="";}
 
 // ================= battle panel =================
-function buildPanel(){if(!C)return;const u=C.cur;const my=!!(u&&u.side==="h"&&!busy&&mode==="combat");const st=$("cStat");
-  if(u&&u.side==="h"&&!u.down){const sl=u.slots.length?` · Slots ${u.slots.map((v,i)=>`L${i+1}:${v}`).join(" ")}`:"";
-    st.innerHTML=`<span>${C.moveLeft} move</span><span class="${C.actions>0||C.attacksLeft>0?"":"off"}">${C.attacksLeft?C.attacksLeft+" attack"+(C.attacksLeft>1?"s":""):C.actions>1?C.actions+" actions":"Action"}</span><span class="${C.bonus?"":"off"}">Bonus</span><span class="${u.reaction?"":"off"}">Reaction</span><em>${esc(sl)}</em>`;}
-  else st.innerHTML=`<span class="off">${u?esc(u.name)+"'s turn…":"Rolling initiative…"}</span>`;
-  const box=$("cBtns");box.innerHTML="";const add=(o)=>{const b=document.createElement("button");b.type="button";b.className="cb"+(o.cls?" "+o.cls:"")+(o.sel?" sel":"");b.disabled=!my||!!o.dis;
-    b.innerHTML=`<b>${esc(o.t)}</b>${o.sub?`<small>${esc(o.sub)}</small>`:""}`;b.addEventListener("click",()=>{if(!busy)o.f&&o.f();});box.appendChild(b);};
-  box.className="cbtns"+(C.panel!=="main"?" list":"");
-  if(!u||u.side!=="h"||u.down){["ATTACK","SKILLS ▸","ACTIONS ▸","ITEMS ▸"].forEach(t=>add({t,dis:true}));add({t:"END TURN",cls:"end wide",dis:true});return;}
-  if(C.panel==="target"){add({t:"CANCEL",sub:"Back to moving and attacking",cls:"wide",f:cancelTarget});return;}
-  if(C.panel==="main"){const fb=featButtons(u),ab=actionButtons(u),ib=itemButtons(u);const info=u.info;
-    for(const k of (u.wild?["main"]:["main","alt"])){const w=weaponOf(u,k);
-      if(k==="alt"&&info.alt.save){const sf=fb.find(b=>b.t==="SACRED FLAME");if(sf)add(Object.assign({},sf,{t:"SACRED FLAME",sub:"Cantrip · DEX save · range 12"}));continue;}
-      const on=C.weapon===k;add({t:w.name.toUpperCase(),sub:`${w.dice}${dmgBonus(u,w)?sgn(dmgBonus(u,w)):""} ${w.type} · ${w.melee?"melee":"range "+w.range}${attacksPer(u)>1&&!w.spell?" · 2 attacks":""}${u.coat?" · "+u.coat.name:""}`,dis:!canAttack(),sel:on&&C.mode==="move"&&canAttack(),f:()=>{C.weapon=k;tapAtk();}});}
-    add({t:"SKILLS ▸",sub:`${fb.filter(b=>!b.dis).length} ready`,f:()=>{C.panel="skills";buildPanel();}});
-    add({t:"ACTIONS ▸",sub:"Dash, Dodge, Shove, Help…",f:()=>{C.panel="actions";buildPanel();}});
-    add({t:"ITEMS ▸",sub:`${Object.values(G.bag).reduce((a,b)=>a+b,0)} in bag`,f:()=>{C.panel="items";buildPanel();}});
-    const nothing=C.moveLeft===0&&!canAttack()&&!C.bonus;add({t:"END TURN",cls:"end"+(nothing?" pulse":""),f:endHeroTurn});return;}
-  const list=C.panel==="skills"?featButtons(u):C.panel==="actions"?actionButtons(u):itemButtons(u);
-  for(const o of list)add(o);add({t:"◀ BACK",cls:"wide back",f:()=>{C.panel="main";buildPanel();}});}
-function tapAtk(){if(busy||!C||!C.cur||C.cur.side!=="h")return;C.mode="move";C.tgt=null;C.sel=null;C.panel="main";buildPanel();const u=C.cur;const w=weaponOf(u,C.weapon);
-  const t=foesOf(u).filter(f=>inReachW(u,f,w));prompt(t.length?"Tap a marked enemy to see your chance to hit, then tap it again to attack.":`No enemy in reach of your ${w.name}. Move closer first.`);}
+// buildPanel and tapAtk (the combat buttons) live in hotbar.js
 
 // ================= drawing =================
 let lastT=0;
@@ -3444,6 +3470,131 @@ function readSettings(){const ns=clone(S);let errs=0;
 function note(text){if(!G||G.demo||mode==="combat"||!text)return;G.notes=G.notes||[];const last=G.notes[G.notes.length-1];if(last&&last.t===text)return;G.notes.push({f:G.floor,t:text});if(G.notes.length>200)G.notes.shift();}
 const BUMP_NAME={barrel:"A barrel",chest:"A chest",shrine:"A shrine",runes:"A rune stone",merchant:"A merchant",wood:"A wooden barricade",captive:"A captive",relic:"The relic",coffer:"A coffer",rubble:"Fallen rock",cavein:"A cave-in",furniture:"Old furniture",alchemy:"An alchemy bench"};
 
+// ================= the hotbar: Baldur's Gate / Solasta-style combat buttons, and tappable status icons =================
+// Every combat option is a square icon you can tap straight away (no sub-menus). A coloured corner shows what it costs:
+// green circle = action, orange triangle = bonus action, purple diamond = reaction, grey = free, blue = movement.
+// Hold a button to read what it does. Ongoing effects (Wild Shape, Rage, Concentration, conditions) show as small icons:
+// tap them to end them or read about them.
+
+// ---------- little pixel icons (12×12) ----------
+const GLYPH_PAL={k:"#1b1420",w:"#ffffff",s:"#c8d0dc",S:"#8a94a4",g:"#f0c040",G:"#b08020",r:"#e04838",R:"#902828",o:"#f08a30",y:"#ffe070",b:"#58a8f0",B:"#2a5aa0",p:"#b070e0",P:"#6a3a98",e:"#58c858",E:"#2a7a3a",n:"#9a6a3a",N:"#5a3a20",c:"#a0f0ff",m:"#e0e0e0"};
+const GLYPHS={
+  sword:["..........ss","........ssws",".......swss.","......swss..",".....swss...","....swss....","..n.wss.....","...nss......","..GgN.......",".Gg..N......","Gg..........","g..........."],
+  bow:["....nnN.....","...n..sN....","..n...s.N...","..n...s..N..",".n....s..N..",".n..kkskkkw>",".n....s..N..","..n...s..N..","..n...s.N...","...n..sN....","....nnN.....","............"],
+  staff:["...cbbc.....","..cbwwbc....","..bwccwb....","..cbwwbc....","...cnnc.....","....nN......","....nN......","....nN......","....nN......","....nN......","....nN......","....NN......"],
+  fire:[".....r......","....rr......","....ror.....","...roor..r..","..rooyor.r..","..royyoorr..",".roywyyor...",".royywyyor..",".royyyyyor..","..royyyor...","...rrrrr....","............"],
+  heal:["............","..rr...rr...",".rwrr.rrrr..",".rwrrrrrrrr.",".rrrrrrrrrr.",".rrrrwwrrrr.","..rrrwwrrr..","...rwwwwr...","....rwwr....",".....rr.....","............","............"],
+  shield:["............","..ssssssss..",".sbbbbbbbbs.",".sbbbgbbbbs.",".sbbggg bbs.",".sbbbgbbbbs.",".sbbbgbbbbs.","..sbbbbbbs..","..sbbbbbbs..","...sbbbbs...","....ssss....","............"],
+  run:["......kk....","......kk....","....kkk.....","...k.kkk....","..k..kk.k...","....kk......","...k..k.....","..k....k....",".k......k...","............",".nnN..nnN...","............"],
+  hand:["............","...n.n.n....","...n.n.n.n..","...n.n.n.n..","...nnnnnnn..",".n.nnnnnnn..","..nnnnnnnn..","..nnnnnnnn..","...nnnnnn...","....nnnn....","....nnnn....","............"],
+  eye:["............","............","...kkkkkk...","..k..ww..k..",".k..wbbw..k.","k...wbkbw..k",".k..wbbw..k.","..k..ww..k..","...kkkkkk...","............","............","............"],
+  push:["............","......k.....","......kk....","kkkkkkkkk...","kkkkkkkkkk..","kkkkkkkkk...","......kk....","......k.....","............","............","............","............"],
+  paw:["............","..e.e.e.....",".eEeEeEe....","..e.e.e.....","............","..eeeee.....",".eEEEEEe....",".eEEEEEe....","..eeeee.....","............","............","............"],
+  rage:["..r.r.r.r...",".rRrRrRrRr..","..rrrrrrr...","..rwkrwkr...","..rrrrrrr...","..rkkkkkr...","..rkwwwkr...","...rrrrr....","............","............","............","............"],
+  star:[".....g......",".....g......","....gyg.....","gggggyggggg.",".ggyyyyygg..","..gyyyyyg...","..gyy.yyg...",".gyg...gyg..",".gg.....gg..","............","............","............"],
+  bolt:["......yy....",".....yy.....","....yy......","...yy.......","..yyyyyy....","......yy....",".....yy.....","....yy......","...yy.......","..y.........","............","............"],
+  skull:["............","...mmmmm....","..mmmmmmm...",".mmkkmkkmm..",".mmkkmkkmm..",".mmmmkmmmm..","..mmmmmmm...","...mkmkm....","...mmmmm....","............","............","............"],
+  moon:["....bbb.....","...bwbb.....","..bwb.......","..bwb.......",".bwb........",".bwb........",".bwb........","..bwb.......","..bwbb..b...","...bwbbbb...","....bbbb....","............"],
+  sun:[".....y......","..y..y..y...","...yyyyy....","..yygggyy...","yyyggwggyyy.","..yygggyy...","...yyyyy....","..y..y..y...",".....y......","............","............","............"],
+  drop:[".....e......","....eEe.....","....eEe.....","...eEEEe....","...eEwEe....","..eEwEEEe...","..eEEEEEe...","..eEEEEEe...","...eEEEe....","....eee.....","............","............"],
+  scroll:["............",".nnnnnnnnn..","n.mmmmmmm.n.",".nmkkkkkmn..","..mmmmmmm...","..mkkkkkm...","..mmmmmmm...","..mkkkkm....",".nmmmmmmmn..","n.nnnnnnn.n.","............","............"],
+  potion:["....nn......","....ss......","....ss......","...s..s.....","..srrrrs....",".srrwrrrs...",".srrrrrrs...",".srrrrrrs...","..srrrrs....","...ssss.....","............","............"],
+  bomb:[".......g....","......g.y...",".....n......","....kkk.....","...kkkkk....","..kkwkkkk...","..kkkkkkk...","..kkkkkkk...","...kkkkk....","....kkk.....","............","............"],
+  hourglass:["..nnnnnnn...","...g...g....","...gyyyg....","....gyg.....",".....g......","....g.g.....","...g.y.g....","...gyyyg....","..nnnnnnn...","............","............","............"],
+  jump:["......k.....",".....kkk....","....k.k.k...","......k.....","......k.....","...k..k.....","..k.k.......",".k...k......","k.....k.....","............","nnN...nnN...","............"],
+  fist:["............","...nnnnn....","..nNnNnNn...","..nnnnnnnn..","..nnnnnnnn..","..nnnnnnn...","...nnnnn....","...nnnnn....","...NNNNN....","............","............","............"],
+  web:["k....k....k.",".k...k...k..","..kkkkkkk...","..k..k..k...","kkk.kkk.kkk.","..k..k..k...","..kkkkkkk...",".k...k...k..","k....k....k.","............","............","............"],
+  plus:["............",".....ee.....",".....ee.....",".....ee.....",".eeeeeeeeee.",".eeeeeeeeee.",".....ee.....",".....ee.....",".....ee.....","............","............","............"],
+  lock:["....sss.....","...s...s....","...s...s....","..ggggggg...","..gGGGGGg...","..gGGkGGg...","..gGGkGGg...","..gGGGGGg...","..ggggggg...","............","............","............"],
+  music:["......kkkk..","......k..k..","......k..k..","......k..k..","......k..k..","...kkkk.kk..","..kkkkkkkk..","..kkkk.kk...","............","............","............","............"],
+  owl:["............","..n.....n...","..nnnnnnn...",".nwwnnnwwn..",".nwknnnwkn..",".nnnngnnnn..","..nnnnnnn...","..nmnmnmn...","...nnnnn....","....g.g.....","............","............"],
+  end:["............","..kkkkkkk...","..k.....k...","..k.kkk.k...","..k.k.k.k...","..k.kkk.k...","..k.....k...","..kkkkkkk...","............","............","............","............"]};
+const ICON_RULES=[[/REVERT/,"paw"],[/WILD SHAPE/,"paw"],[/MOON/,"moon"],[/RAGE|FRENZY|RECKLESS/,"rage"],[/HEAL|CURE|SECOND WIND|PRESERVE|SPARE|MEDIC|POTION/,"heal"],[/SHIELD|PROTECT|DODGE|WARD/,"shield"],
+  [/DASH/,"run"],[/DISENGAGE|ESCAPE/,"run"],[/HELP|OWL/,"owl"],[/SHOVE|PUSH|THUNDER/,"push"],[/HIDE|SIZE UP|INVISIB|FAERIE/,"eye"],[/FIRE|FLAM|BURN|HELLISH|DAWN/,"fire"],[/BOLT|MISSILE|LIGHTNING|ELDRITCH|RAY/,"bolt"],
+  [/TURN UNDEAD|SICKNESS|SKULL/,"skull"],[/BLESS|GUID|SACRED|RADIANCE|LIGHT|SUN/,"sun"],[/POISON|ACID|ANTITOX/,"drop"],[/SCROLL|WAND/,"scroll"],[/FLASH|BOMB/,"bomb"],[/READY/,"hourglass"],[/JUMP|MISTY/,"jump"],
+  [/GRAPPLE|GIANT|THROW/,"fist"],[/WEB|ENTANGLE|SPIKE|HOLD|SLEEP/,"web"],[/LOCK|DISARM|TRAP/,"lock"],[/VOLLEY|ARROW|PINNING|BOW|OFF-HAND/,"bow"],[/TRIP|MENAC|PRECIS|ATTACK|STRIKE|MARK/,"sword"],[/OIL|TORCH|SHAPE WATER|DOUSE/,"drop"],[/SURGE|SYMBIOTIC|INSPIR/,"star"]];
+const glyphCache={};
+function glyphCanvas(name){if(glyphCache[name])return glyphCache[name];const g=GLYPHS[name]||GLYPHS.star;const c=document.createElement("canvas");c.width=c.height=12;const x=c.getContext("2d");
+  g.forEach((row,y)=>{for(let i=0;i<12;i++){const col=GLYPH_PAL[row[i]];if(col){x.fillStyle=col;x.fillRect(i,y,1,1);}}});glyphCache[name]=c;return c;}
+function iconFor(o,u){if(o.icon)return o.icon;const t=(o.t||"").toUpperCase();if(o.weapon){const w=o.weapon;return w.spell?(/FLAME|FIRE/.test(t)?"fire":"bolt"):w.melee?"sword":"bow";}
+  for(const [re,n] of ICON_RULES)if(re.test(t))return n;return "star";}
+function costOf(o){if(o.cost)return o.cost;const s=(o.sub||"").toLowerCase();const first=s.split("·")[0];
+  if(/bonus/.test(first))return "bonus";if(/reaction/.test(first))return "reaction";if(/^\s*free/.test(first))return "free";if(/movement|move/.test(first))return "move";if(/bonus action/.test(s))return "bonus";return "action";}
+function shortLabel(t){return t.replace(/^✓ /,"").replace(/^SCROLL: /,"").replace(/^CUNNING: /,"").replace(/^WAND: /,"").replace(/ \(.*\)$/,"").replace("QUARTERSTAFF","STAFF").replace("THUNDERWAVE","THUNDER WAVE").replace("LIGHT CROSSBOW","CROSSBOW").replace("HEAVY CROSSBOW","CROSSBOW");}
+
+// ---------- ongoing effects ----------
+const COND_INFO={poisoned:["drop","Poisoned","Disadvantage on attacks and checks."],prone:["push","Prone","Melee attacks against you have advantage. Standing up costs half your movement."],frightened:["skull","Frightened","Disadvantage while the source of fear is in sight."],
+  restrained:["web","Restrained","Can't move. Attacks against you have advantage."],blessed:["sun","Blessed","+1d4 to attacks and saving throws."],hidden:["eye","Hidden","Unseen: your next attack has advantage."],dodge:["shield","Dodging","Attacks against you have disadvantage until your next turn."],
+  blinded:["eye","Blinded","You can't see: your attacks have disadvantage, attacks on you have advantage."],invisible:["eye","Invisible","Attacks on you have disadvantage; yours have advantage. Attacking ends it."],paralysed:["web","Paralysed","Can't move or act. Hits from next to you are critical."],
+  grappled:["fist","Grappled","Your speed is 0 until you break free."],giant:["fist","Giant's Might","You're huge: extra damage and advantage on Strength."],shieldOfFaith:["shield","Shield of Faith","+2 AC."],sof:["shield","Shield of Faith","+2 AC."]};
+function effectsOf(h){const E=[];const myTurn=C&&C.cur===h&&mode==="combat"&&!busy;
+  if(h.wild){const form=h.wild.form.toUpperCase();E.push({icon:"paw",label:C?form:form+" ↩",desc:`Wild Shape: ${h.name} is a ${h.wild.form} (${h.wild.hp}/${h.wild.max} HP).`,
+    act:C?(myTurn?"Revert (bonus action)":null):"Tap to return to normal form",dis:C&&(!myTurn||!C.bonus),f:async()=>{if(C){if(!myTurn||!C.bonus){prompt("Reverting in a fight takes a bonus action on the druid's turn.");return;}busy=true;C.bonus=false;h.wild=null;computeLight();fov();hud();await say(`${h.name} returns to normal form.`,700);afterAction();}else{h.wild=null;computeLight();fov();hud();toast(`${h.name} returns to normal form.`);}}});}
+  if(h.st.raging)E.push({icon:"rage",label:"RAGE",desc:"Raging: extra melee damage, resistance to weapon damage, advantage on Strength. Ends if you don't attack or get hit for a round."});
+  if(h.conc){const nm=h.conc.name||(SPELLS[h.conc.type]&&SPELLS[h.conc.type].name)||({mark:"Hunter's Mark",bless:"Bless",entangle:"Entangle",web:"Web"}[h.conc.type])||"a spell";
+    E.push({icon:"star",label:"CONC",desc:`Concentrating on ${nm}. Taking damage means a CON save to keep it.`,act:"Tap to drop it",f:async()=>{const c=await choose(`Stop concentrating on ${nm}?`,[{t:"DROP IT"},{t:"KEEP IT"}]);if(c===0){endConc(h);hud();if(C)buildPanel();}$("tBox").hidden=!C;}});}
+  for(const k in COND_INFO)if(h.st[k]){const [ic,l,d]=COND_INFO[k];E.push({icon:ic,label:l.toUpperCase(),desc:`${l}: ${d}`});}
+  if(h.coat)E.push({icon:"drop",label:h.coat.name.toUpperCase(),desc:`Your weapon is coated in ${h.coat.name}: extra damage on the next hit.`});
+  if(h.insp)E.push({icon:"star",label:"INSPIRED",desc:"Inspired: you'll reroll your next failed d20."});
+  if(h.thp)E.push({icon:"shield",label:"TEMP "+h.thp,desc:`${h.thp} temporary hit points soak damage first.`});
+  if(h.ward)E.push({icon:"shield",label:"WARD "+h.ward,desc:`Arcane Ward: soaks the next ${h.ward} damage.`});
+  return E;}
+function effectChip(h,e,withName){const b=document.createElement("button");b.type="button";b.className="fxchip"+(e.f?" act":"")+(e.dis?" dim":"");b.appendChild(glyphCanvas(e.icon).cloneNode());
+  b.firstChild.getContext("2d").drawImage(glyphCanvas(e.icon),0,0);b.insertAdjacentHTML("beforeend",`<span>${withName?esc((h.nick||h.name).split(" ")[0])+": ":""}${esc(e.label)}</span>`);
+  b.addEventListener("click",ev=>{ev.stopPropagation();if(e.f&&!e.dis&&!busy){e.f();return;}prompt(e.desc+(e.act?` (${e.act}.)`:""));});return b;}
+// outside combat: a row of everything that's going on, for the whole party
+function renderFxRow(){const row=$("fxRow");if(!row)return;row.innerHTML="";if(!G||G.demo||C){row.hidden=true;return;}
+  for(const h of G.party){if(h.dead)continue;for(const e of effectsOf(h))row.appendChild(effectChip(h,e,G.party.length>1));}row.hidden=!row.children.length;}
+{const base=hud;hud=function(){base();renderFxRow();};}
+
+// ---------- the combat hotbar ----------
+let holdT=0,held2=false;
+function hotTile(o,u,enabled){const b=document.createElement("button");b.type="button";const cost=costOf(o);b.className="hot c-"+cost+(o.sel?" sel":"");b.disabled=false;if(!enabled||o.dis)b.classList.add("off");
+  const ic=document.createElement("canvas");ic.width=ic.height=12;
+  if(o.item){ic.width=ic.height=16;drawIconTo(ic,o.item);}else ic.getContext("2d").drawImage(glyphCanvas(iconFor(o,u)),0,0);b.appendChild(ic);
+  b.insertAdjacentHTML("beforeend",`<i></i><span>${esc(shortLabel(o.t))}</span>${o.badge?`<em>${esc(o.badge)}</em>`:""}`);
+  const info=()=>prompt(`${shortLabel(o.t)}: ${o.sub||""}${o.dis?" (Not available right now.)":""}`);
+  b.addEventListener("pointerdown",()=>{held2=false;clearTimeout(holdT);holdT=setTimeout(()=>{held2=true;info();},450);});
+  ["pointerup","pointerleave","pointercancel"].forEach(ev=>b.addEventListener(ev,()=>clearTimeout(holdT)));
+  b.addEventListener("contextmenu",e=>e.preventDefault());
+  b.addEventListener("click",()=>{if(held2){held2=false;return;}if(busy||!enabled)return;if(o.dis){info();return;}o.f&&o.f();});return b;}
+function buildPanel(){if(!C)return;const u=C.cur;const my=!!(u&&u.side==="h"&&!busy&&mode==="combat");const st=$("cStat");
+  // what's left this turn
+  if(u&&u.side==="h"&&!u.down){const acts=C.attacksLeft?C.attacksLeft:C.actions;
+    const slots=u.slots.length?u.slots.map((v,i)=>`<b class="slot" title="Level ${i+1} slots">${i+1}:${"◆".repeat(v)||"–"}</b>`).join(""):"";
+    st.innerHTML=`<span class="pip a ${C.actions>0||C.attacksLeft>0?"":"spent"}" title="Action">${C.attacksLeft?C.attacksLeft+"×":acts>1?acts+"×":""}</span><span class="pip bn ${C.bonus?"":"spent"}" title="Bonus action"></span><span class="pip re ${u.reaction?"":"spent"}" title="Reaction"></span><span class="mv">MOVE ${C.moveLeft}</span>${slots}`;
+    const fx=effectsOf(u);if(fx.length){const w=document.createElement("span");w.className="fxin";fx.forEach(e=>w.appendChild(effectChip(u,e,false)));st.appendChild(w);}}
+  else st.innerHTML=`<span class="who">${u?esc(u.name)+"'s turn…":"Rolling initiative…"}</span>`;
+  const box=$("cBtns");box.innerHTML="";box.className="hotbar";
+  const tabs=document.createElement("div");tabs.className="hottabs";box.appendChild(tabs);
+  const grid=document.createElement("div");grid.className="hotgrid";box.appendChild(grid);
+  const endB=document.createElement("button");endB.type="button";endB.className="hotend";endB.textContent="END TURN";endB.disabled=!my;tabs.appendChild(endB);
+  if(!u||u.side!=="h"||u.down){for(const t of ["ALL","CLASS","ACTIONS","ITEMS"]){const tb=document.createElement("button");tb.type="button";tb.className="htab";tb.textContent=t;tb.disabled=true;tabs.insertBefore(tb,endB);}return;}
+  if(C.panel==="target"){tabs.innerHTML="";const cb=document.createElement("button");cb.type="button";cb.className="hotend cancel";cb.textContent="✕ CANCEL";cb.addEventListener("click",cancelTarget);tabs.appendChild(cb);grid.remove();return;}
+  if(!["main","skills","actions","items"].includes(C.panel))C.panel="main";
+  const TABS=[["main","ALL"],["skills","CLASS"],["actions","ACTIONS"],["items","ITEMS"]];
+  for(const [k,l] of TABS){const tb=document.createElement("button");tb.type="button";tb.className="htab"+(C.panel===k?" on":"");tb.textContent=l;tb.addEventListener("click",()=>{C.panel=k;buildPanel();});tabs.insertBefore(tb,endB);}
+  const nothing=C.moveLeft===0&&!canAttack()&&!C.bonus;if(nothing)endB.classList.add("pulse");endB.addEventListener("click",()=>{if(!busy)endHeroTurn();});
+  const fb=featButtons(u),ab=actionButtons(u),ib=itemButtons(u);const info=u.info;const weapons=[];
+  for(const k of (u.wild?["main"]:["main","alt"])){const w=weaponOf(u,k);
+    if(k==="alt"&&info.alt.save){continue;}
+    weapons.push({t:w.name.toUpperCase(),weapon:w,cost:"action",sub:`Attack · ${w.dice}${dmgBonus(u,w)?sgn(dmgBonus(u,w)):""} ${w.type} · ${w.melee?"melee":"range "+w.range}${attacksPer(u)>1&&!w.spell?" · 2 attacks":""}${u.coat?" · "+u.coat.name:""}`,dis:!canAttack(),sel:C.weapon===k&&C.mode==="move"&&canAttack(),f:()=>{C.weapon=k;tapAtk();}});}
+  const itemTiles=ib.map(o=>Object.assign({item:itemIdFor(o.t)},o));
+  const list=C.panel==="main"?weapons.concat(fb,ab):C.panel==="skills"?fb:C.panel==="actions"?weapons.concat(ab):itemTiles;
+  for(const o of list)grid.appendChild(hotTile(o,u,my));
+  if(!list.length)grid.insertAdjacentHTML("beforeend",`<p class="hotnone">${C.panel==="items"?"Nothing usable in the bag.":"Nothing here."}</p>`);}
+function itemIdFor(t){t=t.toUpperCase();if(/GREATER/.test(t))return "gpotion";if(/POTION|DRINK/.test(t))return "potion";if(/ANTITOX/.test(t))return "antitoxin";if(/OIL/.test(t))return "oil";if(/FLASH/.test(t))return "flashpowder";if(/TORCH/.test(t))return "torch";
+  if(/MISSILE/.test(t))return "scroll_mm";if(/FIREBALL/.test(t))return "scroll_fb";if(/CURE|SCROLL/.test(t))return "scroll_cure";if(/POISON/.test(t))return "poisonvial";return null;}
+function tapAtk(){if(busy||!C||!C.cur||C.cur.side!=="h")return;C.mode="move";C.tgt=null;C.sel=null;C.panel=C.panel==="target"?"main":C.panel;buildPanel();const u=C.cur;const w=weaponOf(u,C.weapon);
+  const t=foesOf(u).filter(f=>inReachW(u,f,w));prompt(t.length?"Tap a marked enemy to see your chance to hit, then tap it again to attack.":`No enemy in reach of your ${w.name}. Move closer first.`);}
+
+// ---------- quick abilities outside combat (no need to open the party menu) ----------
+async function quickAbilities(){if(mode!=="explore"||busy||!G||G.over)return;const all=[];
+  for(const h of G.party)for(const a of classActions(h))all.push(Object.assign({},a,{t:`${h.name.toUpperCase()}: ${a.t}`}));
+  if(!all.length){toast("Nobody has an ability to use right now.");return;}
+  busy=true;let c;try{c=await choose("Use an ability:",all.concat([{t:"NEVER MIND"}]));}finally{busy=false;}
+  $("tBox").hidden=true;if(c>=0&&c<all.length&&!all[c].dis)await all[c].f();hud();}
+
 // ================= settings storage, controls, start-up =================
 const KEY="lantern-crawl-settings-v4";
 function loadSettings(){try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);
@@ -3465,7 +3616,7 @@ window.addEventListener("blur",()=>{held=null;});
 const tap=(el,fn)=>{el.addEventListener("click",fn);el.addEventListener("contextmenu",e=>e.preventDefault());};
 async function waitStep(){if(mode!=="explore"||busy||!G||G.over)return;busy=true;G.steps++;await huntStep();if(G.fire.size)tickFire();fov();busy=false;await checkAwareness();}
 hold($("kU"),()=>tryMove(0,-1));hold($("kD"),()=>tryMove(0,1));hold($("kL"),()=>tryMove(-1,0));hold($("kR"),()=>tryMove(1,0));
-tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("kB"),()=>openMenu());
+tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("tgSkills"),quickAbilities);tap($("kB"),()=>openMenu());
 function tileFromEvent(e){const r=cv.getBoundingClientRect();const sx=(e.clientX-r.left)/r.width*SW,sy=(e.clientY-r.top)/r.height*SH;const wx=sx+cam.x,wy=sy+cam.y;
   for(const u of G.party.concat(G.mons)){if(u.dead)continue;const e2=elevAt(u.x,u.y)*3;if(wx>=u.x*TS&&wx<u.x*TS+TS&&wy>=u.y*TS-(u.side==="h"||HUMAN[u.sprite]?12:0)-e2&&wy<u.y*TS+TS-e2)return {x:u.x,y:u.y};}
   return {x:Math.floor(wx/TS),y:Math.floor(wy/TS)};}

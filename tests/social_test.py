@@ -31,7 +31,7 @@ async def main():
       t.setC({units:[L,g2],xp:0,round:1});Math.random=()=>0.1;window.__want='SPARE';const used=await t.monsterPreTurn(g2);Math.random=R;
       out.surrender=[used,!G.mons.includes(g2)];
       // calling for help
-      const g3=t.mkMon(t.monByKey('goblin'),L.x+2,L.y,false);g3.gid=903;g3.inCombat=true;g3.hp=g3.maxHp-1;G.mons.push(g3);
+      G.mons=[];const g3=t.mkMon(t.monByKey('goblin'),L.x+2,L.y,false);g3.gid=903;g3.inCombat=true;g3.hp=g3.maxHp-1;G.mons.push(g3);
       const far=t.mkMon(t.monByKey('kobold'),L.x+8,L.y,false);far.gid=904;G.mons.push(far);const units=[L,g3];
       t.setC({units,xp:0,round:1});Math.random=()=>0.1;await t.monsterPreTurn(g3);Math.random=R;out.help=far.inCombat&&units.includes(far);t.setC(null);
       return out;})()""")
