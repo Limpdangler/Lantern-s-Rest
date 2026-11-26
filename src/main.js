@@ -19,7 +19,7 @@ window.addEventListener("blur",()=>{held=null;});
 const tap=(el,fn)=>{el.addEventListener("click",fn);el.addEventListener("contextmenu",e=>e.preventDefault());};
 async function waitStep(){if(mode!=="explore"||busy||!G||G.over)return;busy=true;G.steps++;await huntStep();if(G.fire.size)tickFire();fov();busy=false;await checkAwareness();}
 hold($("kU"),()=>tryMove(0,-1));hold($("kD"),()=>tryMove(0,1));hold($("kL"),()=>tryMove(-1,0));hold($("kR"),()=>tryMove(1,0));
-tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),search);tap($("kB"),()=>openMenu());
+tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("kB"),()=>openMenu());
 function tileFromEvent(e){const r=cv.getBoundingClientRect();const sx=(e.clientX-r.left)/r.width*SW,sy=(e.clientY-r.top)/r.height*SH;const wx=sx+cam.x,wy=sy+cam.y;
   for(const u of G.party.concat(G.mons)){if(u.dead)continue;const e2=elevAt(u.x,u.y)*3;if(wx>=u.x*TS&&wx<u.x*TS+TS&&wy>=u.y*TS-(u.side==="h"||HUMAN[u.sprite]?12:0)-e2&&wy<u.y*TS+TS-e2)return {x:u.x,y:u.y};}
   return {x:Math.floor(wx/TS),y:Math.floor(wy/TS)};}
@@ -31,7 +31,7 @@ document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;con
   if(choosing){const n=parseInt(k,10);if(n>=1&&n<=6){const b=$("ch-"+(n-1));if(b&&!b.disabled)b.click();}if(k==="escape")choosing.cancel();return;}
   if(mode==="combat"){if(k==="e")endHeroTurn();if(k==="escape")cancelTarget();return;}
   const map={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
-  if(map[k]){e.preventDefault();if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;f();}}else if(k==="f")search();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="m")openMenu();else if(k===".")waitStep();});
+  if(map[k]){e.preventDefault();if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="f")search();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="m")openMenu();else if(k===".")waitStep();});
 $("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)autoSave(true);showTown(G&&!G.over&&!G.demo&&peekRun()?"Your run is saved. Continue it any time.":"");});
 $("btnContinue").addEventListener("click",()=>{if(!resumeRun())showTown("That saved run couldn't be loaded, sorry.");});
 $("btnSetOut").addEventListener("click",()=>{buildClassCards();show("ovClass");});$("btnTownSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});

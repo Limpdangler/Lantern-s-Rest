@@ -178,6 +178,7 @@ function ambushSpot(){const L=G.party[0];for(let r=4;r<=7;r++)for(let k=0;k<30;k
 // ---------- tap to walk & tap to ambush ----------
 async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   if(G.pebble){throwPebble(x,y);return;}
+  if(!G.owlPick&&needsReach(x,y)&&cheb(G.party[0],{x,y})>1){const ok=await walkUpTo(x,y);const torch=G.torches.some(t=>t.x===x&&t.y===y);if(!ok&&!torch){if(mode==="explore")toast("You can't find a way over there.");return;}if(mode!=="explore"||busy||G.over)return;}
   {const d=doorAt(x,y);const L=G.party[0];if(d&&d.open&&!d.burnt&&cheb(L,d)===1&&!unitAt(x,y)){const ft=heroesUp().find(h=>h.id==="fighter");busy=true;try{
       const c=await choose("An open door.",[{t:"CLOSE IT"},{t:"WEDGE IT SHUT",sub:ft?`${ft.name}: jams it so monsters can't open it (you can kick it free)`:"Needs a fighter",dis:!ft},{t:"LEAVE IT OPEN"}]);
       if(c===0||c===1){d.open=false;if(c===1){d.wedged=true;toast("The fighter jams a spike under the door. Nothing's getting through from the other side.");}computeLight();fov();}$("tBox").hidden=true;}finally{busy=false;}return;}}if(G.owlPick){await owlFly(x,y);return;}
@@ -204,3 +205,31 @@ async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   G.walkTo=goal;for(const s of path){if(mode!=="explore"||G.walkTo!==goal||G.over)break;const sx=s%W,sy=(s/W)|0;const L2=G.party[0];
     await tryMove(sx-L2.x,sy-L2.y);await wait(40);const d2=doorAt(sx,sy);if(d2&&d2.open&&(G.party[0].x!==sx||G.party[0].y!==sy)&&mode==="explore"){await tryMove(sx-G.party[0].x,sy-G.party[0].y);await wait(40);}if(G.party[0].x!==sx||G.party[0].y!==sy)break;}
   G.walkTo=null;}
+// ---------- walking up to things, and the A (interact) button ----------
+// things you have to be next to before you can use them: tapping one from afar walks the leader over first
+function needsReach(x,y){if(!G.explored[y]||!G.explored[y][x])return false;
+  if(G.torches.some(t=>t.x===x&&t.y===y)||G.dropLights.some(l=>l.x===x&&l.y===y))return true;
+  if(G.traps.some(q=>q.x===x&&q.y===y&&q.disarmed&&!q.rearmFail)&&heroesUp().some(h=>h.id==="rogue"))return true;
+  if(G.objs.some(o=>!o.gone&&o.x===x&&o.y===y&&(o.deco||o.type==="rubble"||o.type==="cavein")&&(BLOCKERS[o.type]||!o.seen)))return true;
+  if((G.corpses||[]).some(c=>c.x===x&&c.y===y&&!c.searched)&&!monAt(x,y))return true;
+  return gnd(x,y)===GROUND.acid&&!monAt(x,y);}
+// walk the leader to a square next to (x,y); returns true once they're there
+async function walkUpTo(x,y){const L=G.party[0];if(cheb(L,{x,y})<=1)return true;const W=G.W;const start=L.y*W+L.x;const prev=new Map([[start,-1]]);const q=[start];let goal=-1;
+  while(q.length){const c=q.shift();const cx=c%W,cy=(c/W)|0;if(c!==start&&Math.max(Math.abs(cx-x),Math.abs(cy-y))<=1&&!(cx===x&&cy===y)){goal=c;break;}
+    for(const [dx,dy] of DIRS4){const nx=cx+dx,ny=cy+dy,k=ny*W+nx;if(prev.has(k)||!inB(nx,ny)||!G.explored[ny][nx]||(nx===x&&ny===y))continue;const dd=doorAt(nx,ny);
+      if((!enterable(L,nx,ny)&&!(dd&&!dd.locked))||monAt(nx,ny)||(dd&&dd.locked)||gnd(nx,ny)===GROUND.acid||(trapAt(nx,ny)&&trapAt(nx,ny).found))continue;prev.set(k,c);q.push(k);}}
+  if(goal<0)return false;const path=[];let k=goal;while(k!==start){path.unshift(k);k=prev.get(k);}
+  G.walkTo=goal;for(const s of path){if(mode!=="explore"||G.walkTo!==goal||G.over)break;const sx=s%W,sy=(s/W)|0;const L2=G.party[0];
+    await tryMove(sx-L2.x,sy-L2.y);await wait(40);if(G.party[0].x!==sx||G.party[0].y!==sy)break;}
+  G.walkTo=null;const L3=G.party[0];if(mode!=="explore"||cheb(L3,{x,y})>1)return false;faceToward(L3,x-L3.x,y-L3.y);return true;}
+// what pressing A would do with the square at (x,y): "bump" = walk into it (doors, chests, monsters...), "tap" = use it in place
+function aKind(x,y){if(!inB(x,y))return null;const m=monAt(x,y);if(m&&seen(x,y)&&!isHiddenMon(m))return "bump";
+  if(G.npc&&G.npc.x===x&&G.npc.y===y)return "bump";const d=doorAt(x,y);if(d&&!d.open)return "bump";if(d&&d.open&&!d.burnt&&!unitAt(x,y))return "tap";
+  if(needsReach(x,y))return "tap";const o=objAt(x,y);if(o&&BLOCKERS[o.type])return "bump";const t=trapAt(x,y);if(t&&t.found&&!t.done&&!t.disarmed)return "bump";return null;}
+async function pressA(){if(sayState){sayState.skip();return;}if(mode!=="explore"||busy||choosing||!G||G.over||G.demo)return;const L=G.party[0];
+  if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){busy=true;try{await stairsPrompt();}finally{if(mode==="explore")busy=false;}return;}
+  const fd=L.face==="b"?[0,-1]:L.face==="f"?[0,1]:[L.flip?-1:1,0];
+  const dirs=[fd].concat(DIRS8.filter(d=>d[0]!==fd[0]||d[1]!==fd[1]));
+  for(const [dx,dy] of dirs){const x=L.x+dx,y=L.y+dy;const k=aKind(x,y);if(!k)continue;if(k==="bump"&&dx&&dy){if(monAt(x,y)){await exploreTap(x,y);return;}continue;}
+    if(k==="bump")await tryMove(dx,dy);else{faceToward(L,dx,dy);await exploreTap(x,y);}return;}
+  toast("Nothing to use here. Face a door, chest, torch, body or creature and press A. (SEARCH looks for hidden things.)");}
