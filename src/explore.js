@@ -10,25 +10,26 @@ function newRun(ci,race){clearRun();
   clearLog();log(`${esc(heroLabel(G.party[0]))} lights a lantern and steps into the ${esc(THEMES[G.theme].name)}.`,"lv");
   genFloor();mode="explore";busy=false;C=null;showCombatUI(false);hud();
   toast(`Floor 1: ${THEMES[G.theme].name}. Find the ladder down, and look for lost adventurers to join you.${G.goal?" Goal: "+G.goal.desc+".":""}`);}
-async function tryMove(dx,dy){if(mode!=="explore"||busy||!G||G.over)return;busy=true;try{await doMove(dx,dy);}finally{if(mode==="explore")busy=false;}}
-async function doMove(dx,dy){if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const [h]=G.party.splice(i,1);G.party.unshift(h);hud();}}const L=G.party[0];L.face=dy<0?"b":dy>0?"f":"s";if(dx)L.flip=dx<0;const nx=L.x+dx,ny=L.y+dy;
+async function tryMove(dx,dy,act){if(mode!=="explore"||busy||!G||G.over)return;busy=true;try{await doMove(dx,dy,act);}finally{if(mode==="explore")busy=false;}}
+async function doMove(dx,dy,act){// act: true when the player chose to use what is there (A button or tapping it), false when just walking with the D-pad
+if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const [h]=G.party.splice(i,1);G.party.unshift(h);hud();}}const L=G.party[0];L.face=dy<0?"b":dy>0?"f":"s";if(dx)L.flip=dx<0;const nx=L.x+dx,ny=L.y+dy;
   const m=monAt(nx,ny);if(m){
     if(isHiddenMon(m)){m.spotted=true;m.lurk=false;await say(`${cap(aN(m.name))} lunges out of the shadows!`,900,true);busy=false;startCombat({bumped:m,by:[m]});return;}
-    if(m.peace){const c=await choose(`The ${m.name} watches you warily. They agreed to let you pass.`,[{t:"ATTACK THEM",sub:m.fooled?"They think you're friends: they'll be surprised":"They're watching you: no surprise"},{t:"LEAVE THEM BE"}]);
+    if(m.peace){if(!act){toast(`The ${m.name} let you pass. Press A to deal with them.`);return;}const c=await choose(`The ${m.name} watches you warily. They agreed to let you pass.`,[{t:"ATTACK THEM",sub:m.fooled?"They think you're friends: they'll be surprised":"They're watching you: no surprise"},{t:"LEAVE THEM BE"}]);
       if(c===0){for(const q of G.mons)if(q.gid===m.gid)q.peace=false;busy=false;startCombat({bumped:m,partyFirst:true});}return;}
     busy=false;startCombat({bumped:m,partyFirst:true});return;}
-  if(G.npc&&G.npc.x===nx&&G.npc.y===ny){await recruit();return;}
-  const d=doorAt(nx,ny);if(d&&!d.open){await doorInteract(d);return;}
+  if(G.npc&&G.npc.x===nx&&G.npc.y===ny){if(!act){toast("A lost adventurer. Press A to talk to them.");return;}await recruit();return;}
+  const d=doorAt(nx,ny);if(d&&!d.open){if(!act){toast("A closed door. Press A to open it.");return;}await doorInteract(d);return;}
   const o=objAt(nx,ny);
   if(o&&(o.type==="rubble"||o.type==="cavein")&&L.wild&&L.wild.form==="rat"){const bx=nx+dx,by=ny+dy;if(!isWall(bx,by)){G.owl={x:bx,y:by,until:G.steps+10};fov();if(o.type==="rubble")o.loose=true;
       toast(o.type==="rubble"?"The rat squeezes through the rocks and scouts the far side. It spots a loose stone: the rubble will be easier to shift now.":"The rat wriggles through a gap in the collapse and peers out the other side.");hud();return;}}
-  if(o&&BLOCKERS[o.type]){await interact(o);return;}
+  if(o&&BLOCKERS[o.type]){if(!act&&o.type!=="boulder"){toast(`${BUMP_NAME[o.type]||"Something"} is in the way. Press A to use it.`);return;}await interact(o);return;}
   if(isWall(nx,ny))return;
   const up=elevAt(nx,ny)>elevAt(L.x,L.y),down=elevAt(nx,ny)<elevAt(L.x,L.y),noRamp=!isRamp(nx,ny)&&!isRamp(L.x,L.y);
   if(up&&noRamp){const c=L.sub==="thief"||(L.wild&&L.wild.form==="spider")?{ok:true}:await check(L,"athletics",10,{quiet:true});G.steps+=2;
     if(!c.ok){if(c.total<=5){toast(`The ${L.name} slips off the ledge and lands hard! (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{});}else toast(`The ${L.name} can't get a grip on the ledge. (${c.txt}) Try again, or use the ramp.`);return;}}
   if(down&&noRamp){const c=await check(L,"acrobatics",10,{quiet:true});if(!c.ok){toast(`The ${L.name} jumps down and lands badly. (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{});if(L.down)return;}}
-  const t=trapAt(nx,ny);if(t&&t.found){const dz=bestAt("thieves"),iv=bestAt("investigation");
+  const t=trapAt(nx,ny);if(t&&t.found&&!act&&!t.done&&!t.disarmed){toast(`A ${TRAPS[t.type].name}. Press A for options, or walk around it.`);return;}if(t&&t.found){const dz=bestAt("thieves"),iv=bestAt("investigation");
     const c=await choose(`${cap(aN(TRAPS[t.type].name))} lies ahead.${t.easy?" You've worked out how it works.":""}`,[{t:"DISARM IT",sub:t.disFail?"You already tried":`${oddsTag(dz,"thieves",t.dc,{adv:!!t.easy})}${toolNote(dz)}`},{t:"STUDY IT",sub:t.studied?"Already studied":`${oddsTag(iv,"investigation",t.dc)} · success makes disarming easier`},{t:"STEP ON IT",sub:"Set it off on purpose"},{t:"LEAVE IT"}].concat(heroesUp().some(h=>h.sub==="trickster")?[{t:"MAGE HAND",sub:"Arcane Trickster disarms it from a safe distance (a failure just sets it off harmlessly)"}]:[]));
     if(c===4){const tr=heroesUp().find(h=>h.sub==="trickster");const r=await check(tr,"thieves",t.dc,{adv:!!t.easy});t.done=true;if(r.ok){t.disarmed=true;await say(`A spectral hand dismantles the trap. (${r.txt}) +10 XP.`,1100,true);for(const m of gainXpNow(10))await say(m,1200,true);}else await say(`The spectral hand sets it off: it fires harmlessly into the air. (${r.txt})`,1200,true);$("tBox").hidden=true;hud();return;}
     if(c===0){if(t.disFail){toast(t.disFail);return;}await disarm(dz,t);hud();return;}
@@ -129,11 +130,11 @@ async function interact(o){
     if(ok){G.blessFloor=G.floor;for(const p of G.party){if(!p.dead){heal(p,Math.ceil(p.maxHp/2));}}await say("Warm light washes over the party: healed, and blessed with +1 to hit and saves on this floor.",1700,true);}
     else{G.curseFloor=G.floor;for(const p of heroesUp())p.hp=Math.max(1,p.hp-rnd(6));await say("The light turns cold. The party is cursed: −1 AC on this floor.",1600,true);}
     $("tBox").hidden=true;hud();return;}
-  if(o.type==="runes"){if(o.used){toast("The runes have gone dark.");return;}const h=bestAt("arcana");
+  if(o.type==="runes"){if(o.used){await say(o.msg||"The runes have gone dark.",0,true);$("tBox").hidden=true;return;}const h=bestAt("arcana");
     const c=await choose("Strange runes glow on a standing stone.",[{t:"READ THEM",sub:`${h.name}: Arcana DC 13`},{t:"LEAVE THEM"}]);if(c!==0)return;o.used=true;const r=await check(h,"arcana",13);
     if(r.ok){for(let y=0;y<G.H;y++)for(let x=0;x<G.W;x++)if(!isWall(x,y))G.explored[y][x]=true;for(const t of G.traps)t.found=true;if(G.secret&&!G.secret.found)revealSecret();
-      await say(`The runes are a map! (${r.txt}) The whole floor and every trap are revealed.`,1700,true);}
-    else{await say(`The runes flare and zap the ${h.name}! (${r.txt})`,1200,true);await dealDamage(h,roll("1d6").total,"lightning",{});}
+      o.msg="The runes are a map of this floor. Their glow has faded, but you remember it: the whole floor and every trap are marked.";await say(`The runes are a map! (${r.txt}) The whole floor and every trap are revealed.`,1700,true);}
+    else{o.msg="The runes have gone dark. Whatever they said, it's lost now.";await say(`The runes flare and zap the ${h.name}! (${r.txt})`,1200,true);await dealDamage(h,roll("1d6").total,"lightning",{});}
     $("tBox").hidden=true;hud();return;}
   if(o.type==="merchant"){openShop(o);return;}}
 async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&&q.hp>0);grp.forEach(q=>q.bubble=now()+900);const toll=10*G.floor;
@@ -203,7 +204,7 @@ async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
       const isGoal=k===goal;const dd=doorAt(nx,ny);if(!isGoal&&((!enterable(L,nx,ny)&&!(dd&&!dd.locked))||monAt(nx,ny)||(dd&&dd.locked)))continue;prev.set(k,c);q.push(k);}}
   if(!prev.has(goal))return;const path=[];let k=goal;while(k!==start){path.unshift(k);k=prev.get(k);}
   G.walkTo=goal;for(const s of path){if(mode!=="explore"||G.walkTo!==goal||G.over)break;const sx=s%W,sy=(s/W)|0;const L2=G.party[0];
-    await tryMove(sx-L2.x,sy-L2.y);await wait(40);const d2=doorAt(sx,sy);if(d2&&d2.open&&(G.party[0].x!==sx||G.party[0].y!==sy)&&mode==="explore"){await tryMove(sx-G.party[0].x,sy-G.party[0].y);await wait(40);}if(G.party[0].x!==sx||G.party[0].y!==sy)break;}
+    await tryMove(sx-L2.x,sy-L2.y,true);await wait(40);const d2=doorAt(sx,sy);if(d2&&d2.open&&(G.party[0].x!==sx||G.party[0].y!==sy)&&mode==="explore"){await tryMove(sx-G.party[0].x,sy-G.party[0].y,true);await wait(40);}if(G.party[0].x!==sx||G.party[0].y!==sy)break;}
   G.walkTo=null;}
 // ---------- walking up to things, and the A (interact) button ----------
 // things you have to be next to before you can use them: tapping one from afar walks the leader over first
@@ -220,7 +221,7 @@ async function walkUpTo(x,y){const L=G.party[0];if(cheb(L,{x,y})<=1)return true;
       if((!enterable(L,nx,ny)&&!(dd&&!dd.locked))||monAt(nx,ny)||(dd&&dd.locked)||gnd(nx,ny)===GROUND.acid||(trapAt(nx,ny)&&trapAt(nx,ny).found))continue;prev.set(k,c);q.push(k);}}
   if(goal<0)return false;const path=[];let k=goal;while(k!==start){path.unshift(k);k=prev.get(k);}
   G.walkTo=goal;for(const s of path){if(mode!=="explore"||G.walkTo!==goal||G.over)break;const sx=s%W,sy=(s/W)|0;const L2=G.party[0];
-    await tryMove(sx-L2.x,sy-L2.y);await wait(40);if(G.party[0].x!==sx||G.party[0].y!==sy)break;}
+    await tryMove(sx-L2.x,sy-L2.y,true);await wait(40);if(G.party[0].x!==sx||G.party[0].y!==sy)break;}
   G.walkTo=null;const L3=G.party[0];if(mode!=="explore"||cheb(L3,{x,y})>1)return false;faceToward(L3,x-L3.x,y-L3.y);return true;}
 // what pressing A would do with the square at (x,y): "bump" = walk into it (doors, chests, monsters...), "tap" = use it in place
 function aKind(x,y){if(!inB(x,y))return null;const m=monAt(x,y);if(m&&seen(x,y)&&!isHiddenMon(m))return "bump";
@@ -231,5 +232,5 @@ async function pressA(){if(sayState){sayState.skip();return;}if(mode!=="explore"
   const fd=L.face==="b"?[0,-1]:L.face==="f"?[0,1]:[L.flip?-1:1,0];
   const dirs=[fd].concat(DIRS8.filter(d=>d[0]!==fd[0]||d[1]!==fd[1]));
   for(const [dx,dy] of dirs){const x=L.x+dx,y=L.y+dy;const k=aKind(x,y);if(!k)continue;if(k==="bump"&&dx&&dy){if(monAt(x,y)){await exploreTap(x,y);return;}continue;}
-    if(k==="bump")await tryMove(dx,dy);else{faceToward(L,dx,dy);await exploreTap(x,y);}return;}
+    if(k==="bump")await tryMove(dx,dy,true);else{faceToward(L,dx,dy);await exploreTap(x,y);}return;}
   toast("Nothing to use here. Face a door, chest, torch, body or creature and press A. (SEARCH looks for hidden things.)");}

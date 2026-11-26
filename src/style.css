@@ -162,3 +162,5 @@ input.err{border-color:var(--bad);background:#4a1f26}
 
 .seedrow{display:block;font-size:12px;margin:8px 0;opacity:.85}
 .seedrow input{width:8em;font:inherit;padding:4px 6px;border-radius:6px;border:1px solid #6a5a48;background:#1e1814;color:#f0e6d2}
+
+.note{margin:0 0 8px;font-size:15px;line-height:1.3}

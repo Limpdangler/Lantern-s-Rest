@@ -42,14 +42,14 @@ async function decoInteract(o){const L=G.party[0];if(!BLOCKERS[o.type])o.seen=tr
   if(o.type==="cavein"){toast("The tunnel has completely collapsed here. There's no getting through.");return;}
   if(o.type==="furniture"){const sv=bestAt("survival");const c=await choose(DECO_TEXT.furniture,[{t:"BREAK IT UP FOR FIREWOOD",sub:"+1 firewood · a bit noisy"},{t:"LEAVE IT"}]);
     if(c===0){o.gone=true;addItem("firewood");makeNoise(o.x,o.y,5);G.steps+=6;await say("You break the furniture down into a bundle of firewood.",1100,true);}$("tBox").hidden=true;hud();return;}
-  if(o.type==="alchemy"){if(o.done){toast(o.msg||"The bench has nothing more to give.");return;}const h=bestAt("arcana");
+  if(o.type==="alchemy"){if(o.done){await say(o.msg||"The bench has nothing more to give.",0,true);$("tBox").hidden=true;return;}const h=bestAt("arcana");
     const c=await choose(DECO_TEXT.alchemy,[{t:"STUDY THE RUNES",sub:oddsTag(h,"arcana",13)},{t:"LEAVE IT"}]);if(c!==0){$("tBox").hidden=true;return;}
     o.done=true;const r=await check(h,"arcana",13);
     if(r.ok){const unk=Object.keys(G.bag).filter(id=>!isKnown(id));let txt;if(unk.length){G.known.add(unk[0]);txt=`Using the bench's reagents, the ${h.name} identifies the ${ITEMS[unk[0]].unk}: it's ${aN(ITEMS[unk[0]].name)}!`;}else{addItem("potion");txt=`The ${h.name} salvages a working healing potion from the mess.`;}
-      o.msg="You've learned all the bench can teach you.";await say(`${txt} (${r.txt})`,1700,true);}
+      o.msg=`You've learned all the bench can teach you. (Last time: ${txt})`;await say(`${txt} (${r.txt})`,1700,true);}
     else{o.msg="The runes still make no sense.";if(r.r===1){const s=saveRoll(h,"dex",12);await say(`A flask bursts in a puff of acrid smoke! (${r.txt})`,1000,true);await dealDamage(h,s.ok?2:roll("1d6").total,"acid",{});}else await say(`The runes make no sense. (${r.txt})`,1100,true);}
     $("tBox").hidden=true;hud();return;}
-  if(o.type==="skeleton"||o.type==="oldcamp"){if(o.searched){toast(o.msg);return;}const c=await choose(DECO_TEXT[o.type],[{t:"SEARCH IT"},{t:"LEAVE IT"}]);if(c!==0){$("tBox").hidden=true;return;}
+  if(o.type==="skeleton"||o.type==="oldcamp"){if(o.searched){await say(o.msg,0,true);$("tBox").hidden=true;return;}const c=await choose(DECO_TEXT[o.type],[{t:"SEARCH IT"},{t:"LEAVE IT"}]);if(c!==0){$("tBox").hidden=true;return;}
     o.searched=true;G.steps+=4;let got=[];if(o.loot){if(o.type==="skeleton"){const g=ri(3,12)*G.floor;G.gold+=g;got.push(g+" gold");if(Math.random()<.4){const it=rollItem(false);if(it){addItem(it);got.push(itemName(it));}}}
       else{const it=pick(["firewood","torch","oil","ration"]);addItem(it);got.push(itemName(it));}}
     o.msg=got.length?"You've already taken what was there.":"Nothing useful here.";await say(got.length?`You find: ${got.join(", ")}.`:"Nothing useful.",1200,true);$("tBox").hidden=true;hud();return;}

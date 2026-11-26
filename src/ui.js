@@ -16,14 +16,14 @@ function boulderSpr(){const p=G.pal;return monSpr("boulder",{w:p.peb,L:p.pebLt,D
 
 // ================= text box, toasts, choices =================
 let sayState=null,toastT=0;
-function say(text,auto=1000,noLog){if(!noLog)log(esc(text),"say");$("tBox").hidden=false;clearTimeout(toastT);
+function say(text,auto=1000,noLog){if(!noLog)log(esc(text),"say");note(text);const hold=mode!=="combat"&&!window.__fast;$("tBox").hidden=false;clearTimeout(toastT);
   return new Promise(res=>{const el=$("tText"),more=$("tMore");more.hidden=true;el.textContent="";let i=0;const st={typing:true,done:false,timer:0};sayState=st;
     const iv=setInterval(()=>{i+=2;el.textContent=text.slice(0,i);if(i>=text.length)finish();},Math.max(1,16*SPEED()));
-    function finish(){clearInterval(iv);st.typing=false;el.textContent=text;more.hidden=false;st.timer=setTimeout(adv,auto*SPEED());}
+    function finish(){clearInterval(iv);st.typing=false;st.at=performance.now();el.textContent=text;more.hidden=false;if(!hold)st.timer=setTimeout(adv,auto*SPEED());}
     function adv(){if(st.done)return;st.done=true;clearTimeout(st.timer);more.hidden=true;if(sayState===st)sayState=null;res();}
-    st.skip=()=>{if(st.typing)finish();else adv();};});}
+    st.skip=()=>{if(st.typing)finish();else if(!hold||performance.now()-st.at>350)adv();};});}
 function prompt(text){sayState=null;$("tBox").hidden=false;$("tText").textContent=text;$("tMore").hidden=true;}
-function toast(text){if(mode==="combat")return;if(!text){$("tBox").hidden=true;return;}prompt(text);clearTimeout(toastT);toastT=setTimeout(()=>{if(mode!=="combat"&&!sayState&&!choosing)$("tBox").hidden=true;},2600);}
+function toast(text){if(mode==="combat")return;if(!text){$("tBox").hidden=true;return;}prompt(text);clearTimeout(toastT);toastT=setTimeout(()=>{if(mode!=="combat"&&!sayState&&!choosing)$("tBox").hidden=true;},Math.max(3000,text.length*70));if(!/Press A|Nothing to use/.test(text))note(text);}
 let choosing=null;
 function choose(q,opts){return new Promise(res=>{const panel=$("chPanel");const wasC=$("cPanel").hidden,wasCtl=$("controls").hidden;
     prompt(q);clearTimeout(toastT);$("cPanel").hidden=true;$("controls").hidden=true;panel.hidden=false;const box=$("chBtns");box.innerHTML="";
@@ -254,7 +254,7 @@ function buildRaceCards(ci){const box=$("classCards");box.innerHTML="";const c=S
 let menuTab="party";
 function openMenu(tab,tries){if(!G||G.demo||mode!=="explore")return;if(busy){if((tries||0)<20)setTimeout(()=>openMenu(tab,(tries||0)+1),60);return;}menuTab=tab||menuTab;renderMenu();show("ovMenu");}
 function closeMenu(){show(null);}
-function renderMenu(){const el=$("menuBody");["party","bag","rest"].forEach(t=>$("tab-"+t).classList.toggle("on",menuTab===t));el.innerHTML="";
+function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forEach(t=>$("tab-"+t).classList.toggle("on",menuTab===t));el.innerHTML="";
   if(menuTab==="party"){G.party.forEach((h,idx)=>{const d=document.createElement("div");d.className="sheet";d.appendChild(spriteCanvas(h.id,0,0,h.race));
       const w=weaponOf(h,"main"),a=weaponOf(h,"alt");const fxg=gearFx(h);
       const abl=ABILS.map(k=>`<div><b>${ABN[k]}</b>${score(h,k)}<i>${sgn(abm(h,k))}</i></div>`).join("");
@@ -294,6 +294,9 @@ function renderMenu(){const el=$("menuBody");["party","bag","rest"].forEach(t=>$
       if(id==="torch")btn("PLACE HERE",()=>{takeItem(id);const L=G.party[0];G.dropLights.push({x:L.x,y:L.y});fov();renderMenu();});
       d.appendChild(acts);el.appendChild(d);}}
   if(G&&G.seed!==undefined)el.insertAdjacentHTML("beforeend",`<p class="sm">Dungeon seed: ${G.seed} (type it on the town screen to replay this dungeon)</p>`);
+  if(menuTab==="notes"){const ns=(G.notes||[]).slice().reverse();el.insertAdjacentHTML("beforeend",`<p class="help">Everything you've been told on this run, newest first.</p>`);
+    if(!ns.length)el.insertAdjacentHTML("beforeend","<p class='help'>Nothing yet.</p>");let fl=null;
+    for(const n of ns){if(n.f!==fl){fl=n.f;el.insertAdjacentHTML("beforeend",`<h3>FLOOR ${n.f}</h3>`);}el.insertAdjacentHTML("beforeend",`<p class="note">${esc(n.t)}</p>`);}}
   if(menuTab==="rest"){const fat=G.fatigue>=6?"Weary: everyone gains exhaustion as you push on":G.fatigue>=3?"Tired: you can make camp":"Fresh";
     const ex=G.party.filter(h=>!h.dead&&h.exh).map(h=>`${esc(h.name)} ${h.exh}`).join(", ");
     el.insertAdjacentHTML("beforeend",`<p><b>Fatigue:</b> ${S.rules.fatigue?fat:"off in settings"} · <b>Exhaustion:</b> ${ex||"none"}</p>
@@ -353,3 +356,7 @@ function readSettings(){const ns=clone(S);let errs=0;
   const read=(obj,prefix,cols)=>{for(const [k,,kind,lo,hi] of cols){if(kind==="n")obj[k]=num(prefix+k,lo,hi);else if(kind==="dc")obj[k]=dice(prefix+k);else obj[k]=txt(prefix+k);}};
   ns.classes.forEach((c,i)=>read(c,`sc-${i}-`,CCOLS));ns.monsters.forEach((m,i)=>read(m,`sm-${i}-`,MCOLS));read(ns.boss,"sb-",MCOLS.filter(c=>c[0]!=="from"));
   return errs?null:ns;}
+
+// every message shown outside combat is kept in the NOTES tab, so nothing you learn is lost
+function note(text){if(!G||G.demo||mode==="combat"||!text)return;G.notes=G.notes||[];const last=G.notes[G.notes.length-1];if(last&&last.t===text)return;G.notes.push({f:G.floor,t:text});if(G.notes.length>200)G.notes.shift();}
+const BUMP_NAME={barrel:"A barrel",chest:"A chest",shrine:"A shrine",runes:"A rune stone",merchant:"A merchant",wood:"A wooden barricade",captive:"A captive",relic:"The relic",coffer:"A coffer",rubble:"Fallen rock",cavein:"A cave-in",furniture:"Old furniture",alchemy:"An alchemy bench"};

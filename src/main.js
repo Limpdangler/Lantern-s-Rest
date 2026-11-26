@@ -42,7 +42,7 @@ $("btnCancel").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)show(null);e
 $("btnReset").addEventListener("click",()=>{S=clone(DEFAULTS);buildSettings();$("setMsg").textContent="Defaults loaded. Press Save to use them.";});
 $("btnSave").addEventListener("click",()=>{const ns=readSettings();if(!ns){$("setMsg").textContent="Some boxes need fixing (shown in red). Damage must look like 1d8+3 or 2d6.";return;}
   S=ns;saveSettings();buildClassCards();showTown("Settings saved.");});
-["party","bag","rest"].forEach(t=>$("tab-"+t).addEventListener("click",()=>{menuTab=t;renderMenu();}));
+["party","bag","notes","rest"].forEach(t=>$("tab-"+t).addEventListener("click",()=>{menuTab=t;renderMenu();}));
 $("menuClose").addEventListener("click",closeMenu);$("shopClose").addEventListener("click",()=>{show(null);hud();});
 
 buildClassCards();renderTown();
