@@ -236,7 +236,7 @@ function drawD20(x,y,n,dim,crit,fum){x=Math.round(x);y=Math.round(y);const r=8;c
 // ================= overlays =================
 function show(id){["ovTown","ovClass","ovEnd","ovSettings","ovMenu","ovShop"].forEach(o=>$(o).hidden=o!==id);}
 function showEnd(won,line){$("endTitle").textContent=won?"Victory!":"Your party fell";
-  const coins=bankRun(won);$("endStats").innerHTML=`${line}<br>Party: ${G.party.concat(G.fallen||[]).map(h=>esc(heroLabel(h))+(h.dead?" (fell)":"")).join(", ")}<br><b>+${coins} coins for the town</b> (you have ${TOWN.coins})<br>Level ${G.level} · floor ${G.floor} of ${S.dungeon.floors}<br>Monsters defeated: ${G.kills}<br>Gold: ${G.gold}`;
+  const coins=bankRun(won);clearRun();$("endStats").innerHTML=`${line}<br>Party: ${G.party.concat(G.fallen||[]).map(h=>esc(heroLabel(h))+(h.dead?" (fell)":"")).join(", ")}<br><b>+${coins} coins for the town</b> (you have ${TOWN.coins})<br>Level ${G.level} · floor ${G.floor} of ${S.dungeon.floors}<br>Monsters defeated: ${G.kills}<br>Gold: ${G.gold}`;
   setTimeout(()=>show("ovEnd"),500);}
 function spriteCanvas(id,w,h,race){const c=document.createElement("canvas");c.width=16;c.height=CH_H;c.getContext("2d").drawImage(heroSpr(id,"f",0,race),0,0);if(w){c.style.width=w+"px";c.style.height=h+"px";}return c;}
 function buildClassCards(){const box=$("classCards");box.innerHTML="";

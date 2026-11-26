@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Lantern Crawl</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -210,6 +211,7 @@ input.err{border-color:var(--bad);background:#4a1f26}
   <div class="ov" id="ovTown">
     <h2>Lantern's Rest</h2>
     <div id="townBody"></div>
+    <button class="big" id="btnContinue" type="button" hidden>CONTINUE RUN</button>
     <div class="row"><button class="big" id="btnSetOut" type="button">SET OUT</button><button class="big alt" id="btnTownSettings" type="button">SETTINGS</button></div>
   </div>
   <div class="ov" id="ovClass" hidden>
@@ -1815,7 +1817,7 @@ async function victory(){mode="combatEnd";busy=true;buildPanel();const xp=C.xp;
   C=null;mode="explore";showCombatUI(false);fov();hud();
   if(S.rules.fatigue){G.fatigue++;await partyWeary();}
   if(G.pendingRest&&!G.over&&G.party.length){const camp=G.pendingRest;G.pendingRest=null;const lines=await applyLongRest(camp);await say(`With the attackers dealt with, the party finishes its rest.${lines.length?" "+lines.join(" "):""}`,1600,true);$("tBox").hidden=true;}
-  for(const h of G.party)h.armourOff=false;await chooseSubclasses();await chooseFeats();busy=false;hud();
+  for(const h of G.party)h.armourOff=false;await chooseSubclasses();await chooseFeats();autoSave(true);busy=false;hud();
   if(!G.party.length){G.over=true;showEnd(false,"Every hero has fallen.");return;}
   if(G.floor>=S.dungeon.floors&&!G.mons.some(m=>m.boss)){G.over=true;showEnd(true,`You defeated the ${esc(S.boss.name)}!`);return;}
   if(G.goalPending){G.goalPending=false;await goalDone(`${G.goal.target.name} is dead.`);}
@@ -1824,7 +1826,7 @@ async function victory(){mode="combatEnd";busy=true;buildPanel();const xp=C.xp;
 async function defeat(){mode="combatEnd";busy=true;buildPanel();await say("The last hero falls. The lantern gutters out...",1600);G.over=true;showCombatUI(false);showEnd(false,`Your party fell on floor ${G.floor}.`);}
 
 // ================= exploring =================
-function newRun(ci,race){
+function newRun(ci,race){clearRun();
   G={party:[],bag:{potion:2,torch:1,oil:1,ration:3,firewood:2},gold:0,floor:1,level:1,xp:0,kills:0,over:false,fatigue:0,steps:0,fallen:[],
     light:true,fuel:FUEL_MAX,lightR:4,lore:{},sneak:false,coldUsed:false,shortRests:0,theme:pick(THEME_KEYS),known:new Set(KNOWN_START),idTried:new Set(),goal:null};
   if(hasUp("pack")){G.bag.ration+=2;G.bag.firewood+=2;}if(hasUp("lamp"))G.bag.oil+=2;if(hasUp("apoth"))G.bag.potion+=2;if(hasUp("yard"))G.level=2;
@@ -1867,7 +1869,7 @@ async function doMove(dx,dy){if(G.party[0].down){const i=G.party.findIndex(h=>!h
   fov();await onEnter(L,nx,ny,{});collectItems(L);
   await huntStep();if(G.sneak)await huntStep();wanderStep();if(Math.floor(G.steps/150)>Math.floor(before/150))wakeWanderers();await factionClash();if(mode!=="explore")return;
   if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){await stairsPrompt();return;}
-  passiveDetect();spotLurkers();fov();hud();await loreCheck();if(G.level>=3&&G.party.some(h=>!h.dead&&!h.sub&&SUBS[h.id]))await chooseSubclasses();if(G.level>=4&&G.party.some(h=>!h.dead&&h.id!=="beast"&&(h.picks||0)<(G.level>=8?2:1)))await chooseFeats();await checkAwareness();}
+  passiveDetect();spotLurkers();fov();hud();autoSave();await loreCheck();if(G.level>=3&&G.party.some(h=>!h.dead&&!h.sub&&SUBS[h.id]))await chooseSubclasses();if(G.level>=4&&G.party.some(h=>!h.dead&&h.id!=="beast"&&(h.picks||0)<(G.level>=8?2:1)))await chooseFeats();await checkAwareness();}
 async function huntStep(){for(const m of G.mons){if(m.state!=="hunt"||m.hp<=0)continue;const dist=dijkstra(m,40);let best=null,bd=1e9;
     for(const h of G.party){if(h.dead)continue;for(const [ax,ay] of DIRS8){const k=(h.y+ay)*G.W+h.x+ax;const v=dist.get(k);if(v&&v.c<bd){bd=v.c;best=k;}}}
     if(best!==null){const p=pathTo(dist,best);const step=p.slice(0,1);if(step.length&&!unitAt(step[0]%G.W,(step[0]/G.W)|0)){m.x=step[0]%G.W;m.y=(step[0]/G.W)|0;}}}}
@@ -1977,7 +1979,7 @@ async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&
 async function stairsPrompt(){const c=await choose(`A ladder leads down to floor ${G.floor+1}. The party can camp safely at the bottom.`,[{t:"CLIMB DOWN"},{t:"NOT YET",sub:"Keep exploring this floor"}]);
   if(c!==0)return;if(G.goal&&G.goal.type==="relic"&&!G.goal.done&&G.bag.relic){takeItem("relic");await goalDone("You hand the idol to a waiting scout.");}
   if(!await ladderRest()){$("tBox").hidden=true;return;}await checkDeserters();if(!G.party.length)return;
-  if(G.floor+1<S.dungeon.floors)await chooseRoute();G.floor++;genFloor();hud();
+  if(G.floor+1<S.dungeon.floors)await chooseRoute();G.floor++;genFloor();hud();lastSaveStep=-1;autoSave(true);
   toast(`Floor ${G.floor}${G.floor>=S.dungeon.floors?". The ground shakes. Something huge is down here.":": "+THEMES[G.theme].name+"."}${G.goal?" Goal: "+G.goal.desc+".":""}`);
   log(`Floor ${G.floor}. The party rests at the foot of the ladder.`,"lv");}
 // ---------- rests (see ex5e.js for camping) ----------
@@ -2167,7 +2169,7 @@ async function doRest(long){if(mode!=="explore"||busy)return;
   if(long){const lines=await applyLongRest(camp);
     await say(camp.type==="fire"?`Morning comes. HP, spells and skills restored, half your Hit Dice back.${lines.length?" "+lines.join(" "):""}`:`A cold, uneasy night. Spells and skills restored, HP back to at least half.${lines.length?" "+lines.join(" "):""}`,1900,true);}
   else await shortRest();
-  $("tBox").hidden=true;busy=false;hud();}
+  $("tBox").hidden=true;busy=false;hud();autoSave(true);}
 async function shortRest(){G.shortRests++;const lines=[];for(const h of G.party){if(h.dead)continue;if(h.down){h.down=false;h.hp=1;h.stable=false;delete h.st.prone;}let healed=0;const con=abm(h,"con");
     while(h.hp<h.maxHp*.75&&h.hdLeft>0){h.hdLeft--;const r=(rnd(h.def.hd)+con)*(gearFx(h).periapt?2:1);h.hp=Math.min(h.maxHp,h.hp+Math.max(1,r));healed+=Math.max(1,r);}
     for(const k of featRes(h))if(RES[k].rest==="sr")h.res[k]=RES[k].max(G.level);
@@ -2502,7 +2504,8 @@ let TOWN=loadTown();
 const hasUp=k=>!!TOWN.up[k];
 function bankRun(won){if(!G||G.banked||G.demo)return 0;G.banked=true;const n=Math.floor(G.gold/2)+G.kills*2+(G.floor-1)*15+(won?150:0);TOWN.coins+=n;TOWN.runs++;TOWN.best=Math.max(TOWN.best,G.floor);
   const lost=(G.fallen||[]).concat(won?[]:G.party);for(const h of lost)TOWN.fallen.unshift(`${heroLabel(h)} (${RACES[h.race]?RACES[h.race].name:""}), fell on floor ${G.floor}`);TOWN.fallen=TOWN.fallen.slice(0,12);saveTown();return n;}
-function renderTown(msg){const el=$("townBody");el.innerHTML="";
+function renderTown(msg){const el=$("townBody");el.innerHTML="";const sv=peekRun();const cb=$("btnContinue");cb.hidden=!sv;if(sv)cb.innerHTML=`CONTINUE RUN<br><small>${esc(runSummary(sv))}</small>`;
+  $("btnSetOut").textContent=sv?"NEW RUN (abandons the saved one)":"SET OUT";
   el.insertAdjacentHTML("beforeend",`${msg?`<p class="msg">${msg}</p>`:""}<p>Lantern's Rest, the last village before the dark. Coins earned on every run (won or lost) stay here and buy lasting help.</p>
     <p><b>Town coins: ${TOWN.coins}</b> · runs ${TOWN.runs} · deepest floor ${TOWN.best||"–"}</p>`);
   for(const u of TOWN_UP){const d=document.createElement("div");d.className="item";d.style.gridTemplateColumns="1fr auto";const own=hasUp(u.id);
@@ -2731,6 +2734,52 @@ function drawClassOverlays(camX,camY,t){
   const sh=(x,y)=>{if(!G.explored[y][x])return;const sx=x*TS-camX,sy=y*TS-camY,p=(t/180+x+y)%6;ctx.fillStyle="rgba(170,140,255,.9)";ctx.fillRect(sx+3+p*2%10,sy+2+(p*3)%9,1,1);ctx.fillRect(sx+11-(p*2)%8,sy+5+(p*5)%8,1,1);};
   for(const o of G.objs)if(o.magic&&!o.opened&&!o.gone)sh(o.x,o.y);for(const c of G.corpses||[])if(c.magic&&!c.searched)sh(c.x,c.y);for(const it of G.items)if(it.magic)sh(it.x,it.y);
   for(const tr of G.traps)if(tr.ours&&!tr.done&&G.explored[tr.y][tr.x]){const sx=tr.x*TS-camX,sy=tr.y*TS-camY;ctx.strokeStyle="rgba(120,220,120,.7)";ctx.strokeRect(sx+2.5,sy+2.5,11,11);}}
+
+// ===== saving and resuming a run =====
+// The whole run lives in G. To save it we turn it into plain text (JSON). A few things need special care:
+// - heroes and monsters referred to from elsewhere (a goal's target, a web's caster) are saved as references, not copies
+// - lists that are Sets/Maps are converted to arrays, typed arrays to plain arrays
+// - things that point at shared game data (a hero's class info, a monster's traits, the floor palette) are saved by name and re-linked on load
+// - pictures (the painted terrain) are not saved; they're simply redrawn on load
+const RUN_KEY="lantern-crawl-run-v1",SAVE_VERSION=1;
+const SKIP_KEYS={terr:1,lit:1,vis:1,pebble:1,owlPick:1,info:1,tr:1,pal:1};
+function packRun(){const units=new Map();G.party.forEach((u,i)=>units.set(u,{h:i}));G.mons.forEach((u,i)=>units.set(u,{m:i}));
+  const walk=(v,top)=>{if(v===null||typeof v!=="object")return typeof v==="function"?undefined:v;
+    if(!top&&units.has(v))return {__unit:units.get(v)};
+    if(v instanceof Set)return {__set:[...v].map(x=>walk(x))};if(v instanceof Map)return {__map:[...v].map(([k,x])=>[walk(k),walk(x)])};
+    if(ArrayBuffer.isView(v))return {__arr:Array.from(v)};if(typeof HTMLCanvasElement!=="undefined"&&v instanceof HTMLCanvasElement)return undefined;
+    if(Array.isArray(v))return v.map(x=>walk(x));
+    const o={};for(const k in v){if(SKIP_KEYS[k])continue;const w=walk(v[k]);if(w!==undefined)o[k]=w;}return o;};
+  const out={};for(const k in G){if(SKIP_KEYS[k])continue;
+    if(k==="party"||k==="mons")out[k]=G[k].map(u=>walk(u,true));else{const w=walk(G[k]);if(w!==undefined)out[k]=w;}}
+  out.palName=Object.keys(PALS).find(k=>PALS[k]===G.pal)||"earth";return {v:SAVE_VERSION,when:Date.now(),G:out};}
+function unpackRun(data){const raw=data.G;const party=raw.party,mons=raw.mons;
+  const fix=v=>{if(v===null||typeof v!=="object")return v;if(Array.isArray(v))return v.map(fix);
+    if(v.__set)return new Set(v.__set.map(fix));if(v.__map)return new Map(v.__map.map(([k,x])=>[fix(k),fix(x)]));if(v.__arr)return Uint8Array.from(v.__arr);
+    if(v.__unit)return v.__unit;// resolved below, once every hero and monster exists
+    for(const k in v)v[k]=fix(v[k]);return v;};
+  const g={};for(const k in raw)g[k]=fix(raw[k]);
+  for(const h of g.party)h.info=CINFO[h.def.id]||CINFO[h.id];for(const m of g.mons)m.tr=MTRAITS[m.key]||MTRAITS.goblin;
+  const res=r=>r&&typeof r==="object"&&(r.h!==undefined||r.m!==undefined)&&Object.keys(r).length===1?(r.h!==undefined?g.party[r.h]:g.mons[r.m]):undefined;
+  const link=v=>{if(v===null||typeof v!=="object")return v;if(v instanceof Set||v instanceof Map||ArrayBuffer.isView(v))return v;
+    if(Array.isArray(v)){for(let i=0;i<v.length;i++){const u=res(v[i]);if(u)v[i]=u;else link(v[i]);}return v;}
+    for(const k in v){const u=res(v[k]);if(u)v[k]=u;else link(v[k]);}return v;};
+  for(const k in g)if(k!=="party"&&k!=="mons")link(g[k]);for(const u of g.party.concat(g.mons))for(const k in u){if(k==="def")continue;const r=res(u[k]);if(r)u[k]=r;else link(u[k]);}
+  g.pal=PALS[raw.palName]||PALS.earth;delete g.palName;return g;}
+function saveRun(){if(!G||G.demo||G.over||mode!=="explore"||busy)return false;try{localStorage.setItem(RUN_KEY,JSON.stringify(packRun()));return true;}catch(e){return false;}}
+function clearRun(){try{localStorage.removeItem(RUN_KEY);}catch(e){}}
+function peekRun(){try{const s=localStorage.getItem(RUN_KEY);if(!s)return null;const d=JSON.parse(s);if(d.v!==SAVE_VERSION)return null;return d;}catch(e){return null;}}
+function resumeRun(){const d=peekRun();if(!d)return false;let g;try{g=unpackRun(d);}catch(e){console.error(e);clearRun();return false;}
+  G=g;C=null;mode="explore";busy=false;camFocus=null;G.vis=new Set();G.lit=new Uint8Array(G.W*G.H);
+  for(const u of G.party.concat(G.mons)){u.dx=u.x*TS;u.dy=u.y*TS;}
+  show(null);showCombatUI(false);clearLog();buildTerrain();computeLight();fov();hud();
+  log(`Welcome back. ${esc(heroLabel(G.party[0]))} picks up where they left off, floor ${G.floor}.`,"lv");toast(`Run resumed: floor ${G.floor}${G.goal?" · Goal: "+G.goal.desc:""}.`);return true;}
+function runSummary(d){const g=d.G;const p=(g.party||[]).filter(h=>!h.dead).map(h=>h.nick||h.name).join(", ");return `Floor ${g.floor} · level ${g.level} · ${p}`;}
+// save automatically: every few steps, on every new floor, after rests, and whenever the page is hidden or closed
+let lastSaveStep=-1;
+function autoSave(force){if(!G||G.demo||G.over)return;if(!force&&G.steps-lastSaveStep<8)return;if(saveRun())lastSaveStep=G.steps;}
+document.addEventListener("visibilitychange",()=>{if(document.hidden)autoSave(true);});
+window.addEventListener("pagehide",()=>autoSave(true));
 
 // ================= sprites =================
 const sprCache={};
@@ -2970,7 +3019,7 @@ function drawD20(x,y,n,dim,crit,fum){x=Math.round(x);y=Math.round(y);const r=8;c
 // ================= overlays =================
 function show(id){["ovTown","ovClass","ovEnd","ovSettings","ovMenu","ovShop"].forEach(o=>$(o).hidden=o!==id);}
 function showEnd(won,line){$("endTitle").textContent=won?"Victory!":"Your party fell";
-  const coins=bankRun(won);$("endStats").innerHTML=`${line}<br>Party: ${G.party.concat(G.fallen||[]).map(h=>esc(heroLabel(h))+(h.dead?" (fell)":"")).join(", ")}<br><b>+${coins} coins for the town</b> (you have ${TOWN.coins})<br>Level ${G.level} · floor ${G.floor} of ${S.dungeon.floors}<br>Monsters defeated: ${G.kills}<br>Gold: ${G.gold}`;
+  const coins=bankRun(won);clearRun();$("endStats").innerHTML=`${line}<br>Party: ${G.party.concat(G.fallen||[]).map(h=>esc(heroLabel(h))+(h.dead?" (fell)":"")).join(", ")}<br><b>+${coins} coins for the town</b> (you have ${TOWN.coins})<br>Level ${G.level} · floor ${G.floor} of ${S.dungeon.floors}<br>Monsters defeated: ${G.kills}<br>Gold: ${G.gold}`;
   setTimeout(()=>show("ovEnd"),500);}
 function spriteCanvas(id,w,h,race){const c=document.createElement("canvas");c.width=16;c.height=CH_H;c.getContext("2d").drawImage(heroSpr(id,"f",0,race),0,0);if(w){c.style.width=w+"px";c.style.height=h+"px";}return c;}
 function buildClassCards(){const box=$("classCards");box.innerHTML="";
@@ -3117,7 +3166,8 @@ document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;con
   if(mode==="combat"){if(k==="e")endHeroTurn();if(k==="escape")cancelTarget();return;}
   const map={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
   if(map[k]){e.preventDefault();if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;f();}}else if(k==="f")search();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="m")openMenu();else if(k===".")waitStep();});
-$("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)bankRun(false);showTown();});
+$("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)autoSave(true);showTown(G&&!G.over&&!G.demo&&peekRun()?"Your run is saved. Continue it any time.":"");});
+$("btnContinue").addEventListener("click",()=>{if(!resumeRun())showTown("That saved run couldn't be loaded, sorry.");});
 $("btnSetOut").addEventListener("click",()=>{buildClassCards();show("ovClass");});$("btnTownSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});
 $("btnSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});
 $("btnEndSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});

@@ -152,7 +152,7 @@ async function doRest(long){if(mode!=="explore"||busy)return;
   if(long){const lines=await applyLongRest(camp);
     await say(camp.type==="fire"?`Morning comes. HP, spells and skills restored, half your Hit Dice back.${lines.length?" "+lines.join(" "):""}`:`A cold, uneasy night. Spells and skills restored, HP back to at least half.${lines.length?" "+lines.join(" "):""}`,1900,true);}
   else await shortRest();
-  $("tBox").hidden=true;busy=false;hud();}
+  $("tBox").hidden=true;busy=false;hud();autoSave(true);}
 async function shortRest(){G.shortRests++;const lines=[];for(const h of G.party){if(h.dead)continue;if(h.down){h.down=false;h.hp=1;h.stable=false;delete h.st.prone;}let healed=0;const con=abm(h,"con");
     while(h.hp<h.maxHp*.75&&h.hdLeft>0){h.hdLeft--;const r=(rnd(h.def.hd)+con)*(gearFx(h).periapt?2:1);h.hp=Math.min(h.maxHp,h.hp+Math.max(1,r));healed+=Math.max(1,r);}
     for(const k of featRes(h))if(RES[k].rest==="sr")h.res[k]=RES[k].max(G.level);

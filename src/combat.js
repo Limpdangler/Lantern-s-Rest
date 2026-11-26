@@ -329,7 +329,7 @@ async function victory(){mode="combatEnd";busy=true;buildPanel();const xp=C.xp;
   C=null;mode="explore";showCombatUI(false);fov();hud();
   if(S.rules.fatigue){G.fatigue++;await partyWeary();}
   if(G.pendingRest&&!G.over&&G.party.length){const camp=G.pendingRest;G.pendingRest=null;const lines=await applyLongRest(camp);await say(`With the attackers dealt with, the party finishes its rest.${lines.length?" "+lines.join(" "):""}`,1600,true);$("tBox").hidden=true;}
-  for(const h of G.party)h.armourOff=false;await chooseSubclasses();await chooseFeats();busy=false;hud();
+  for(const h of G.party)h.armourOff=false;await chooseSubclasses();await chooseFeats();autoSave(true);busy=false;hud();
   if(!G.party.length){G.over=true;showEnd(false,"Every hero has fallen.");return;}
   if(G.floor>=S.dungeon.floors&&!G.mons.some(m=>m.boss)){G.over=true;showEnd(true,`You defeated the ${esc(S.boss.name)}!`);return;}
   if(G.goalPending){G.goalPending=false;await goalDone(`${G.goal.target.name} is dead.`);}

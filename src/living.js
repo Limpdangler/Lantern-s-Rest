@@ -135,7 +135,8 @@ let TOWN=loadTown();
 const hasUp=k=>!!TOWN.up[k];
 function bankRun(won){if(!G||G.banked||G.demo)return 0;G.banked=true;const n=Math.floor(G.gold/2)+G.kills*2+(G.floor-1)*15+(won?150:0);TOWN.coins+=n;TOWN.runs++;TOWN.best=Math.max(TOWN.best,G.floor);
   const lost=(G.fallen||[]).concat(won?[]:G.party);for(const h of lost)TOWN.fallen.unshift(`${heroLabel(h)} (${RACES[h.race]?RACES[h.race].name:""}), fell on floor ${G.floor}`);TOWN.fallen=TOWN.fallen.slice(0,12);saveTown();return n;}
-function renderTown(msg){const el=$("townBody");el.innerHTML="";
+function renderTown(msg){const el=$("townBody");el.innerHTML="";const sv=peekRun();const cb=$("btnContinue");cb.hidden=!sv;if(sv)cb.innerHTML=`CONTINUE RUN<br><small>${esc(runSummary(sv))}</small>`;
+  $("btnSetOut").textContent=sv?"NEW RUN (abandons the saved one)":"SET OUT";
   el.insertAdjacentHTML("beforeend",`${msg?`<p class="msg">${msg}</p>`:""}<p>Lantern's Rest, the last village before the dark. Coins earned on every run (won or lost) stay here and buy lasting help.</p>
     <p><b>Town coins: ${TOWN.coins}</b> · runs ${TOWN.runs} · deepest floor ${TOWN.best||"–"}</p>`);
   for(const u of TOWN_UP){const d=document.createElement("div");d.className="item";d.style.gridTemplateColumns="1fr auto";const own=hasUp(u.id);

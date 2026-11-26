@@ -32,7 +32,8 @@ document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;con
   if(mode==="combat"){if(k==="e")endHeroTurn();if(k==="escape")cancelTarget();return;}
   const map={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
   if(map[k]){e.preventDefault();if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;f();}}else if(k==="f")search();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="m")openMenu();else if(k===".")waitStep();});
-$("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)bankRun(false);showTown();});
+$("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)autoSave(true);showTown(G&&!G.over&&!G.demo&&peekRun()?"Your run is saved. Continue it any time.":"");});
+$("btnContinue").addEventListener("click",()=>{if(!resumeRun())showTown("That saved run couldn't be loaded, sorry.");});
 $("btnSetOut").addEventListener("click",()=>{buildClassCards();show("ovClass");});$("btnTownSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});
 $("btnSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});
 $("btnEndSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});
