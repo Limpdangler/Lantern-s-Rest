@@ -1,7 +1,9 @@
 // ================= exploring =================
 function newRun(ci,race){clearRun();
-  G={party:[],bag:{potion:2,torch:1,oil:1,ration:3,firewood:2},gold:0,floor:1,level:1,xp:0,kills:0,over:false,fatigue:0,steps:0,fallen:[],
-    light:true,fuel:FUEL_MAX,lightR:4,lore:{},sneak:false,coldUsed:false,shortRests:0,theme:pick(THEME_KEYS),known:new Set(KNOWN_START),idTried:new Set(),goal:null};
+  const seedIn=parseInt(($("seedIn")&&$("seedIn").value||"").replace(/\D/g,""),10);
+  const seed=Number.isFinite(seedIn)?seedIn%1000000:Math.floor(NATIVE_RANDOM()*1000000);
+  G={seed,party:[],bag:{potion:2,torch:1,oil:1,ration:3,firewood:2},gold:0,floor:1,level:1,xp:0,kills:0,over:false,fatigue:0,steps:0,fallen:[],
+    light:true,fuel:FUEL_MAX,lightR:4,lore:{},sneak:false,coldUsed:false,shortRests:0,theme:THEME_KEYS[Math.floor(seededRandom(seed)()*THEME_KEYS.length)],known:new Set(KNOWN_START),idTried:new Set(),goal:null};
   if(hasUp("pack")){G.bag.ration+=2;G.bag.firewood+=2;}if(hasUp("lamp"))G.bag.oil+=2;if(hasUp("apoth"))G.bag.potion+=2;if(hasUp("yard"))G.level=2;
   if(hasUp("armoury")){const g=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&!ITEMS[k].cursed&&ITEMS[k].floor<=2);const it=pick(g);addItem(it);G.known.add(it);}
   const hero=mkHero(S.classes[ci],race||"human");nameHero(hero);hero.isYou=true;G.party.push(hero);

@@ -13,7 +13,7 @@ GROUPS.forEach((g,i)=>g.fac=GROUP_FAC[i]||"none");
 function pickGroup(list){const th=THEMES[G.theme];const w=list.map(g=>th&&th.fac.includes(g.fac)?5:1);let q=Math.random()*w.reduce((a,b)=>a+b,0);for(let i=0;i<list.length;i++){q-=w[i];if(q<=0)return list[i];}return list[0];}
 const HINTS={warrens:["Smoke, and the stink of unwashed bodies.","Distant cackling echoes up the shaft."],crypt:["Cold, still air. A faint smell of old incense.","Utter silence. Too silent."],
   flooded:["The sound of dripping water, everywhere.","The walls glisten wet in the lantern light."],den:["Deep claw marks score the rock.","A musky, animal smell drifts up."],mines:["Old cart rails vanish into the dark.","A sharp tang of lamp oil hangs in the air."]};
-async function chooseRoute(){const opts=shuffle(THEME_KEYS.slice()).slice(0,2);
+async function chooseRoute(){const r=seededRandom(G.seed*13+G.floor);const ks=THEME_KEYS.slice();const opts=[];while(opts.length<2){const k=ks.splice(Math.floor(r()*ks.length),1)[0];opts.push(k);}
   const c=await choose(`Two tunnels lead down to floor ${G.floor+1}. Which way?`,opts.map((k,i)=>({t:i?"RIGHT TUNNEL":"LEFT TUNNEL",sub:pick(HINTS[k])})));
   G.theme=opts[Math.max(0,c)];log(`The party heads into the ${esc(THEMES[G.theme].name)}.`,"lv");}
 // ---------- hostile factions ----------

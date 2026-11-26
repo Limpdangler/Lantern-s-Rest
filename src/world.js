@@ -52,7 +52,11 @@ function interiorFree(r,blocking){const opts=[];for(let y=r.y+(blocking?1:0);y<r
     opts.push({x,y});}
   return opts.length?pick(opts):null;}
 
-function genFloor(){
+// Each run has a seed: the same seed always builds the same floors (handy for reporting bugs, or racing a friend on the same dungeon).
+function seededRandom(seed){let a=seed>>>0;return function(){a=a+0x6D2B79F5>>>0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+const NATIVE_RANDOM=Math.random;
+function genFloor(){if(G&&G.seed!==undefined&&!G.demo){Math.random=seededRandom(G.seed*7919+G.floor*104729);try{genFloorInner();}finally{Math.random=NATIVE_RANDOM;}return;}genFloorInner();}
+function genFloorInner(){
   const D=S.dungeon;const last=G.floor>=D.floors;let m=null;
   while(!m)m=genMap(D.width,D.height,D.rooms);
   Object.assign(G,{W:D.width,H:D.height,t:m.t,rooms:m.rooms,objs:[],traps:[],torches:[],dropLights:[],fire:new Map(),items:[],npc:null,mons:[],stairs:null,tseed:undefined,entangle:new Set(),spikes:new Set(),searched:new Set(),corpses:[],searchMsg:{},sneakArea:null,pendingRest:null});

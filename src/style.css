@@ -159,3 +159,6 @@ input.err{border-color:var(--bad);background:#4a1f26}
 .tgl .chip{flex:1;font-size:11px;padding:7px 6px}
 .tgl .chip.on{background:var(--gold);color:#1a1208}
 .pc{cursor:pointer}
+
+.seedrow{display:block;font-size:12px;margin:8px 0;opacity:.85}
+.seedrow input{width:8em;font:inherit;padding:4px 6px;border-radius:6px;border:1px solid #6a5a48;background:#1e1814;color:#f0e6d2}

@@ -236,7 +236,7 @@ function drawD20(x,y,n,dim,crit,fum){x=Math.round(x);y=Math.round(y);const r=8;c
 // ================= overlays =================
 function show(id){["ovTown","ovClass","ovEnd","ovSettings","ovMenu","ovShop"].forEach(o=>$(o).hidden=o!==id);}
 function showEnd(won,line){$("endTitle").textContent=won?"Victory!":"Your party fell";
-  const coins=bankRun(won);clearRun();$("endStats").innerHTML=`${line}<br>Party: ${G.party.concat(G.fallen||[]).map(h=>esc(heroLabel(h))+(h.dead?" (fell)":"")).join(", ")}<br><b>+${coins} coins for the town</b> (you have ${TOWN.coins})<br>Level ${G.level} · floor ${G.floor} of ${S.dungeon.floors}<br>Monsters defeated: ${G.kills}<br>Gold: ${G.gold}`;
+  const coins=bankRun(won);clearRun();const seedTxt=`<br><span class="sm">Dungeon seed: ${G.seed}</span>`;$("endStats").innerHTML=`${line}<br>Party: ${G.party.concat(G.fallen||[]).map(h=>esc(heroLabel(h))+(h.dead?" (fell)":"")).join(", ")}<br><b>+${coins} coins for the town</b> (you have ${TOWN.coins})${seedTxt}<br>Level ${G.level} · floor ${G.floor} of ${S.dungeon.floors}<br>Monsters defeated: ${G.kills}<br>Gold: ${G.gold}`;
   setTimeout(()=>show("ovEnd"),500);}
 function spriteCanvas(id,w,h,race){const c=document.createElement("canvas");c.width=16;c.height=CH_H;c.getContext("2d").drawImage(heroSpr(id,"f",0,race),0,0);if(w){c.style.width=w+"px";c.style.height=h+"px";}return c;}
 function buildClassCards(){const box=$("classCards");box.innerHTML="";
@@ -291,6 +291,7 @@ function renderMenu(){const el=$("menuBody");["party","bag","rest"].forEach(t=>$
       if(id==="antitoxin")for(const h of G.party)if(h.st.poisoned)btn(`GIVE: ${h.name.toUpperCase()}`,()=>{takeItem(id);delete h.st.poisoned;renderMenu();hud();});
       if(id==="torch")btn("PLACE HERE",()=>{takeItem(id);const L=G.party[0];G.dropLights.push({x:L.x,y:L.y});fov();renderMenu();});
       d.appendChild(acts);el.appendChild(d);}}
+  if(G&&G.seed!==undefined)el.insertAdjacentHTML("beforeend",`<p class="sm">Dungeon seed: ${G.seed} (type it on the town screen to replay this dungeon)</p>`);
   if(menuTab==="rest"){const fat=G.fatigue>=6?"Weary: everyone gains exhaustion as you push on":G.fatigue>=3?"Tired: you can make camp":"Fresh";
     const ex=G.party.filter(h=>!h.dead&&h.exh).map(h=>`${esc(h.name)} ${h.exh}`).join(", ");
     el.insertAdjacentHTML("beforeend",`<p><b>Fatigue:</b> ${S.rules.fatigue?fat:"off in settings"} · <b>Exhaustion:</b> ${ex||"none"}</p>
