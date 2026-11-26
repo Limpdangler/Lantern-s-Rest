@@ -132,10 +132,11 @@ function cardBtn(el,o){const b=document.createElement("button");b.type="button";
   b.addEventListener("click",async()=>{await o.f();if(!$("ovMenu").hidden)renderMenu();hud();});el.appendChild(b);}
 function heroUses(h){const U=[];const n=id=>(G.bag[id]||0)>0;const hurt=h.hp<h.maxHp||h.down;
   if(h.dead){if(n("scroll_revivify"))U.push({t:"READ SCROLL OF REVIVIFY",sub:"Back with 1 HP",f:()=>{takeItem("scroll_revivify");revive(h,"a Scroll of Revivify");}});return U;}
-  if(n("potion"))U.push({t:`HEALING POTION (${G.bag.potion})`,sub:hurt?"Heals 2d4+2":"Already at full health",dis:!hurt,f:()=>{takeItem("potion");heal(h,roll("2d4+2").total);}});
-  if(n("gpotion")&&isKnown("gpotion"))U.push({t:`GREATER HEALING (${G.bag.gpotion})`,sub:hurt?"Heals 4d4+4":"Already at full health",dis:!hurt,f:()=>{takeItem("gpotion");heal(h,roll("4d4+4").total);}});
+  if(n("potion"))U.push({t:`HEALING POTION (${G.bag.potion})`,sub:hurt?"Heals the full 10 (no rush out of combat)":"Already at full health",dis:!hurt,f:()=>{takeItem("potion");heal(h,potionMax("2d4+2"));}});
+  if(n("gpotion")&&isKnown("gpotion"))U.push({t:`GREATER HEALING (${G.bag.gpotion})`,sub:hurt?"Heals the full 20":"Already at full health",dis:!hurt,f:()=>{takeItem("gpotion");heal(h,potionMax("4d4+4"));}});
   if(n("scroll_cure")&&isKnown("scroll_cure"))U.push({t:"READ CURE WOUNDS SCROLL",sub:hurt?"Heals 2d8+3":"Already at full health",dis:!hurt,f:()=>{takeItem("scroll_cure");heal(h,roll("2d8+3").total);}});
   if(n("antitoxin")&&h.st.poisoned)U.push({t:"ANTITOXIN",sub:"Cures the poison",f:()=>{takeItem("antitoxin");delete h.st.poisoned;}});
+  if(n("shield")&&h.shieldBroken)U.push({t:"STRAP ON THE SPARE SHIELD",sub:"Back to full AC",f:()=>strapShield(h)});
   if(n("poisonvial")&&h.id!=="beast")U.push({t:"COAT WEAPON IN POISON",sub:h.coat?`Already coated (${h.coat.name})`:"Extra poison damage on the next hit",dis:!!h.coat,f:()=>{takeItem("poisonvial");h.coat={name:"poison",type:"poison",dice:"2d4"};}});
   return U;}
 function heroWild(h){const W=[];if(h.id!=="druid"||h.dead||h.down||mode!=="explore")return W;const n=h.res.wildshape||0;

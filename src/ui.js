@@ -99,7 +99,7 @@ function draw(t,dt){const sp=dt*TS/115;
   for(const m of G.mons)if(vis(m.x,m.y)&&(G.demo||!isHiddenMon(m)))ents.push({y:m.dy,f:()=>drawMon(m,camX,camY,t)});
   if(!G.demo)for(const h of G.party)ents.push({y:h.dy+(h.down?-4:0),f:()=>drawHero(h,camX,camY,t)});
   ents.sort((a,b)=>a.y-b.y).forEach(e=>e.f());
-  if(!G.demo)drawSmoke(camX,camY,t);drawCombatMarkers(t,camX,camY);drawFx(t,camX,camY);}
+  if(!G.demo){drawHoles(camX,camY);drawSmoke(camX,camY,t);}drawCombatMarkers(t,camX,camY);drawFx(t,camX,camY);}
 function drawFire(sx,sy,t,k){const fl=["#ff4a20","#ff9a30","#ffe070"];for(let i=0;i<4;i++){const h=6+Math.abs(Math.sin(t/120+i*1.7+k))*7;const x=sx+2+i*3.5;
   ctx.fillStyle=fl[0];ctx.fillRect(Math.round(x),Math.round(sy+15-h),3,Math.round(h));ctx.fillStyle=fl[1];ctx.fillRect(Math.round(x)+1,Math.round(sy+15-h*.7),2,Math.round(h*.7));ctx.fillStyle=fl[2];ctx.fillRect(Math.round(x)+1,Math.round(sy+15-h*.35),1,Math.round(h*.35));}}
 function drawFlames(sx,sy,t){const X=Math.round(sx),Y=Math.round(sy),fl=Math.floor(t/90)%2;ctx.fillStyle="#ff6a1a";ctx.fillRect(X+3,Y+4+fl,4,6);ctx.fillRect(X+9,Y+3-fl,4,7);ctx.fillStyle="#ffc040";ctx.fillRect(X+4,Y+6+fl,2,3);ctx.fillRect(X+10,Y+5-fl,2,3);ctx.fillStyle="rgba(60,50,50,.4)";ctx.fillRect(X+5,Y-3-fl,6,3);}
@@ -274,6 +274,8 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
       if(id==="scroll_revivify")for(const h of G.party.filter(q=>q.dead&&q.id!=="beast"))btn(`READ ON: ${h.name.toUpperCase()}`,()=>{takeItem(id);revive(h,"a Scroll of Revivify");renderMenu();});
       if(id==="scroll_cure"&&isKnown(id))for(const h of G.party)btn(`READ ON: ${h.name.toUpperCase()}`,()=>{takeItem(id);heal(h,roll("2d8+3").total);renderMenu();hud();},h.hp>=h.maxHp);
       if(id==="antitoxin")for(const h of G.party)if(h.st.poisoned)btn(`GIVE: ${h.name.toUpperCase()}`,()=>{takeItem(id);delete h.st.poisoned;renderMenu();hud();});
+      if(id==="shield")for(const h of G.party.filter(q=>q.shieldBroken&&!q.dead))btn(`STRAP ON: ${h.name.toUpperCase()}`,()=>{strapShield(h);renderMenu();});
+      if(id==="almanac")btn("READ IT",()=>{const t=readAlmanac();renderMenu();if(t)alertMenu(t);});
       if(id==="torch")btn("PLACE HERE",()=>{takeItem(id);const L=G.party[0];G.dropLights.push({x:L.x,y:L.y});fov();renderMenu();});
       d.appendChild(acts);el.appendChild(d);}}
   if(G&&G.seed!==undefined)el.insertAdjacentHTML("beforeend",`<p class="sm">Dungeon seed: ${G.seed} (type it on the town screen to replay this dungeon)</p>`);
@@ -285,11 +287,11 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
     el.insertAdjacentHTML("beforeend",`<p><b>Fatigue:</b> ${S.rules.fatigue?fat:"off in settings"} · <b>Exhaustion:</b> ${ex||"none"}</p>
       <p><b>Supplies:</b> ${G.bag.ration||0} rations · ${G.bag.firewood||0} firewood · lantern ${G.light&&G.fuel>0?Math.ceil(G.fuel/FUEL_MAX*100)+"% oil":"off"} · ${G.bag.oil||0} oil flasks</p>
       <p class="help"><b>Short rest</b> (2 between long rests): spend Hit Dice to heal, recharge short-rest skills. <b>Long rest</b> (only when Tired): eat a ration, then either a <b>fire camp</b> (needs firewood: full HP, half your Hit Dice back, −1 exhaustion, but the fire draws monsters) or a <b>cold camp</b> (safer, but HP only back to half and no Hit Dice or exhaustion recovered; two cold nights in a row cause exhaustion). Pick a watch: their Passive Perception decides if an ambush is spotted. On a cleared floor nobody comes. The ladder down is always safe.</p>
-      <p class="help"><b>Exhaustion:</b> each level is −2 to every d20 roll and −1 square of speed. Level 6 is death. A fed fire camp removes one level.</p>`);
+      <p class="help"><b>Exhaustion:</b> each level is −1 to every d20 roll (only half that on skills and saves you're proficient in) and −1 square of speed. You can't rest again straight after resting. Level 6 is death. A fed fire camp removes one level.</p>`);
     const mk=(t,sub,f,dis)=>{const b=document.createElement("button");b.type="button";b.className="big";b.innerHTML=`${t}<br><small>${sub}</small>`;b.disabled=!!dis;b.addEventListener("click",f);el.appendChild(b);};
     const cl=floorCleared();
-    mk("SHORT REST",`${maxShort()-G.shortRests} left · ${cl?"floor cleared: safe":"ambush risk "+Math.round(campRisk("short")*100)+"%"}`,()=>doRest(false),G.shortRests>=maxShort());
-    mk("MAKE CAMP (LONG REST)",`${S.rules.fatigue&&G.fatigue<3?"Only when Tired":cl?"Floor cleared: safe":"Fire "+Math.round(campRisk("fire")*100)+"% / cold "+Math.round(campRisk("cold")*100)+"% ambush risk"}`,()=>doRest(true),S.rules.fatigue&&G.fatigue<3);}}
+    mk("SHORT REST",`${maxShort()-G.shortRests} left · ${cl?"floor cleared: safe":"ambush risk "+Math.round(campRisk("short")*100)+"%"}`,()=>doRest(false),G.shortRests>=maxShort()||restTooSoon(false)>0);
+    mk("MAKE CAMP (LONG REST)",`${S.rules.fatigue&&G.fatigue<3?"Only when Tired":cl?"Floor cleared: safe":"Fire "+Math.round(campRisk("fire")*100)+"% / cold "+Math.round(campRisk("cold")*100)+"% ambush risk"}`,()=>doRest(true),S.rules.fatigue&&G.fatigue<3||restTooSoon(true)>0);}}
 function alertMenu(t){const el=$("menuBody");el.querySelectorAll(".msg").forEach(m=>m.remove());el.insertAdjacentHTML("afterbegin",`<p class="msg">${esc(t)}</p>`);}
 function drawIconTo(canvas,id){const c2=canvas.getContext("2d");if(id==="potion"||id==="gpotion"){c2.drawImage(monSpr("potion",id==="gpotion"?{r:"#4a7ae0",R:"#2a4aa0"}:null),0,0);return;}drawIconBase(c2,id);}
 function drawIconBase(c,id){const sx=0,sy=0;const it=ITEMS[id]||{};
@@ -313,7 +315,7 @@ function renderShop(){const el=$("shopBody");el.innerHTML=`<p>"Lamp oil, rope, b
     d.insertAdjacentHTML("beforeend",`<div><b>${esc(label.startsWith("BUY")?it.name:itemName(id))}</b><br><span class="sm">${esc(label.startsWith("BUY")?it.desc:itemDesc(id))}</span></div>`);const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=`${label} ${price}g`;b.disabled=!!dis;b.addEventListener("click",f);d.appendChild(b);el.appendChild(d);};
   if(shopObj.haggleMsg)el.insertAdjacentHTML("beforeend",`<p class="help">${esc(shopObj.haggleMsg)}</p>`);
   else{const hb=document.createElement("button");hb.type="button";hb.className="chip";hb.textContent=`HAGGLE · ${oddsTag(bestAt("persuasion"),"persuasion",13)}`;hb.addEventListener("click",()=>haggle());el.appendChild(hb);}
-  shopObj.stock.forEach((id,i)=>{const pr=shopPrice(id);row(id,pr,id==="arrows"?"BUY 10":"BUY",()=>{G.gold-=pr;addItem(id,id==="arrows"?10:1);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<pr);});
+  shopObj.stock.forEach((id,i)=>{const pr=shopPrice(id);row(id,pr,id==="arrows"?"BUY 10":"BUY",()=>{G.gold-=pr;addItem(id,id==="arrows"?10:1);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<pr||(id==="shield"&&(G.bag.shield||0)>=1));});
   el.insertAdjacentHTML("beforeend","<h3>SELL</h3>");const ids=Object.keys(G.bag).filter(id=>ITEMS[id].price>0);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Nothing to sell.</p>");
   for(const id of ids){const p=Math.floor(ITEMS[id].price/2);row(id,p,`SELL (${G.bag[id]})`,()=>{takeItem(id);G.gold+=p;shopObj.stock.push(id);renderShop();hud();});
     if(!isKnown(id))row(id,20,"IDENTIFY",()=>{G.gold-=20;G.known.add(id);renderShop();hud();},G.gold<20);}}

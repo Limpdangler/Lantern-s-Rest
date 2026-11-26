@@ -8,14 +8,15 @@ async function startCombat(o){o=o||{};if(mode==="combat"||mode==="combatEnd"||!G
   C={units:[],idx:-1,round:1,cur:null,xp:0,moveLeft:0,actions:0,bonus:false,attacksLeft:0,disengaged:false,reckless:false,sneakUsed:false,objUsed:false,mode:"move",tgt:null,reach:null,sel:null,weapon:"main",panel:"main",pending:null};
   // surprise: monsters that hadn't noticed the party (asleep, fooled, out-sneaked) lose their first turn
   for(const m of parts)if(m.state==="sleep")m.st.asleep=true;
-  let nSurp=0;if(o.partyFirst)for(const m of parts){if(m.state==="sleep"||m.fooled||(!noticesParty(m)&&m.state!=="hunt")){m.st.surprised=true;nSurp++;}}
+  let nSurp=0;if(o.partyFirst)for(const m of parts){if(monsterSurprised(m)){m.st.surprised=true;nSurp++;}}
+  const lurkers=new Set([...parts].filter(m=>(m.lurk&&!m.spotted)||m.ambusher));for(const m of parts)delete m.ambusher;
   for(const h of G.party){h.acted=false;h.dreadDone=false;}
-  for(const m of parts){m.acted=false;m.lurk=false;m.spotted=true;m.fooled=false;m.state="combat";m.inCombat=true;m.bubble=now()+900;m.init=rnd(20)+abm(m,"dex");C.units.push(m);}
-  let caught=[];if(o.by&&!o.partyFirst)caught=surpriseHeroes(o.by.filter(m=>parts.has(m)));
-  for(const h of G.party){if(h.dead)continue;h.init=rnd(20)+abm(h,"dex")-2*exhOf(h)+(h.sub==="gloom"?abm(h,"wis"):0)+(hasFeat(h,"alert")?5:0);if(hasFeat(h,"alert"))delete h.st.surprised;C.units.push(h);}
-  C.units.sort((a,b)=>b.init-a.init);
+  for(const m of parts){m.acted=false;m.lurk=false;m.spotted=true;m.fooled=false;m.state="combat";m.inCombat=true;m.bubble=now()+900;rollInit(m,abm(m,"dex"));C.units.push(m);}
+  let caught=[];if(o.by&&!o.partyFirst)caught=surpriseHeroes(o.by.filter(m=>parts.has(m)&&lurkers.has(m)));
+  for(const h of G.party){if(h.dead)continue;rollInit(h,abm(h,"dex")-exhOf(h)+(h.sub==="gloom"?abm(h,"wis"):0)+(hasFeat(h,"alert")?5:0));if(hasFeat(h,"alert"))delete h.st.surprised;C.units.push(h);}
+  C.units.sort(initOrder);
   showCombatUI(true);renderStrip();hud();buildPanel();fov();
-  log(`Initiative: ${C.units.map(u=>`${esc(u.name)} ${u.init}`).join(", ")}.`,"magic");
+  log(`Initiative: ${C.units.map(u=>`${esc(u.name)} ${u.init}`).join(", ")}.${C.units.some(u=>u.st.quick)?" Natural 20: "+C.units.filter(u=>u.st.quick).map(u=>esc(u.name)).join(", ")+" get advantage on their first attack!":""}`,"magic");
   const msg=o.ambush?(o.spotted?`Ambush! But the ${o.watch.name} spotted them coming and shouts a warning. Nobody is surprised, though the sleepers start prone.`:"Ambush! Monsters creep up on the camp. Everyone is caught by surprise!")
     :o.partyFirst?(nSurp?`You strike first! ${nSurp===parts.size?"The enemies are":nSurp+" of the enemies are"} caught by surprise and lose their first turn.`:"You attack, but they saw you coming. Roll initiative!")
     :caught.length?`Ambush! ${caught.join(", ")} ${caught.length>1?"are":"is"} caught by surprise!`:"Enemies spotted! Everyone rolls initiative...";
@@ -50,7 +51,7 @@ async function nextTurn(){
     if(u.side==="m"&&(u.hp<=0||!u.inCombat))continue;if(u.side==="h"&&u.dead)continue;
     C.cur=u;C.sel=null;C.tgt=null;C.mode="move";C.panel="main";C.turnFlags={};C.armed=null;C.objUsed=false;renderStrip();hud();
     for(const x of G.mons.concat(G.party))if(x.st.helped===u){delete x.st.helped;delete x.st.helpFor;}
-    u.reaction=true;delete u.st.dodge;delete u.st.shieldSpell;delete u.st.reckless;u.disengaged=false;
+    u.reaction=true;delete u.st.dodge;delete u.st.raised;delete u.st.shieldSpell;delete u.st.reckless;u.disengaged=false;
     if(u.side==="h"&&u.down){busy=true;buildPanel();if(S.rules.deathSaves&&!u.stable){await wait(250);await deathSave(u);}delete u.st.surprised;continue;}
     if(u.st.surprised){delete u.st.surprised;u.acted=true;busy=true;buildPanel();float(u,"!?","#ffffff");await say(`The ${u.name} is caught by surprise and loses this turn!`,750);continue;}
     u.acted=true;
@@ -102,7 +103,9 @@ async function onTile(x,y){const u=C.cur;if(C.mode==="target")return onTarget(x,
     if(!canAttack()||!(w.melee?cheb(u,o)<=1:cheb(u,o)<=w.range&&los(u.x,u.y,o.x,o.y))){prompt("An oil barrel. Hit it with an attack to split it open, or shove it over from next to it.");return;}
     if(C.sel!==o){C.sel=o;prompt(`Smash the oil barrel with your ${w.name}?${w.type==="fire"?" Fire will set the oil ablaze!":" Oil will spill around it."} Tap again.`);return;}
     busy=true;useAttack(u);C.sel=null;fx.push({type:"lunge",u,dx:Math.sign(o.x-u.x),dy:Math.sign(o.y-u.y),t:now()});await breakBarrel(o,w.type==="fire",0,0);afterAction();return;}
-  if(h&&h!==u){prompt(`${h.name}: ${h.down?"down":h.hp+"/"+h.maxHp+" HP"}, AC ${acOf(h)}${statusText(h)}.`);return;}
+  if(h&&h!==u){const canSwap=cheb(u,h)===1&&C.moveLeft>=1&&!h.down&&!u.st.restrained&&!u.st.grappled&&!(x!==u.x&&y!==u.y&&(isWall(x,u.y)||isWall(u.x,y)))&&enterable(h,u.x,u.y);
+    if(canSwap&&C.sel===h){busy=true;C.sel=null;const ux=u.x,uy=u.y;u.x=h.x;u.y=h.y;h.x=ux;h.y=uy;u.dx=u.x*TS;u.dy=u.y*TS;h.dx=h.x*TS;h.dy=h.y*TS;C.moveLeft--;await say(`The ${u.name} and the ${h.name} swap places.`,600);fov();afterAction();return;}
+    C.sel=canSwap?h:null;prompt(`${h.name}: ${h.down?"down":h.hp+"/"+h.maxHp+" HP"}, AC ${acOf(h)}${statusText(h)}.${canSwap?" Tap again to swap places (1 square of movement).":""}`);return;}
   if(m&&!m.inCombat){prompt(`That ${m.name} hasn't joined the fight.${loreBrief(m)}`);return;}
   const k=y*G.W+x;const r=C.reach&&C.reach.get(k);
   if(r&&r.c>0&&r.c<=C.moveLeft&&!unitAt(x,y)){const path=pathTo(C.reach,k);const warn=pathWarnings(u,path);
@@ -228,7 +231,7 @@ async function castFireball(u,x,y,lvl,dc){makeNoise(x,y,14);fx.push({type:"boom"
 function actionButtons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;
   B.push({t:"DASH",sub:"Action: double movement",dis:!act,f:async()=>{busy=true;C.actions--;C.moveLeft+=speedOf(u);await say(`Dash! ${C.moveLeft} movement left.`,700);afterAction();}});
   B.push({t:"DODGE",sub:"Action: attacks vs you get disadvantage",dis:!act,f:async()=>{busy=true;C.actions--;u.st.dodge=true;fx.push({type:"ring",u,col:"#9fd0ff",t:now()});await say(`The ${u.name} focuses on dodging. Attacks against them have disadvantage until their next turn.`,950);afterAction();}});
-  B.push({t:"DISENGAGE",sub:"Action: move without opportunity attacks",dis:!act||C.disengaged,f:async()=>{busy=true;C.actions--;C.disengaged=true;await say("Disengage: moving won't provoke opportunity attacks this turn.",850);afterAction();}});
+  B.push({t:"DISENGAGE",sub:"Action: move without opportunity attacks, and +1 square of movement",dis:!act||C.disengaged,f:async()=>{busy=true;C.actions--;C.disengaged=true;C.moveLeft+=1;refreshReach();await say("Disengage: +1 square, and moving won't provoke opportunity attacks this turn.",850);afterAction();}});
   B.push({t:"HELP",sub:"Action: distract an enemy next to you so an ally of your choice gets advantage on it",dis:!act,f:()=>targetMode({kind:"adjfoe",range:1,label:"Help: tap an enemy next to you.",onPick:async(x,y,t)=>{const allies=heroesUp().filter(h=>h!==u);let ally=null;
     if(allies.length>1){const c=await choose(`Help which ally attack the ${t.name}?`,allies.map(h=>({t:(h.nick||h.name).toUpperCase(),sub:`${h.name} · ${cheb(h,t)<=1?"next to it":cheb(h,t)+" squares away"}`})).concat([{t:"CANCEL"}]));if(c<0||c>=allies.length){afterAction();return;}ally=allies[c];}else ally=allies[0]||null;
     C.actions--;t.st.helped=u;t.st.helpFor=ally;float(t,"DISTRACTED","#ffffff");await say(`The ${u.name} distracts the ${t.name}.${ally?` The ${ally.name}'s next attack against it has advantage.`:" The next attack against it has advantage."}`,950);}})});
@@ -239,7 +242,7 @@ function actionButtons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;
     if(c.ok){delete u.st.restrained;await say(`Free! (${c.txt})`,800);}else await say(`Still stuck. (${c.txt})`,800);afterAction();}});
   for(const a of G.party)if(a!==u&&a.down&&!a.dead&&!a.stable&&cheb(a,u)<=1)B.push({t:`STABILIZE ${a.name.toUpperCase()}`,sub:"Action · Medicine DC 10 · stops death saves",dis:!act,f:async()=>{busy=true;C.actions--;const c=await check(u,"medicine",10);
     if(c.ok){a.stable=true;a.ds={s:0,f:0};await say(`The ${u.name} stops the bleeding. The ${a.name} is stable. (${c.txt})`,1000);}else await say(`The ${u.name} can't stop the bleeding. (${c.txt})`,900);hud();afterAction();}});
-  B.push(...snuffButtons(u),...classCombatButtons(u),...rules2Buttons(u));
+  B.push(...snuffButtons(u),...classCombatButtons(u),...rules2Buttons(u),...shieldButtons(u));
   {const fast=u.id==="rogue";const ok=fast?C.bonus:hasAction()&&C.attacksLeft===0;const spend=()=>{if(fast)C.bonus=false;else C.actions--;};const cost=fast?"Bonus action (rogue)":"Action";
     if((G.bag.poisonvial||0)>0&&!u.coat&&!u.wild)B.push({t:"POISON YOUR WEAPON",sub:`${cost} · next attack +2d4 poison, CON save or poisoned`,dis:!ok,f:async()=>{busy=true;spend();takeItem("poisonvial");u.coat={name:"poison",type:"poison",dice:"2d4"};await say(`The ${u.name} smears poison along the weapon.`,800);afterAction();}});
     const acid=[[0,0]].concat(DIRS8).some(([dx,dy])=>gnd(u.x+dx,u.y+dy)===GROUND.acid);
@@ -251,8 +254,10 @@ function actionButtons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;
   return B;}
 function itemButtons(u){const B=[];const n=id=>G.bag[id]||0;const fh=u.sub==="thief";const act=fh?C.bonus:hasAction()&&C.attacksLeft===0;const spend=()=>{if(fh)C.bonus=false;else C.actions--;};const AC=fh?"Bonus action (Fast Hands)":"Action";
   for(const id of ["potion","gpotion"]){if(!n(id))continue;const it=ITEMS[id];const dice=id==="potion"?"2d4+2":"4d4+4";
-    B.push({t:`DRINK ${id==="potion"?"POTION":"GREATER"}`,sub:`Bonus action · ${dice} · ${n(id)} left`,dis:!C.bonus||u.hp>=u.maxHp,f:async()=>{busy=true;C.bonus=false;takeItem(id);const h=roll(dice).total;heal(u,h);await say(`The ${u.name} drinks a potion: +${h} HP.`,850);afterAction();}});
-    B.push({t:`GIVE ${id==="potion"?"POTION":"GREATER"}`,sub:`${AC} · adjacent ally (revives the downed)`,dis:!act,f:()=>targetMode({kind:"ally",range:1,label:"Tap an ally next to you.",onPick:async(x,y,t)=>{spend();takeItem(id);const was=t.down;const h=roll(dice).total;heal(t,h);await say(was?`The ${u.name} pours a potion down the ${t.name}'s throat. They're back up!`:`The ${t.name} drinks: +${h} HP.`,900);}})});}
+    const nm=id==="potion"?"POTION":"GREATER";
+    B.push({t:`GULP ${nm}`,icon:"heal",sub:`Bonus action · roll ${dice} · ${n(id)} left`,cost:"bonus",dis:!C.bonus||u.hp>=u.maxHp,f:async()=>{busy=true;C.bonus=false;takeItem(id);const h=potionHeal(dice,false,u);heal(u,h);await say(`The ${u.name} gulps a potion down: +${h} HP.`,850);afterAction();}});
+    B.push({t:`DRINK ${nm} FULLY`,icon:"heal",sub:`Action · the full ${potionMax(dice)} HP · ${n(id)} left`,cost:"action",dis:!hasAction()||C.attacksLeft>0||u.hp>=u.maxHp,f:async()=>{busy=true;C.actions--;takeItem(id);const h=potionMax(dice);heal(u,h);await say(`The ${u.name} takes a moment to drink the whole potion: +${h} HP.`,850);afterAction();}});
+    B.push({t:`GIVE ${id==="potion"?"POTION":"GREATER"}`,sub:`${AC} · adjacent ally (revives the downed)`,dis:!act,f:()=>targetMode({kind:"ally",range:1,label:"Tap an ally next to you.",onPick:async(x,y,t)=>{spend();takeItem(id);const was=t.down;const h=potionHeal(dice,false,u);heal(t,h);await say(was?`The ${u.name} pours a potion down the ${t.name}'s throat. They're back up!`:`The ${t.name} drinks: +${h} HP.`,900);}})});}
   if(n("antitoxin"))B.push({t:"ANTITOXIN",sub:`${AC} · cures poison`,dis:!act||!u.st.poisoned,f:async()=>{busy=true;spend();takeItem("antitoxin");delete u.st.poisoned;await say("The poison fades.",700);afterAction();}});
   if(n("oil"))B.push({t:"THROW OIL",sub:`${AC} · range 4 · ${n("oil")} left`,dis:!act,f:()=>targetMode({kind:"tile",range:4,label:"Throw the oil flask: tap a square within 4.",onPick:async(x,y)=>{spend();takeItem("oil");
     spill(x,y,[[x,y],[x+1,y],[x-1,y],[x,y+1],[x,y-1]]);await say("The flask shatters. Slick oil spreads across the floor!",850);if(fireAt(x,y)||[[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>fireAt(x+a,y+b))){igniteAt(x,y);await scorch();}}})});

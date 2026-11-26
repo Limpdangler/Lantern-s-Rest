@@ -20,13 +20,13 @@ function slotMax(h){const cs=casterOf(h);const t=cs==="full"?SLOTS_FULL:cs==="ha
 function featRes(h){const out=[];if(h.sub==="land")out.push("natrec");for(const f of featsOf(h)){const r=FEATS[f].res;if(r&&!out.includes(r))out.push(r);}if(h.info.arcaneRecovery)out.push("arcane");return out.filter((v,i)=>out.indexOf(v)===i);}
 function restoreAll(h,keepHD){h.pins=2;if(hasFeat(h,"lucky"))h.luck=3;h.goodberry=false;h.sanct=false;h.slots=slotMax(h);for(const k of featRes(h))h.res[k]=RES[k].max(G.level);h.wand=gearFx(h).wand?3:0;if(!keepHD)h.hdLeft=h.hdMax;h.rebukeUsed=false;h.relentlessUsed=false;if(h.sub==="abjurer")h.ward=wardMax(h);}
 function gearFx(h){const f={};for(const id of h.gear){const it=ITEMS[id];if(!it||!it.fx)continue;for(const k in it.fx){if(k.startsWith("set"))f[k]=Math.max(f[k]||0,it.fx[k]);else f[k]=(f[k]||0)+it.fx[k];}}return f;}
-function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)+(u.st.sof?2:0)-curse;}
+function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)+(u.st.sof?2:0)+(u.st.raised?2:0)-(u.shieldBroken?2:0)-curse;}
 function speedOf(u){if(u.side==="m")return u.speed;if(overloaded()&&!u.wild)return Math.max(1,speedOf2(u)-2);return speedOf2(u);}
-function speedOf2(u){let s=u.wild?8:u.def.speed+(gearFx(u).speed||0);s-=exhOf(u);if(u.st&&u.st.pinned)return 0;return Math.max(1,s);}
+function speedOf2(u){let s=u.wild?8:u.def.speed+(gearFx(u).speed||0)+(hasFeat(u,"mobile")?2:0);s-=exhOf(u);if(u.st&&u.st.pinned)return 0;return Math.max(1,s);}
 function saveBonus(u,a){if(u.side==="m")return abm(u,a)+(u.boss?3:0);return abm(u,a)+(u.info.saves.includes(a)?prof():0)+(gearFx(u).save||0)+(G.blessFloor===G.floor?1:0)+loyalBonus(u);}
 function skillBonus(u,sk){const a=SKILLS[sk];if(u.side==="m")return abm(u,a)+(sk==="perception"&&u.tr.keen?3:0)+(u.boss?2:0)+(sk==="athletics"&&u.tr.shover?2:0);
   let b=abm(u,a);const R=u.race&&RACES[u.race];if(u.info.skills.includes(sk)||(R&&R.skills&&R.skills.includes(sk))||(u.extraSkills&&u.extraSkills.includes(sk)))b+=prof()*((u.info.expertise||[]).includes(sk)?2:1);if(sk==="thieves")b+=gearFx(u).thieves||0;if(u.sub==="champion"&&!u.info.skills.includes(sk)&&(a==="str"||a==="dex"))b+=Math.ceil(prof()/2);return b;}
-const passive=(u,sk)=>10+skillBonus(u,sk);
+const passive=(u,sk)=>10+skillBonus(u,sk)+((sk==="perception"||sk==="investigation")&&typeof hasFeat==="function"&&hasFeat(u,"observant")?5:0);
 const castMod=u=>abm(u,u.info.castAbil||"int");
 const spellAtk=u=>prof()+castMod(u);
 const spellDC=u=>8+prof()+castMod(u);
@@ -43,13 +43,13 @@ const hasTools=u=>u.side==="h"&&u.info.skills.includes("thieves");
 const toolNote=u=>u&&!hasTools(u)?" (no thieves' tools: disadvantage, +5 DC)":"";
 async function check(u,sk,dc,o){o=o||{};let adv=!!o.adv,dis=!!o.dis;if(sk==="thieves"&&u.side==="h"&&!hasTools(u)){dis=true;dc+=5;}
   if(u.side==="h"){if(u.st.poisoned)dis=true;if(sk==="athletics"&&(u.st.raging||u.st.giant))adv=true;if(sk==="stealth"&&gearFx(u).stealth)adv=true;}
-  let d=d20(adv,dis,u);const gd=u.guided?rnd(4):0;if(u.guided){u.guided=false;log(`Guidance: +${gd}.`,"magic");}const b=skillBonus(u,sk)+(o.bonus||0)-2*exhOf(u)+gd;let tot=d.r+b;
+  let d=d20(adv,dis,u);const gd=u.guided?rnd(4):0;if(u.guided){u.guided=false;log(`Guidance: +${gd}.`,"magic");}const b=skillBonus(u,sk)+(o.bonus||0)-exhPen(u,u.side==="h"&&u.info.skills.includes(sk))+gd;let tot=d.r+b;
   if(dc>0&&tot<dc&&canReroll(u)){spendReroll(u,"a check");d=d20(adv,dis,u);tot=d.r+b;}if(!o.quiet)await dice(u,d.r,d.pair);
   return {ok:tot>=dc,total:tot,r:d.r,txt:`${SKN[sk]} ${d.r}${sgn(b)} = ${tot} vs DC ${dc}`};}
 function bestAt(sk){const up=heroesUp();const p=up.filter(h=>h.id!=="beast");return (p.length?p:up).slice().sort((a,b)=>skillBonus(b,sk)-skillBonus(a,sk))[0];}
 function saveRoll(u,a,dc,o){o=o||{};let adv=!!o.adv,dis=!!o.dis;
   if(a==="dex"&&u.st.dodge)adv=true;if(a==="dex"&&u.side==="h"&&u.id==="barbarian"&&!u.wild)adv=true;if(o.fear&&u.race==="halfling")adv=true;if(a==="dex"&&u.st.restrained)dis=true;if(a==="str"&&(u.st.raging||u.st.giant))adv=true;
-  let d=d20(adv,dis,u);const b=saveBonus(u,a)-2*exhOf(u);const bless=u.st.blessed?rnd(4):0;let tot=d.r+b+bless;if(tot<dc&&canReroll(u)){spendReroll(u,"a save");d=d20(adv,dis,u);tot=d.r+b+bless;}
+  let d=d20(adv,dis,u);const b=saveBonus(u,a)-exhPen(u,u.side==="h"&&u.info.saves.includes(a));const bless=u.st.blessed?rnd(4):0;let tot=d.r+b+bless;if(tot<dc&&canReroll(u)){spendReroll(u,"a save");d=d20(adv,dis,u);tot=d.r+b+bless;}
   return {ok:tot>=dc,total:tot,r:d.r,txt:`${ABN[a]} save ${d.r}${sgn(b)}${bless?"+"+bless:""} = ${tot} vs DC ${dc}`};}
 
 // ---------- weapons & attack maths ----------
@@ -84,7 +84,7 @@ function attackMods(a,t,w,o){o=o||{};const adv=[],dis=[],notes=[];let bonus=atkB
   if(a.st.poisoned)dis.push("poisoned");if(a.st.frightened)dis.push("frightened");if(a.st.prone)dis.push("you're prone");if(a.st.restrained)dis.push("restrained");
   if(ranged&&foesOf(a).some(f=>cheb(f,a)===1&&!(f.side==="h"&&f.down)))dis.push("enemy next to you");
   if(elevAt(a.x,a.y)>elevAt(t.x,t.y)){bonus+=2;notes.push("high ground +2");}
-  if(exhOf(a)){bonus-=2*exhOf(a);notes.push(`exhaustion −${2*exhOf(a)}`);}
+  if(exhOf(a)){bonus-=exhOf(a);notes.push(`exhaustion −${exhOf(a)}`);}
   let cover=(ranged&&!w.noCover)?coverOf(a,t):0;{const e=fire("attackMods",{a,t,w,o,adv,dis,notes,bonus,cover});bonus=e.bonus;cover=e.cover;}if(cover)notes.push(cover===2?"half cover +2 AC":"¾ cover +5 AC");
   const ac=acOf(t)+cover;const mode=adv.length&&!dis.length?1:dis.length&&!adv.length?-1:0;
   return {adv,dis,mode,bonus,ac,cover,notes,pct:hitPct(bonus+(a.st.blessed?2.5:0),ac,mode)};}

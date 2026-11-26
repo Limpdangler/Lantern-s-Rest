@@ -17,6 +17,7 @@ async function chooseFeats(){if(!G)return;const slots=(G.level>=4?1:0)+(G.level>
   $("tBox").hidden=true;hud();}
 // ---------- party-sheet abilities (out of combat) ----------
 function classActions(h){const A=[];if(h.dead||h.down||mode!=="explore")return A;const L=G.party[0];
+  if(h.id!=="ranger"&&forageLeader()===h)A.push({t:"FORAGE",sub:G.foraged===G.floor?"Already foraged this floor":`Survival: find food and firewood (takes time)${h.id==="druid"?"":" · learned from the almanac"}`,dis:G.foraged===G.floor,f:()=>rangerForage(h)});
   if(h.id==="ranger"){A.push({t:"TRACK",sub:G.tracked&&G.tracked.has(areaKey(L.x,L.y))?"Already read the tracks here":"Survival: what's been through here?",f:()=>rangerTrack(h)});
     A.push({t:"FORAGE",sub:G.foraged===G.floor?"Already foraged this floor":"Survival: find food and firewood (takes time)",dis:G.foraged===G.floor,f:()=>rangerForage(h)});
     if(!h.favored)A.push({t:"CHOOSE FAVOURED ENEMY",sub:"Auto lore + bonus damage against them",f:()=>chooseFavored(h)});}

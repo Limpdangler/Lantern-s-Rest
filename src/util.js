@@ -19,9 +19,10 @@ function parseDice(s){const m=String(s).replace(/\s/g,"").match(/^(\d*)d(\d+)([+
   if(!m){const n=parseInt(s,10);return isNaN(n)?null:{n:0,d:0,b:n};}return {n:+(m[1]||1),d:+m[2],b:+(m[3]||0)};}
 function validDice(s){const p=parseDice(s);return !!p&&p.n<=20&&p.d<=100&&(p.n>0?p.d>0:true);}
 // roll("2d6+3",crit) -> {total,txt}
-function roll(s,crit,extraBonus){const p=parseDice(s)||{n:1,d:4,b:0};const n=crit?p.n*2:p.n;const rs=[];for(let i=0;i<n;i++)rs.push(rnd(p.d));
-  const b=p.b+(extraBonus||0);const total=Math.max(0,rs.reduce((a,c)=>a+c,0)+b);
-  return {total,txt:`${n?n+"d"+p.d:""}${b?sgn(b):""}`};}
+function roll(s,crit,extraBonus){const p=parseDice(s)||{n:1,d:4,b:0};const n=p.n;const rs=[];for(let i=0;i<n;i++)rs.push(rnd(p.d));
+  const mx=crit?p.n*p.d:0;// critical hit: one set of dice counts as its maximum, plus the normal roll
+  const b=p.b+(extraBonus||0);const total=Math.max(0,rs.reduce((a,c)=>a+c,0)+b+mx);
+  return {total,txt:`${crit?`${p.n*p.d}+`:""}${n?n+"d"+p.d:""}${b?sgn(b):""}`};}
 function diceStr(n,d,b){return `${n}d${d}${b?sgn(b):""}`;}
 // tiny binary heap for path finding
 class Heap{constructor(){this.a=[];}

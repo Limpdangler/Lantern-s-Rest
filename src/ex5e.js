@@ -36,9 +36,9 @@ function spotLurkers(){for(const m of G.mons){if(!m.lurk||m.spotted||m.hp<=0||!s
       toast(`The ${h.name} spots ${aN(m.name)} lurking in the shadows!`);log(`${esc(h.name)} spots a hidden ${esc(m.name)} (Passive Perception ${pp} vs Stealth ${m.hide}).`,"gold");break;}}}}
 const isHiddenMon=m=>m.lurk&&!m.spotted;
 // when monsters strike first, heroes who don't notice them are surprised
-function surpriseHeroes(mons){mons=mons||[];const unseen=mons.filter(m=>isHiddenMon(m)||!seen(m.x,m.y));if(!unseen.length)return [];
+function surpriseHeroes(mons){mons=mons||[];const unseen=mons;if(!unseen.length)return [];// only creatures lying in wait get here
   const best=Math.max(...unseen.map(m=>m.lurk?m.hide:rnd(20)+monStealth(m)));const out=[];
-  for(const h of heroesUp()){const dark=unseen.every(m=>!litAt(m.x,m.y))&&!heroDV(h);const pp=passive(h,"perception")-2*exhOf(h)-(dark?5:0);
+  for(const h of heroesUp()){const dark=unseen.every(m=>!litAt(m.x,m.y))&&!heroDV(h);const pp=passive(h,"perception")-exhPen(h,h.info.skills.includes("perception"))-(dark?5:0);
     if(pp<best&&!hasFeat(h,"alert")){h.st.surprised=true;out.push(h.name);}}
   log(`Surprise! Enemy Stealth ${best} vs your Passive Perception.${out.length?" Caught off guard: "+out.map(esc).join(", ")+".":" Nobody is caught off guard."}`,"hurt");return out;}
 
@@ -136,8 +136,10 @@ async function doRest(long){if(mode!=="explore"||busy)return;
   if(enemiesNear()){toast("You can't rest with enemies nearby.");return;}
   if(!long&&G.shortRests>=maxShort()){toast("You've used up your short rests. You need a long rest.");return;}
   if(long&&S.rules.fatigue&&G.fatigue<3){toast("The party isn't tired enough to sleep yet.");return;}
+  {const soon=restTooSoon(long);if(soon){toast(long?`You slept not long ago. Nobody can sleep again yet (explore about ${soon} more steps).`:`You have only just rested. Push on a little first (about ${soon} more steps).`);return;}}
   closeMenu();busy=true;
   let camp;if(long){camp=await campFlow(false);if(!camp){busy=false;return;}}else camp={type:"short",watch:G.party.find(h=>!h.dead&&!h.down)};
+  G.lastRestStep=G.steps;if(long)G.lastLongStep=G.steps;
   await say(long?(camp.type==="fire"?"The party lights a small fire and beds down...":"The party huddles together in the dark, no fire..."):"The party rests for an hour, binding wounds...",1300,true);
   const risk=campRisk(camp.type)*(camp.sanct?.4:1);
   if(Math.random()<risk){const near=G.mons.filter(m=>m.hp>0&&!m.peace).sort((a,b)=>cheb(a,G.party[0])-cheb(b,G.party[0]));const gid=near[0].gid;
