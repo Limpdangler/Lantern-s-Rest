@@ -21,7 +21,7 @@ const elevAt=(x,y)=>inB(x,y)?G.elev[y][x]:0;
 const isRamp=(x,y)=>G.ramp.has(y*G.W+x);
 const fireAt=(x,y)=>G.fire.has(y*G.W+x);
 const litAt=(x,y)=>!S.rules.darkness||(G.lit&&G.lit[y*G.W+x]===1);
-function blocksSight(x,y){if(isWall(x,y))return true;const d=doorAt(x,y);return !!(d&&!d.open);}
+function blocksSight(x,y){if(isWall(x,y))return true;if(G.smoke&&G.smoke.has(y*G.W+x))return true;const d=doorAt(x,y);return !!(d&&!d.open);}
 function blocksObj(x,y){const o=objAt(x,y);return !!(o&&BLOCKERS[o.type]);}
 
 // ---------- layout ----------
@@ -187,10 +187,10 @@ function canSee(a,t){ // can attacker a see target t well enough to attack norma
 
 // ---------- movement & paths ----------
 function canOpenDoors(u){return u.side==="h"||(u.tr&&u.tr.mind==="smart");}
-function enterable(u,x,y){if(isWall(x,y))return false;const d=doorAt(x,y);if(d&&!d.open&&(d.locked||!canOpenDoors(u)||(d.wedged&&u.side==="m")))return false;if(blocksObj(x,y))return false;if(G.npc&&G.npc.x===x&&G.npc.y===y)return false;return true;}
-function stepCost(u,ax,ay,bx,by){let c=1;const g=gnd(bx,by);if(g===GROUND.water||g===GROUND.rubble)c++;if(G.entangle.has(by*G.W+bx))c++;
+function enterable(u,x,y){if(isWall(x,y))return false;if(gnd(x,y)===GROUND.deep&&tooHeavyToSwim(u))return false;const d=doorAt(x,y);if(d&&!d.open&&(d.locked||!canOpenDoors(u)||(d.wedged&&u.side==="m")))return false;if(blocksObj(x,y))return false;if(G.npc&&G.npc.x===x&&G.npc.y===y)return false;return true;}
+function stepCost(u,ax,ay,bx,by){let c=1;const g=gnd(bx,by);if(g===GROUND.water||g===GROUND.rubble)c++;if(g===GROUND.deep)c+=2;if(G.entangle.has(by*G.W+bx))c++;
   if(elevAt(bx,by)>elevAt(ax,ay)&&!isRamp(bx,by)&&!isRamp(ax,ay))c+=2;const d=doorAt(bx,by);if(d&&!d.open)c++;return c;}
-function hazardPenalty(u,x,y){if(u.side==="h")return 0;const mind=u.tr.mind;let p=0;const g=gnd(x,y);
+function hazardPenalty(u,x,y){if(u.side==="h")return 0;const mind=u.tr.mind;let p=0;const g=gnd(x,y);if(g===GROUND.deep)p+=3;
   if(fireAt(x,y))p+=mind==="mindless"?0:10;if(g===GROUND.acid)p+=mind==="mindless"?0:8;if(g===GROUND.oil)p+=mind==="smart"?2:0;if(g===GROUND.crack)p+=mind==="smart"?3:0;
   const t=trapAt(x,y);if(t&&!t.ours&&(mind==="smart"||t.found&&mind==="beast"))p+=40;return p;}
 function dijkstra(u,maxCost,opts){opts=opts||{};const W=G.W,start=u.y*W+u.x;const best=new Map([[start,{c:0,w:0,p:-1}]]);const h=new Heap();h.push(start,0);

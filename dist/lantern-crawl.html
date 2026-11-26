@@ -451,6 +451,7 @@ const TRAPS={
   darts:{name:"dart trap",w:35},pit:{name:"pit trap",w:30},fire:{name:"fire jet",w:20},alarm:{name:"alarm wire",w:15}
 };
 
+
 // races: ability bonuses, darkvision and a signature trait
 const RACES={
   human:{name:"Human",asi:{str:1,dex:1,con:1,int:1,wis:1,cha:1},skills:["perception"],desc:"+1 to every ability score and an extra skill. Versatile, but no darkvision."},
@@ -860,7 +861,7 @@ const elevAt=(x,y)=>inB(x,y)?G.elev[y][x]:0;
 const isRamp=(x,y)=>G.ramp.has(y*G.W+x);
 const fireAt=(x,y)=>G.fire.has(y*G.W+x);
 const litAt=(x,y)=>!S.rules.darkness||(G.lit&&G.lit[y*G.W+x]===1);
-function blocksSight(x,y){if(isWall(x,y))return true;const d=doorAt(x,y);return !!(d&&!d.open);}
+function blocksSight(x,y){if(isWall(x,y))return true;if(G.smoke&&G.smoke.has(y*G.W+x))return true;const d=doorAt(x,y);return !!(d&&!d.open);}
 function blocksObj(x,y){const o=objAt(x,y);return !!(o&&BLOCKERS[o.type]);}
 
 // ---------- layout ----------
@@ -1026,10 +1027,10 @@ function canSee(a,t){ // can attacker a see target t well enough to attack norma
 
 // ---------- movement & paths ----------
 function canOpenDoors(u){return u.side==="h"||(u.tr&&u.tr.mind==="smart");}
-function enterable(u,x,y){if(isWall(x,y))return false;const d=doorAt(x,y);if(d&&!d.open&&(d.locked||!canOpenDoors(u)||(d.wedged&&u.side==="m")))return false;if(blocksObj(x,y))return false;if(G.npc&&G.npc.x===x&&G.npc.y===y)return false;return true;}
-function stepCost(u,ax,ay,bx,by){let c=1;const g=gnd(bx,by);if(g===GROUND.water||g===GROUND.rubble)c++;if(G.entangle.has(by*G.W+bx))c++;
+function enterable(u,x,y){if(isWall(x,y))return false;if(gnd(x,y)===GROUND.deep&&tooHeavyToSwim(u))return false;const d=doorAt(x,y);if(d&&!d.open&&(d.locked||!canOpenDoors(u)||(d.wedged&&u.side==="m")))return false;if(blocksObj(x,y))return false;if(G.npc&&G.npc.x===x&&G.npc.y===y)return false;return true;}
+function stepCost(u,ax,ay,bx,by){let c=1;const g=gnd(bx,by);if(g===GROUND.water||g===GROUND.rubble)c++;if(g===GROUND.deep)c+=2;if(G.entangle.has(by*G.W+bx))c++;
   if(elevAt(bx,by)>elevAt(ax,ay)&&!isRamp(bx,by)&&!isRamp(ax,ay))c+=2;const d=doorAt(bx,by);if(d&&!d.open)c++;return c;}
-function hazardPenalty(u,x,y){if(u.side==="h")return 0;const mind=u.tr.mind;let p=0;const g=gnd(x,y);
+function hazardPenalty(u,x,y){if(u.side==="h")return 0;const mind=u.tr.mind;let p=0;const g=gnd(x,y);if(g===GROUND.deep)p+=3;
   if(fireAt(x,y))p+=mind==="mindless"?0:10;if(g===GROUND.acid)p+=mind==="mindless"?0:8;if(g===GROUND.oil)p+=mind==="smart"?2:0;if(g===GROUND.crack)p+=mind==="smart"?3:0;
   const t=trapAt(x,y);if(t&&!t.ours&&(mind==="smart"||t.found&&mind==="beast"))p+=40;return p;}
 function dijkstra(u,maxCost,opts){opts=opts||{};const W=G.W,start=u.y*W+u.x;const best=new Map([[start,{c:0,w:0,p:-1}]]);const h=new Heap();h.push(start,0);
@@ -1091,7 +1092,9 @@ function buildTerrain(){
   for(let x=0;x<W;x++)for(let y=H-1;y>=0;y--){const i=y*W+x;if(!rock[i])continue;if(y===H-1){run[i]=1;continue;}const b=i+W;if(!rock[b]){run[i]=1;endF[i]=1;}else{run[i]=run[b]+1;endF[i]=endF[b];}}
   // ground feature masks (soft rounded pools)
   const soft=(code,r)=>{let m=tileMask(W,H,(tx,ty)=>gnd(tx,ty)===code);if(!m.some(v=>v))return null;m=blur(m,W,H,r);m=blur(m,W,H,r-2);for(let i=0;i<m.length;i++)m[i]+=(vnoise((i%W)/5,((i/W)|0)/5,seed+50)-.5)*.18;return m;};
-  const water=soft(GROUND.water,6),oil=soft(GROUND.oil,5),acid=soft(GROUND.acid,5);
+  const water=(()=>{let m=tileMask(W,H,(tx,ty)=>gnd(tx,ty)===GROUND.water||gnd(tx,ty)===GROUND.deep);if(!m.some(v=>v))return null;m=blur(m,W,H,6);m=blur(m,W,H,4);for(let i=0;i<m.length;i++)m[i]+=(vnoise((i%W)/5,((i/W)|0)/5,seed+50)-.5)*.18;return m;})();
+  const deep=(()=>{let m=tileMask(W,H,(tx,ty)=>gnd(tx,ty)===GROUND.deep);if(!m.some(v=>v))return null;m=blur(m,W,H,5);m=blur(m,W,H,3);return m;})();
+  const water0=null,oil=soft(GROUND.oil,5),acid=soft(GROUND.acid,5);
   // ledges (raised floor)
   let ledge=null;if(G.elev&&G.elev.some(r=>r.some(v=>v))){ledge=blur(tileMask(W,H,(tx,ty)=>G.elev[ty][tx]>0),W,H,3);}
   const ledgeAt=(x,y)=>ledge&&x>=0&&y>=0&&x<W&&y<H&&ledge[y*W+x]>.5&&!rock[y*W+x];
@@ -1166,7 +1169,7 @@ function buildTerrain(){
         if(kind==="water"){const wave=Math.sin(x/3.2+Math.sin(y/2.5)*1.6+seed)>.86&&(y%3===0);c=edge?PAL[2]:wave?PAL[1]:t4([PAL[2],mix(PAL[2],PAL[0],.5),PAL[0],mix(PAL[0],PAL[1],.4)],fbm(x,y,seed+40)*.9,x,y);}
         else if(kind==="oil"){const gl=vnoise(x/3,y/3,seed+41);c=edge?PAL[2]:gl>.72?PAL[1]:PAL[0];}
         else{const bb=hash(x>>1,y>>1,seed+42)%19===0;c=edge?PAL[2]:bb?PAL[1]:t4([PAL[2],mix(PAL[2],PAL[0],.5),PAL[0],PAL[1]],fbm(x,y,seed+43)*.8,x,y);}};
-      liquid(water,WATER,"water");liquid(oil,OIL,"oil");liquid(acid,ACID,"acid");}
+      liquid(water,WATER,"water");if(deep&&deep[i]>.5){c=mix(c,[10,26,40],.55+(deep[i]-.5)*.6);if(Math.sin(x/4+Math.sin(y/3)*2+seed)>.9&&y%4===0)c=mix(c,[120,170,200],.4);}liquid(oil,OIL,"oil");liquid(acid,ACID,"acid");}
     put(i,c);}
   const floorPx=(x,y)=>x>=0&&y>=0&&x<W&&y<H&&!rock[y*W+x];
   const r=rng(seed);
@@ -1219,7 +1222,8 @@ function featRes(h){const out=[];if(h.sub==="land")out.push("natrec");for(const 
 function restoreAll(h,keepHD){h.pins=2;if(hasFeat(h,"lucky"))h.luck=3;h.goodberry=false;h.sanct=false;h.slots=slotMax(h);for(const k of featRes(h))h.res[k]=RES[k].max(G.level);h.wand=gearFx(h).wand?3:0;if(!keepHD)h.hdLeft=h.hdMax;h.rebukeUsed=false;h.relentlessUsed=false;if(h.sub==="abjurer")h.ward=wardMax(h);}
 function gearFx(h){const f={};for(const id of h.gear){const it=ITEMS[id];if(!it||!it.fx)continue;for(const k in it.fx){if(k.startsWith("set"))f[k]=Math.max(f[k]||0,it.fx[k]);else f[k]=(f[k]||0)+it.fx[k];}}return f;}
 function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)+(u.st.sof?2:0)-curse;}
-function speedOf(u){if(u.side==="m")return u.speed;let s=u.wild?8:u.def.speed+(gearFx(u).speed||0);s-=exhOf(u);if(u.st&&u.st.pinned)return 0;return Math.max(1,s);}
+function speedOf(u){if(u.side==="m")return u.speed;if(overloaded()&&!u.wild)return Math.max(1,speedOf2(u)-2);return speedOf2(u);}
+function speedOf2(u){let s=u.wild?8:u.def.speed+(gearFx(u).speed||0);s-=exhOf(u);if(u.st&&u.st.pinned)return 0;return Math.max(1,s);}
 function saveBonus(u,a){if(u.side==="m")return abm(u,a)+(u.boss?3:0);return abm(u,a)+(u.info.saves.includes(a)?prof():0)+(gearFx(u).save||0)+(G.blessFloor===G.floor?1:0)+loyalBonus(u);}
 function skillBonus(u,sk){const a=SKILLS[sk];if(u.side==="m")return abm(u,a)+(sk==="perception"&&u.tr.keen?3:0)+(u.boss?2:0)+(sk==="athletics"&&u.tr.shover?2:0);
   let b=abm(u,a);const R=u.race&&RACES[u.race];if(u.info.skills.includes(sk)||(R&&R.skills&&R.skills.includes(sk))||(u.extraSkills&&u.extraSkills.includes(sk)))b+=prof()*((u.info.expertise||[]).includes(sk)?2:1);if(sk==="thieves")b+=gearFx(u).thieves||0;if(u.sub==="champion"&&!u.info.skills.includes(sk)&&(a==="str"||a==="dex"))b+=Math.ceil(prof()/2);return b;}
@@ -1405,7 +1409,7 @@ async function onEnter(u,x,y,o){o=o||{};const res={stop:false};
   if(g===GROUND.acid){await say(`Acid burns the ${u.name}!`,600);await dealDamage(u,roll("1d6+1").total,"acid",{});}
   if(u.side==="h"&&!C)collectItems(u);
   return res;}
-async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?`The ${u.name}`:`The ${u.name}`;
+async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?`The ${u.name}`:`The ${u.name}`;{const r=await triggerNewTrap(t,u);if(r!==null)return r;}
   if(t.type==="darts"){const r=rnd(20)+5;const hit=r>=acOf(u);fx.push({type:"shot",from:{x:t.x-2,y:t.y},to:{x:t.x,y:t.y},t:now(),col:"#d0d0d0"});
     await say(`Click! Darts fly from the walls at ${who}: ${r} vs AC ${acOf(u)}. ${hit?"Hit!":"Miss!"}`,950);
     if(hit){await dealDamage(u,roll("2d4").total,"piercing",{});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
@@ -1431,7 +1435,7 @@ function burnObjects(){for(const o of G.objs){if(!o.burn||o.gone)continue;o.burn
   // flames jump to wooden things next to a fire
   for(const k of [...G.fire.keys()]){const x=k%G.W,y=(k/G.W)|0;for(const o of G.objs)if(isWooden(o)&&!o.burn&&cheb(o,{x,y})<=1&&(o.x!==x||o.y!==y)&&Math.random()<(o.type==="web"?.9:.3))setAlight(o);}}
 async function scorch(){for(const u of G.party.concat(G.mons.slice())){if(u.dead||u.hp<=0&&u.side==="m")continue;if(fireAt(u.x,u.y)&&u._scorch!==(C?C.round:-1)){u._scorch=C?C.round:-1;await dealDamage(u,roll("2d4").total,"fire",{});}}}
-function tickFire(){burnObjects();let burnt=false;for(const [k,v] of [...G.fire]){if(v<=1){G.fire.delete(k);const x=k%G.W,y=(k/G.W)|0;if(gnd(x,y)===GROUND.oil){G.ground[y][x]=0;burnt=true;}}else G.fire.set(k,v-1);}
+function tickFire(){burnObjects();tickSmoke();for(const o of G.objs)if(o.burn&&!o.gone)addSmoke(o.x,o.y,3);let burnt=false;for(const [k,v] of [...G.fire]){if(v<=1){G.fire.delete(k);const x=k%G.W,y=(k/G.W)|0;if(gnd(x,y)===GROUND.oil){G.ground[y][x]=0;burnt=true;}}else G.fire.set(k,v-1);}
   if(burnt)buildTerrain();computeLight();}
 function spill(cx,cy,tiles){for(const [x,y] of tiles){if(!inB(x,y)||isWall(x,y)||gnd(x,y)===GROUND.water||blocksObj(x,y)&&!(x===cx&&y===cy))continue;if(gnd(x,y)===0||gnd(x,y)===GROUND.rubble)G.ground[y][x]=GROUND.oil;}buildTerrain();}
 async function breakBarrel(o,fire,dx,dy){o.gone=true;const tiles=[[o.x,o.y]];
@@ -1474,9 +1478,9 @@ async function shove(a,t,choice){
   if(choice==="prone"){t.st.prone=true;float(t,"PRONE","#ffffff");await say(`The ${a.name} knocks the ${t.name} to the ground!`,850);return true;}
   await say(`The ${a.name} shoves the ${t.name} back!`,650);await pushUnit(t,Math.sign(t.x-a.x),Math.sign(t.y-a.y),a.st.giant?2:1);return true;}
 async function collectItems(h){for(const it of G.items.filter(i=>i.x===h.x&&i.y===h.y)){G.items.splice(G.items.indexOf(it),1);
-  if(it.gold){G.gold+=it.gold;toast(`Found ${it.gold} gold!`);log(`Found ${it.gold} gold.`,"gold");}else{addItem(it.item);toast(`Found ${itemName(it.item)}!`);log(`Found ${esc(itemName(it.item))}.`,"gold");}}hud();}
+  if(it.gold){G.gold+=it.gold;toast(`Found ${it.gold} gold!`);log(`Found ${it.gold} gold.`,"gold");}else{addItem(it.item,it.n||1);toast(`Found ${it.n>1?it.n+" ":""}${itemName(it.item)}!`);log(`Found ${esc(itemName(it.item))}.`,"gold");}}hud();}
 function addItem(id,n){G.bag[id]=(G.bag[id]||0)+(n||1);}
-function takeItem(id){if(!G.bag[id])return false;G.bag[id]--;if(!G.bag[id])delete G.bag[id];return true;}
+function takeItem(id,n){if(!G.bag[id])return false;G.bag[id]-=Math.min(G.bag[id],n||1);if(!G.bag[id])delete G.bag[id];return true;}
 
 // ================= combat engine =================
 function showCombatUI(on){$("controls").hidden=on;$("tglRow").hidden=on;$("cPanel").hidden=!on;$("strip").hidden=!on;if(!on){$("tBox").hidden=true;}}
@@ -1858,7 +1862,7 @@ async function doMove(dx,dy){if(G.party[0].down){const i=G.party.findIndex(h=>!h
   const f=G.party.find(h=>h!==L&&h.x===nx&&h.y===ny);
   if(f){f.x=L.x;f.y=L.y;faceToward(f,L.x-nx,L.y-ny);L.x=nx;L.y=ny;}
   else{const prev=G.party.map(h=>({x:h.x,y:h.y}));L.x=nx;L.y=ny;for(let i=1;i<G.party.length;i++){const h=G.party[i];const tp=prev[i-1];if(h.x===tp.x&&h.y===tp.y)continue;faceToward(h,tp.x-h.x,tp.y-h.y);h.x=tp.x;h.y=tp.y;}}
-  const cost=G.sneak?2:1;const before=G.steps;G.steps+=cost;burnFuel(cost);for(const h of G.party)if(!h.down&&h.st.prone)delete h.st.prone;
+  const cost=(G.sneak?2:1)+(overloaded()?1:0);const before=G.steps;G.steps+=cost;burnFuel(cost);for(const h of G.party)if(!h.down&&h.st.prone)delete h.st.prone;
   if(S.rules.fatigue&&Math.floor(G.steps/120)>Math.floor(before/120)){G.fatigue++;await partyWeary();}
   if(G.steps%3===0&&G.fire.size)tickFire();
   if(G.sneak&&areaKey(L.x,L.y)!==G.sneakArea)rollSneak();
@@ -1903,6 +1907,8 @@ async function recruitInner(){const n=G.npc;const h=mkHero(n.def,n.race||pick(RA
 async function doorInteract(d){
   if(d.burn){toast("The door is on fire! Give it time to burn through.");return;}
   if(d.wedged){d.wedged=false;toast("You kick the wedge out.");}
+  if(!d.heard&&!d.open){const c0=await choose(`A closed ${d.iron?"iron":"wooden"} door${d.locked?", locked":""}.`,[{t:d.locked?"TRY IT":"OPEN IT"},{t:"LISTEN AT THE DOOR",sub:oddsTag(bestAt("perception"),"perception",d.iron?15:10)+" · hear what's on the other side"},{t:"LEAVE IT"}]);
+    if(c0===1){await listenAtDoor(d);return;}if(c0!==0){$("tBox").hidden=true;return;}d.heard=d.heard||"skipped";$("tBox").hidden=true;}
   if(!d.locked){d.open=true;computeLight();fov();checkAwareness();return;}
   d.fail=d.fail||{};const hasKey=(G.bag.key||0)>0;const barb=heroesUp().find(h=>h.id==="barbarian"&&(h.res.rage||0)>0&&!h.wild);const th=bestAt("thieves"),st=bestAt("athletics");const fdc=d.iron?22:17;
   const canBurn=!d.iron&&((G.bag.oil||0)>0||(G.bag.torch||0)>0);
@@ -2526,6 +2532,7 @@ function floorExtras(last){const th=THEMES[G.theme]||{};const normal=G.rooms.fil
   for(const gid of new Set(G.mons.filter(m=>m.fac==="goblins"||m.fac==="kobolds").map(m=>m.gid))){if(Math.random()>.4)continue;const m=G.mons.find(q=>q.gid===gid);const r=roomOf(m.x,m.y);if(!r)continue;const p=interiorFree(r,false);if(p)G.items.push({x:p.x,y:p.y,item:"ration"});}
   // one group starts out patrolling
   const awake=[...new Set(G.mons.filter(m=>m.state==="idle"&&!m.lurk&&!m.parley&&!m.boss).map(m=>m.gid))];if(awake.length){const gid=pick(awake);for(const m of G.mons)if(m.gid===gid)m.state="patrol";}
+  for(let y=1;y<G.H-1;y++)for(let x=1;x<G.W-1;x++)if(G.ground[y][x]===GROUND.water&&DIRS8.every(([dx,dy])=>{const g=G.ground[y+dy][x+dx];return g===GROUND.water||g===GROUND.deep;})&&!(G.stairs&&cheb(G.stairs,{x,y})<2))G.ground[y][x]=GROUND.deep;
   placeDressing();setupGoal(last);
   if(G.theme&&THEMES[G.theme].pal&&!last)G.pal=PALS[THEMES[G.theme].pal];}
 
@@ -2915,6 +2922,42 @@ async function conditionTurn(u){// returns true if the creature loses its turn
       if(a.total>=d){delete u.st.grappled;await say(`The ${u.name} wrenches free of the ${g.name}'s grip!`,800);}else await say(`The ${u.name} struggles against the ${g.name}'s grip.`,700);return true;}}
   return false;}
 
+// ================= exploration & environment =================
+GROUND.deep=6;
+Object.assign(TRAPS,{gas:{name:"poison gas vent",w:15},ceiling:{name:"collapsing ceiling",w:10}});
+const inDeep=u=>gnd(u.x,u.y)===GROUND.deep;
+effect("swimming","Fighting while swimming in deep water: melee at disadvantage",{attackMods:c=>{if(c.w.melee&&inDeep(c.a)&&!(c.a.tr&&c.a.tr.swim))c.dis.push("swimming");}});
+const tooHeavyToSwim=u=>u.side==="h"&&u.info.armour==="heavy"&&!u.armourOff&&!u.wild;
+// ---------- smoke from fires blocks sight ----------
+function addSmoke(x,y,n){G.smoke=G.smoke||new Map();for(const [dx,dy] of [[0,0]].concat(DIRS8)){const k=(y+dy)*G.W+(x+dx);if(inB(x+dx,y+dy)&&!isWall(x+dx,y+dy)&&Math.random()<.7)G.smoke.set(k,Math.max(G.smoke.get(k)||0,n));}}
+function tickSmoke(){if(!G.smoke)return;for(const [k,v] of [...G.smoke]){if(v<=1)G.smoke.delete(k);else G.smoke.set(k,v-1);}}
+const smokeAt=(x,y)=>!!(G.smoke&&G.smoke.has(y*G.W+x));
+function drawSmoke(camX,camY,t){if(!G.smoke)return;for(const k of G.smoke.keys()){const x=k%G.W,y=(k/G.W)|0;if(!G.explored[y][x])continue;const sx=x*TS-camX,sy=y*TS-camY,o=Math.sin(t/400+x*1.7+y)*2;
+    ctx.fillStyle="rgba(70,66,72,.55)";ctx.beginPath();ctx.arc(sx+8+o,sy+7,7,0,Math.PI*2);ctx.fill();ctx.fillStyle="rgba(110,104,110,.35)";ctx.beginPath();ctx.arc(sx+5-o,sy+5,4,0,Math.PI*2);ctx.fill();}}
+// ---------- the two new traps ----------
+async function triggerNewTrap(t,u){
+  if(t.type==="gas"){await say(`Hiss! A cloud of green gas billows up around the ${u.name}!`,900);G.smoke=G.smoke||new Map();addSmoke(t.x,t.y,3);
+    for(const v of G.party.concat(G.mons))if(!v.dead&&!(v.side==="m"&&v.hp<=0)&&!(v.side==="h"&&v.down)&&cheb(v,t)<=1){const s=saveRoll(v,"con",12);const dm=roll("2d6").total;if(!s.ok&&!(v.tr&&v.tr.immune&&v.tr.immune.includes("poison")))v.st.poisoned=3;
+      log(`${esc(v.name)}: ${s.txt}.`,"hurt");await dealDamage(v,s.ok?Math.floor(dm/2):dm,"poison",{});}return true;}
+  if(t.type==="ceiling"){const s=saveRoll(u,"dex",13);const dm=roll("2d8").total;cam.shake=now();makeNoise(t.x,t.y,12);await say(`CRACK! The ceiling caves in on the ${u.name}! (${s.txt})`,1000);
+    G.ground[t.y][t.x]=GROUND.rubble;buildTerrain();await dealDamage(u,s.ok?Math.floor(dm/2):dm,"bludgeoning",{});return true;}
+  return null;}
+// ---------- listening at doors ----------
+const SOUNDS={goblins:"guttural chatter and the scrape of blades",kobolds:"high-pitched yipping",beasts:"panting, claws on stone",undead:"a dry rattling, like bones",none:"a wet, slow squelching"};
+async function listenAtDoor(d){const h=bestAt("perception");const dc=d.iron?15:10;const r=await check(h,"perception",dc);
+  const beyond=G.mons.filter(m=>m.hp>0&&!m.peace&&cheb(m,d)<=8&&!seen(m.x,m.y));let msg;
+  if(!r.ok)msg="You press an ear to the door but hear nothing.";
+  else if(!beyond.length)msg="Silence on the other side.";
+  else{const facs=[...new Set(beyond.map(m=>m.fac||"none"))];const n=beyond.length;const asleep=beyond.every(m=>m.state==="sleep");
+    msg=`You hear ${r.total>=dc+5?`about ${n} creature${n>1?"s":""}`:"something"}: ${facs.map(f=>SOUNDS[f]||SOUNDS.none).join("; ")}${asleep?" ...and snoring":""}.`;}
+  d.heard=msg;G.steps+=2;await say(`${msg} (${r.txt})`,1700,true);$("tBox").hidden=true;}
+// ---------- carrying capacity ----------
+const WEIGHT={firewood:2,ration:1,oil:1,torch:1,relic:2,key:0,arrows:.05};
+const itemWeight=id=>WEIGHT[id]!==undefined?WEIGHT[id]:ITEMS[id]&&ITEMS[id].kind==="gear"?1:.5;
+function packLoad(){let w=0;for(const id in G.bag)w+=itemWeight(id)*(G.bag[id]||0);return Math.round(w*10)/10;}
+function packCap(){return 10+heroesUp().filter(h=>h.id!=="beast").reduce((a,h)=>a+Math.max(2,Math.floor(score(h,"str")/3)),0);}
+const overloaded=()=>!!(G&&G.bag&&!G.demo&&packLoad()>packCap());
+
 // ================= sprites =================
 const sprCache={};
 function paint(rows,pal,w,h){const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");
@@ -3035,7 +3078,7 @@ function draw(t,dt){const sp=dt*TS/115;
   for(const m of G.mons)if(vis(m.x,m.y)&&(G.demo||!isHiddenMon(m)))ents.push({y:m.dy,f:()=>drawMon(m,camX,camY,t)});
   if(!G.demo)for(const h of G.party)ents.push({y:h.dy+(h.down?-4:0),f:()=>drawHero(h,camX,camY,t)});
   ents.sort((a,b)=>a.y-b.y).forEach(e=>e.f());
-  drawCombatMarkers(t,camX,camY);drawFx(t,camX,camY);}
+  if(!G.demo)drawSmoke(camX,camY,t);drawCombatMarkers(t,camX,camY);drawFx(t,camX,camY);}
 function drawFire(sx,sy,t,k){const fl=["#ff4a20","#ff9a30","#ffe070"];for(let i=0;i<4;i++){const h=6+Math.abs(Math.sin(t/120+i*1.7+k))*7;const x=sx+2+i*3.5;
   ctx.fillStyle=fl[0];ctx.fillRect(Math.round(x),Math.round(sy+15-h),3,Math.round(h));ctx.fillStyle=fl[1];ctx.fillRect(Math.round(x)+1,Math.round(sy+15-h*.7),2,Math.round(h*.7));ctx.fillStyle=fl[2];ctx.fillRect(Math.round(x)+1,Math.round(sy+15-h*.35),1,Math.round(h*.35));}}
 function drawFlames(sx,sy,t){const X=Math.round(sx),Y=Math.round(sy),fl=Math.floor(t/90)%2;ctx.fillStyle="#ff6a1a";ctx.fillRect(X+3,Y+4+fl,4,6);ctx.fillRect(X+9,Y+3-fl,4,7);ctx.fillStyle="#ffc040";ctx.fillRect(X+4,Y+6+fl,2,3);ctx.fillRect(X+10,Y+5-fl,2,3);ctx.fillStyle="rgba(60,50,50,.4)";ctx.fillRect(X+5,Y-3-fl,6,3);}
@@ -3193,11 +3236,12 @@ function renderMenu(){const el=$("menuBody");["party","bag","rest"].forEach(t=>$
         d.appendChild(b);}
       if(idx>0){const b=document.createElement("button");b.type="button";b.className="big alt";b.textContent="MAKE LEADER";b.addEventListener("click",()=>{G.party.splice(idx,1);G.party.unshift(h);renderMenu();hud();fov();});d.appendChild(b);}
       el.appendChild(d);});}
-  if(menuTab==="bag"){el.insertAdjacentHTML("beforeend",`<p>Gold: <b>${G.gold}</b></p>`);const ids=Object.keys(G.bag);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Your bag is empty.</p>");
+  if(menuTab==="bag"){const ld=packLoad(),cp=packCap();el.insertAdjacentHTML("beforeend",`<p>Gold: <b>${G.gold}</b> · Pack: <b${ld>cp?' style="color:#ff8a6a"':""}>${ld} / ${cp}</b>${ld>cp?" OVERLOADED: slower in combat, and every step takes longer. Drop something.":""}</p><p class="help">Firewood weighs 2, rations, oil and torches 1 each, gear 1, small things ½. Stronger heroes carry more.</p>`);const ids=Object.keys(G.bag);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Your bag is empty.</p>");
     for(const id of ids){const it=ITEMS[id];const d=document.createElement("div");d.className="item";const ic=document.createElement("canvas");ic.width=ic.height=16;d.appendChild(ic);
       const saved=ctx;drawIconTo(ic,id);d.insertAdjacentHTML("beforeend",`<div><b>${esc(itemName(id))} ×${G.bag[id]}</b><br><span class="sm">${esc(itemDesc(id))}</span></div>`);
       const acts=document.createElement("div");acts.className="acts";
       const btn=(t,f,dis)=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=t;b.disabled=!!dis;b.addEventListener("click",f);acts.appendChild(b);};
+      if(mode==="explore"&&id!=="relic")btn(id==="arrows"?"DROP 10":"DROP ONE",()=>{const n=id==="arrows"?Math.min(10,G.bag[id]):1;takeItem(id,n);const L=G.party[0];if(id==="arrows")G.items.push({x:L.x,y:L.y,item:id,n});else G.items.push({x:L.x,y:L.y,item:id});renderMenu();hud();});
       if(!isKnown(id)){const pot=it.kind==="use"&&!id.startsWith("scroll");btn(pot?"TASTE IT (MEDICINE)":"IDENTIFY (ARCANA)",async()=>{await identify(id);const msg=$("menuBody").querySelector(".msg");const keep=msg?msg.textContent:"";renderMenu();if(keep)alertMenu(keep);},G.idTried.has(id));}
       if(it.kind==="gear")for(const h of G.party.filter(h=>!h.dead&&h.id!=="beast"))btn(`EQUIP: ${h.name.toUpperCase()}`,()=>{if(h.gear.length>=3){alertMenu(`${h.name} has no free gear slot.`);return;}const was=isKnown(id);takeItem(id);h.gear.push(id);G.known.add(id);if(id==="wand")h.wand=3;applyLevel(h,false);renderMenu();hud();
         if(!was)alertMenu(ITEMS[id].cursed?`${h.name} puts it on... and feels a chill. It's a ${ITEMS[id].name}! CURSED: it won't come off.`:`${h.name} attunes to it: it's ${aN(ITEMS[id].name)}!`);},h.gear.length>=3);

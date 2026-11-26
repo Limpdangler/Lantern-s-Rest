@@ -47,7 +47,9 @@ function buildTerrain(){
   for(let x=0;x<W;x++)for(let y=H-1;y>=0;y--){const i=y*W+x;if(!rock[i])continue;if(y===H-1){run[i]=1;continue;}const b=i+W;if(!rock[b]){run[i]=1;endF[i]=1;}else{run[i]=run[b]+1;endF[i]=endF[b];}}
   // ground feature masks (soft rounded pools)
   const soft=(code,r)=>{let m=tileMask(W,H,(tx,ty)=>gnd(tx,ty)===code);if(!m.some(v=>v))return null;m=blur(m,W,H,r);m=blur(m,W,H,r-2);for(let i=0;i<m.length;i++)m[i]+=(vnoise((i%W)/5,((i/W)|0)/5,seed+50)-.5)*.18;return m;};
-  const water=soft(GROUND.water,6),oil=soft(GROUND.oil,5),acid=soft(GROUND.acid,5);
+  const water=(()=>{let m=tileMask(W,H,(tx,ty)=>gnd(tx,ty)===GROUND.water||gnd(tx,ty)===GROUND.deep);if(!m.some(v=>v))return null;m=blur(m,W,H,6);m=blur(m,W,H,4);for(let i=0;i<m.length;i++)m[i]+=(vnoise((i%W)/5,((i/W)|0)/5,seed+50)-.5)*.18;return m;})();
+  const deep=(()=>{let m=tileMask(W,H,(tx,ty)=>gnd(tx,ty)===GROUND.deep);if(!m.some(v=>v))return null;m=blur(m,W,H,5);m=blur(m,W,H,3);return m;})();
+  const water0=null,oil=soft(GROUND.oil,5),acid=soft(GROUND.acid,5);
   // ledges (raised floor)
   let ledge=null;if(G.elev&&G.elev.some(r=>r.some(v=>v))){ledge=blur(tileMask(W,H,(tx,ty)=>G.elev[ty][tx]>0),W,H,3);}
   const ledgeAt=(x,y)=>ledge&&x>=0&&y>=0&&x<W&&y<H&&ledge[y*W+x]>.5&&!rock[y*W+x];
@@ -122,7 +124,7 @@ function buildTerrain(){
         if(kind==="water"){const wave=Math.sin(x/3.2+Math.sin(y/2.5)*1.6+seed)>.86&&(y%3===0);c=edge?PAL[2]:wave?PAL[1]:t4([PAL[2],mix(PAL[2],PAL[0],.5),PAL[0],mix(PAL[0],PAL[1],.4)],fbm(x,y,seed+40)*.9,x,y);}
         else if(kind==="oil"){const gl=vnoise(x/3,y/3,seed+41);c=edge?PAL[2]:gl>.72?PAL[1]:PAL[0];}
         else{const bb=hash(x>>1,y>>1,seed+42)%19===0;c=edge?PAL[2]:bb?PAL[1]:t4([PAL[2],mix(PAL[2],PAL[0],.5),PAL[0],PAL[1]],fbm(x,y,seed+43)*.8,x,y);}};
-      liquid(water,WATER,"water");liquid(oil,OIL,"oil");liquid(acid,ACID,"acid");}
+      liquid(water,WATER,"water");if(deep&&deep[i]>.5){c=mix(c,[10,26,40],.55+(deep[i]-.5)*.6);if(Math.sin(x/4+Math.sin(y/3)*2+seed)>.9&&y%4===0)c=mix(c,[120,170,200],.4);}liquid(oil,OIL,"oil");liquid(acid,ACID,"acid");}
     put(i,c);}
   const floorPx=(x,y)=>x>=0&&y>=0&&x<W&&y<H&&!rock[y*W+x];
   const r=rng(seed);

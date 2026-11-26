@@ -118,7 +118,7 @@ function draw(t,dt){const sp=dt*TS/115;
   for(const m of G.mons)if(vis(m.x,m.y)&&(G.demo||!isHiddenMon(m)))ents.push({y:m.dy,f:()=>drawMon(m,camX,camY,t)});
   if(!G.demo)for(const h of G.party)ents.push({y:h.dy+(h.down?-4:0),f:()=>drawHero(h,camX,camY,t)});
   ents.sort((a,b)=>a.y-b.y).forEach(e=>e.f());
-  drawCombatMarkers(t,camX,camY);drawFx(t,camX,camY);}
+  if(!G.demo)drawSmoke(camX,camY,t);drawCombatMarkers(t,camX,camY);drawFx(t,camX,camY);}
 function drawFire(sx,sy,t,k){const fl=["#ff4a20","#ff9a30","#ffe070"];for(let i=0;i<4;i++){const h=6+Math.abs(Math.sin(t/120+i*1.7+k))*7;const x=sx+2+i*3.5;
   ctx.fillStyle=fl[0];ctx.fillRect(Math.round(x),Math.round(sy+15-h),3,Math.round(h));ctx.fillStyle=fl[1];ctx.fillRect(Math.round(x)+1,Math.round(sy+15-h*.7),2,Math.round(h*.7));ctx.fillStyle=fl[2];ctx.fillRect(Math.round(x)+1,Math.round(sy+15-h*.35),1,Math.round(h*.35));}}
 function drawFlames(sx,sy,t){const X=Math.round(sx),Y=Math.round(sy),fl=Math.floor(t/90)%2;ctx.fillStyle="#ff6a1a";ctx.fillRect(X+3,Y+4+fl,4,6);ctx.fillRect(X+9,Y+3-fl,4,7);ctx.fillStyle="#ffc040";ctx.fillRect(X+4,Y+6+fl,2,3);ctx.fillRect(X+10,Y+5-fl,2,3);ctx.fillStyle="rgba(60,50,50,.4)";ctx.fillRect(X+5,Y-3-fl,6,3);}
@@ -276,11 +276,12 @@ function renderMenu(){const el=$("menuBody");["party","bag","rest"].forEach(t=>$
         d.appendChild(b);}
       if(idx>0){const b=document.createElement("button");b.type="button";b.className="big alt";b.textContent="MAKE LEADER";b.addEventListener("click",()=>{G.party.splice(idx,1);G.party.unshift(h);renderMenu();hud();fov();});d.appendChild(b);}
       el.appendChild(d);});}
-  if(menuTab==="bag"){el.insertAdjacentHTML("beforeend",`<p>Gold: <b>${G.gold}</b></p>`);const ids=Object.keys(G.bag);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Your bag is empty.</p>");
+  if(menuTab==="bag"){const ld=packLoad(),cp=packCap();el.insertAdjacentHTML("beforeend",`<p>Gold: <b>${G.gold}</b> · Pack: <b${ld>cp?' style="color:#ff8a6a"':""}>${ld} / ${cp}</b>${ld>cp?" OVERLOADED: slower in combat, and every step takes longer. Drop something.":""}</p><p class="help">Firewood weighs 2, rations, oil and torches 1 each, gear 1, small things ½. Stronger heroes carry more.</p>`);const ids=Object.keys(G.bag);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Your bag is empty.</p>");
     for(const id of ids){const it=ITEMS[id];const d=document.createElement("div");d.className="item";const ic=document.createElement("canvas");ic.width=ic.height=16;d.appendChild(ic);
       const saved=ctx;drawIconTo(ic,id);d.insertAdjacentHTML("beforeend",`<div><b>${esc(itemName(id))} ×${G.bag[id]}</b><br><span class="sm">${esc(itemDesc(id))}</span></div>`);
       const acts=document.createElement("div");acts.className="acts";
       const btn=(t,f,dis)=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=t;b.disabled=!!dis;b.addEventListener("click",f);acts.appendChild(b);};
+      if(mode==="explore"&&id!=="relic")btn(id==="arrows"?"DROP 10":"DROP ONE",()=>{const n=id==="arrows"?Math.min(10,G.bag[id]):1;takeItem(id,n);const L=G.party[0];if(id==="arrows")G.items.push({x:L.x,y:L.y,item:id,n});else G.items.push({x:L.x,y:L.y,item:id});renderMenu();hud();});
       if(!isKnown(id)){const pot=it.kind==="use"&&!id.startsWith("scroll");btn(pot?"TASTE IT (MEDICINE)":"IDENTIFY (ARCANA)",async()=>{await identify(id);const msg=$("menuBody").querySelector(".msg");const keep=msg?msg.textContent:"";renderMenu();if(keep)alertMenu(keep);},G.idTried.has(id));}
       if(it.kind==="gear")for(const h of G.party.filter(h=>!h.dead&&h.id!=="beast"))btn(`EQUIP: ${h.name.toUpperCase()}`,()=>{if(h.gear.length>=3){alertMenu(`${h.name} has no free gear slot.`);return;}const was=isKnown(id);takeItem(id);h.gear.push(id);G.known.add(id);if(id==="wand")h.wand=3;applyLevel(h,false);renderMenu();hud();
         if(!was)alertMenu(ITEMS[id].cursed?`${h.name} puts it on... and feels a chill. It's a ${ITEMS[id].name}! CURSED: it won't come off.`:`${h.name} attunes to it: it's ${aN(ITEMS[id].name)}!`);},h.gear.length>=3);

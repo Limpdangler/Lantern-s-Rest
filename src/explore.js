@@ -37,7 +37,7 @@ async function doMove(dx,dy){if(G.party[0].down){const i=G.party.findIndex(h=>!h
   const f=G.party.find(h=>h!==L&&h.x===nx&&h.y===ny);
   if(f){f.x=L.x;f.y=L.y;faceToward(f,L.x-nx,L.y-ny);L.x=nx;L.y=ny;}
   else{const prev=G.party.map(h=>({x:h.x,y:h.y}));L.x=nx;L.y=ny;for(let i=1;i<G.party.length;i++){const h=G.party[i];const tp=prev[i-1];if(h.x===tp.x&&h.y===tp.y)continue;faceToward(h,tp.x-h.x,tp.y-h.y);h.x=tp.x;h.y=tp.y;}}
-  const cost=G.sneak?2:1;const before=G.steps;G.steps+=cost;burnFuel(cost);for(const h of G.party)if(!h.down&&h.st.prone)delete h.st.prone;
+  const cost=(G.sneak?2:1)+(overloaded()?1:0);const before=G.steps;G.steps+=cost;burnFuel(cost);for(const h of G.party)if(!h.down&&h.st.prone)delete h.st.prone;
   if(S.rules.fatigue&&Math.floor(G.steps/120)>Math.floor(before/120)){G.fatigue++;await partyWeary();}
   if(G.steps%3===0&&G.fire.size)tickFire();
   if(G.sneak&&areaKey(L.x,L.y)!==G.sneakArea)rollSneak();
@@ -82,6 +82,8 @@ async function recruitInner(){const n=G.npc;const h=mkHero(n.def,n.race||pick(RA
 async function doorInteract(d){
   if(d.burn){toast("The door is on fire! Give it time to burn through.");return;}
   if(d.wedged){d.wedged=false;toast("You kick the wedge out.");}
+  if(!d.heard&&!d.open){const c0=await choose(`A closed ${d.iron?"iron":"wooden"} door${d.locked?", locked":""}.`,[{t:d.locked?"TRY IT":"OPEN IT"},{t:"LISTEN AT THE DOOR",sub:oddsTag(bestAt("perception"),"perception",d.iron?15:10)+" · hear what's on the other side"},{t:"LEAVE IT"}]);
+    if(c0===1){await listenAtDoor(d);return;}if(c0!==0){$("tBox").hidden=true;return;}d.heard=d.heard||"skipped";$("tBox").hidden=true;}
   if(!d.locked){d.open=true;computeLight();fov();checkAwareness();return;}
   d.fail=d.fail||{};const hasKey=(G.bag.key||0)>0;const barb=heroesUp().find(h=>h.id==="barbarian"&&(h.res.rage||0)>0&&!h.wild);const th=bestAt("thieves"),st=bestAt("athletics");const fdc=d.iron?22:17;
   const canBurn=!d.iron&&((G.bag.oil||0)>0||(G.bag.torch||0)>0);

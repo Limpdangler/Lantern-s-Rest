@@ -67,3 +67,39 @@ async function conditionTurn(u){// returns true if the creature loses its turn
     if(Math.random()<.45){const a=await check(u,Math.random()<.5?"athletics":"acrobatics",0,{quiet:true});const d=rnd(20)+skillBonus(g,"athletics");
       if(a.total>=d){delete u.st.grappled;await say(`The ${u.name} wrenches free of the ${g.name}'s grip!`,800);}else await say(`The ${u.name} struggles against the ${g.name}'s grip.`,700);return true;}}
   return false;}
+
+// ================= exploration & environment =================
+GROUND.deep=6;
+Object.assign(TRAPS,{gas:{name:"poison gas vent",w:15},ceiling:{name:"collapsing ceiling",w:10}});
+const inDeep=u=>gnd(u.x,u.y)===GROUND.deep;
+effect("swimming","Fighting while swimming in deep water: melee at disadvantage",{attackMods:c=>{if(c.w.melee&&inDeep(c.a)&&!(c.a.tr&&c.a.tr.swim))c.dis.push("swimming");}});
+const tooHeavyToSwim=u=>u.side==="h"&&u.info.armour==="heavy"&&!u.armourOff&&!u.wild;
+// ---------- smoke from fires blocks sight ----------
+function addSmoke(x,y,n){G.smoke=G.smoke||new Map();for(const [dx,dy] of [[0,0]].concat(DIRS8)){const k=(y+dy)*G.W+(x+dx);if(inB(x+dx,y+dy)&&!isWall(x+dx,y+dy)&&Math.random()<.7)G.smoke.set(k,Math.max(G.smoke.get(k)||0,n));}}
+function tickSmoke(){if(!G.smoke)return;for(const [k,v] of [...G.smoke]){if(v<=1)G.smoke.delete(k);else G.smoke.set(k,v-1);}}
+const smokeAt=(x,y)=>!!(G.smoke&&G.smoke.has(y*G.W+x));
+function drawSmoke(camX,camY,t){if(!G.smoke)return;for(const k of G.smoke.keys()){const x=k%G.W,y=(k/G.W)|0;if(!G.explored[y][x])continue;const sx=x*TS-camX,sy=y*TS-camY,o=Math.sin(t/400+x*1.7+y)*2;
+    ctx.fillStyle="rgba(70,66,72,.55)";ctx.beginPath();ctx.arc(sx+8+o,sy+7,7,0,Math.PI*2);ctx.fill();ctx.fillStyle="rgba(110,104,110,.35)";ctx.beginPath();ctx.arc(sx+5-o,sy+5,4,0,Math.PI*2);ctx.fill();}}
+// ---------- the two new traps ----------
+async function triggerNewTrap(t,u){
+  if(t.type==="gas"){await say(`Hiss! A cloud of green gas billows up around the ${u.name}!`,900);G.smoke=G.smoke||new Map();addSmoke(t.x,t.y,3);
+    for(const v of G.party.concat(G.mons))if(!v.dead&&!(v.side==="m"&&v.hp<=0)&&!(v.side==="h"&&v.down)&&cheb(v,t)<=1){const s=saveRoll(v,"con",12);const dm=roll("2d6").total;if(!s.ok&&!(v.tr&&v.tr.immune&&v.tr.immune.includes("poison")))v.st.poisoned=3;
+      log(`${esc(v.name)}: ${s.txt}.`,"hurt");await dealDamage(v,s.ok?Math.floor(dm/2):dm,"poison",{});}return true;}
+  if(t.type==="ceiling"){const s=saveRoll(u,"dex",13);const dm=roll("2d8").total;cam.shake=now();makeNoise(t.x,t.y,12);await say(`CRACK! The ceiling caves in on the ${u.name}! (${s.txt})`,1000);
+    G.ground[t.y][t.x]=GROUND.rubble;buildTerrain();await dealDamage(u,s.ok?Math.floor(dm/2):dm,"bludgeoning",{});return true;}
+  return null;}
+// ---------- listening at doors ----------
+const SOUNDS={goblins:"guttural chatter and the scrape of blades",kobolds:"high-pitched yipping",beasts:"panting, claws on stone",undead:"a dry rattling, like bones",none:"a wet, slow squelching"};
+async function listenAtDoor(d){const h=bestAt("perception");const dc=d.iron?15:10;const r=await check(h,"perception",dc);
+  const beyond=G.mons.filter(m=>m.hp>0&&!m.peace&&cheb(m,d)<=8&&!seen(m.x,m.y));let msg;
+  if(!r.ok)msg="You press an ear to the door but hear nothing.";
+  else if(!beyond.length)msg="Silence on the other side.";
+  else{const facs=[...new Set(beyond.map(m=>m.fac||"none"))];const n=beyond.length;const asleep=beyond.every(m=>m.state==="sleep");
+    msg=`You hear ${r.total>=dc+5?`about ${n} creature${n>1?"s":""}`:"something"}: ${facs.map(f=>SOUNDS[f]||SOUNDS.none).join("; ")}${asleep?" ...and snoring":""}.`;}
+  d.heard=msg;G.steps+=2;await say(`${msg} (${r.txt})`,1700,true);$("tBox").hidden=true;}
+// ---------- carrying capacity ----------
+const WEIGHT={firewood:2,ration:1,oil:1,torch:1,relic:2,key:0,arrows:.05};
+const itemWeight=id=>WEIGHT[id]!==undefined?WEIGHT[id]:ITEMS[id]&&ITEMS[id].kind==="gear"?1:.5;
+function packLoad(){let w=0;for(const id in G.bag)w+=itemWeight(id)*(G.bag[id]||0);return Math.round(w*10)/10;}
+function packCap(){return 10+heroesUp().filter(h=>h.id!=="beast").reduce((a,h)=>a+Math.max(2,Math.floor(score(h,"str")/3)),0);}
+const overloaded=()=>!!(G&&G.bag&&!G.demo&&packLoad()>packCap());

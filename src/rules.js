@@ -21,7 +21,8 @@ function featRes(h){const out=[];if(h.sub==="land")out.push("natrec");for(const 
 function restoreAll(h,keepHD){h.pins=2;if(hasFeat(h,"lucky"))h.luck=3;h.goodberry=false;h.sanct=false;h.slots=slotMax(h);for(const k of featRes(h))h.res[k]=RES[k].max(G.level);h.wand=gearFx(h).wand?3:0;if(!keepHD)h.hdLeft=h.hdMax;h.rebukeUsed=false;h.relentlessUsed=false;if(h.sub==="abjurer")h.ward=wardMax(h);}
 function gearFx(h){const f={};for(const id of h.gear){const it=ITEMS[id];if(!it||!it.fx)continue;for(const k in it.fx){if(k.startsWith("set"))f[k]=Math.max(f[k]||0,it.fx[k]);else f[k]=(f[k]||0)+it.fx[k];}}return f;}
 function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)+(u.st.sof?2:0)-curse;}
-function speedOf(u){if(u.side==="m")return u.speed;let s=u.wild?8:u.def.speed+(gearFx(u).speed||0);s-=exhOf(u);if(u.st&&u.st.pinned)return 0;return Math.max(1,s);}
+function speedOf(u){if(u.side==="m")return u.speed;if(overloaded()&&!u.wild)return Math.max(1,speedOf2(u)-2);return speedOf2(u);}
+function speedOf2(u){let s=u.wild?8:u.def.speed+(gearFx(u).speed||0);s-=exhOf(u);if(u.st&&u.st.pinned)return 0;return Math.max(1,s);}
 function saveBonus(u,a){if(u.side==="m")return abm(u,a)+(u.boss?3:0);return abm(u,a)+(u.info.saves.includes(a)?prof():0)+(gearFx(u).save||0)+(G.blessFloor===G.floor?1:0)+loyalBonus(u);}
 function skillBonus(u,sk){const a=SKILLS[sk];if(u.side==="m")return abm(u,a)+(sk==="perception"&&u.tr.keen?3:0)+(u.boss?2:0)+(sk==="athletics"&&u.tr.shover?2:0);
   let b=abm(u,a);const R=u.race&&RACES[u.race];if(u.info.skills.includes(sk)||(R&&R.skills&&R.skills.includes(sk))||(u.extraSkills&&u.extraSkills.includes(sk)))b+=prof()*((u.info.expertise||[]).includes(sk)?2:1);if(sk==="thieves")b+=gearFx(u).thieves||0;if(u.sub==="champion"&&!u.info.skills.includes(sk)&&(a==="str"||a==="dex"))b+=Math.ceil(prof()/2);return b;}
@@ -207,7 +208,7 @@ async function onEnter(u,x,y,o){o=o||{};const res={stop:false};
   if(g===GROUND.acid){await say(`Acid burns the ${u.name}!`,600);await dealDamage(u,roll("1d6+1").total,"acid",{});}
   if(u.side==="h"&&!C)collectItems(u);
   return res;}
-async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?`The ${u.name}`:`The ${u.name}`;
+async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?`The ${u.name}`:`The ${u.name}`;{const r=await triggerNewTrap(t,u);if(r!==null)return r;}
   if(t.type==="darts"){const r=rnd(20)+5;const hit=r>=acOf(u);fx.push({type:"shot",from:{x:t.x-2,y:t.y},to:{x:t.x,y:t.y},t:now(),col:"#d0d0d0"});
     await say(`Click! Darts fly from the walls at ${who}: ${r} vs AC ${acOf(u)}. ${hit?"Hit!":"Miss!"}`,950);
     if(hit){await dealDamage(u,roll("2d4").total,"piercing",{});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
@@ -233,7 +234,7 @@ function burnObjects(){for(const o of G.objs){if(!o.burn||o.gone)continue;o.burn
   // flames jump to wooden things next to a fire
   for(const k of [...G.fire.keys()]){const x=k%G.W,y=(k/G.W)|0;for(const o of G.objs)if(isWooden(o)&&!o.burn&&cheb(o,{x,y})<=1&&(o.x!==x||o.y!==y)&&Math.random()<(o.type==="web"?.9:.3))setAlight(o);}}
 async function scorch(){for(const u of G.party.concat(G.mons.slice())){if(u.dead||u.hp<=0&&u.side==="m")continue;if(fireAt(u.x,u.y)&&u._scorch!==(C?C.round:-1)){u._scorch=C?C.round:-1;await dealDamage(u,roll("2d4").total,"fire",{});}}}
-function tickFire(){burnObjects();let burnt=false;for(const [k,v] of [...G.fire]){if(v<=1){G.fire.delete(k);const x=k%G.W,y=(k/G.W)|0;if(gnd(x,y)===GROUND.oil){G.ground[y][x]=0;burnt=true;}}else G.fire.set(k,v-1);}
+function tickFire(){burnObjects();tickSmoke();for(const o of G.objs)if(o.burn&&!o.gone)addSmoke(o.x,o.y,3);let burnt=false;for(const [k,v] of [...G.fire]){if(v<=1){G.fire.delete(k);const x=k%G.W,y=(k/G.W)|0;if(gnd(x,y)===GROUND.oil){G.ground[y][x]=0;burnt=true;}}else G.fire.set(k,v-1);}
   if(burnt)buildTerrain();computeLight();}
 function spill(cx,cy,tiles){for(const [x,y] of tiles){if(!inB(x,y)||isWall(x,y)||gnd(x,y)===GROUND.water||blocksObj(x,y)&&!(x===cx&&y===cy))continue;if(gnd(x,y)===0||gnd(x,y)===GROUND.rubble)G.ground[y][x]=GROUND.oil;}buildTerrain();}
 async function breakBarrel(o,fire,dx,dy){o.gone=true;const tiles=[[o.x,o.y]];
@@ -276,6 +277,6 @@ async function shove(a,t,choice){
   if(choice==="prone"){t.st.prone=true;float(t,"PRONE","#ffffff");await say(`The ${a.name} knocks the ${t.name} to the ground!`,850);return true;}
   await say(`The ${a.name} shoves the ${t.name} back!`,650);await pushUnit(t,Math.sign(t.x-a.x),Math.sign(t.y-a.y),a.st.giant?2:1);return true;}
 async function collectItems(h){for(const it of G.items.filter(i=>i.x===h.x&&i.y===h.y)){G.items.splice(G.items.indexOf(it),1);
-  if(it.gold){G.gold+=it.gold;toast(`Found ${it.gold} gold!`);log(`Found ${it.gold} gold.`,"gold");}else{addItem(it.item);toast(`Found ${itemName(it.item)}!`);log(`Found ${esc(itemName(it.item))}.`,"gold");}}hud();}
+  if(it.gold){G.gold+=it.gold;toast(`Found ${it.gold} gold!`);log(`Found ${it.gold} gold.`,"gold");}else{addItem(it.item,it.n||1);toast(`Found ${it.n>1?it.n+" ":""}${itemName(it.item)}!`);log(`Found ${esc(itemName(it.item))}.`,"gold");}}hud();}
 function addItem(id,n){G.bag[id]=(G.bag[id]||0)+(n||1);}
-function takeItem(id){if(!G.bag[id])return false;G.bag[id]--;if(!G.bag[id])delete G.bag[id];return true;}
+function takeItem(id,n){if(!G.bag[id])return false;G.bag[id]-=Math.min(G.bag[id],n||1);if(!G.bag[id])delete G.bag[id];return true;}

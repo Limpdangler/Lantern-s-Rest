@@ -161,5 +161,6 @@ function floorExtras(last){const th=THEMES[G.theme]||{};const normal=G.rooms.fil
   for(const gid of new Set(G.mons.filter(m=>m.fac==="goblins"||m.fac==="kobolds").map(m=>m.gid))){if(Math.random()>.4)continue;const m=G.mons.find(q=>q.gid===gid);const r=roomOf(m.x,m.y);if(!r)continue;const p=interiorFree(r,false);if(p)G.items.push({x:p.x,y:p.y,item:"ration"});}
   // one group starts out patrolling
   const awake=[...new Set(G.mons.filter(m=>m.state==="idle"&&!m.lurk&&!m.parley&&!m.boss).map(m=>m.gid))];if(awake.length){const gid=pick(awake);for(const m of G.mons)if(m.gid===gid)m.state="patrol";}
+  for(let y=1;y<G.H-1;y++)for(let x=1;x<G.W-1;x++)if(G.ground[y][x]===GROUND.water&&DIRS8.every(([dx,dy])=>{const g=G.ground[y+dy][x+dx];return g===GROUND.water||g===GROUND.deep;})&&!(G.stairs&&cheb(G.stairs,{x,y})<2))G.ground[y][x]=GROUND.deep;
   placeDressing();setupGoal(last);
   if(G.theme&&THEMES[G.theme].pal&&!last)G.pal=PALS[THEMES[G.theme].pal];}

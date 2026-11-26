@@ -150,6 +150,7 @@ const TRAPS={
   darts:{name:"dart trap",w:35},pit:{name:"pit trap",w:30},fire:{name:"fire jet",w:20},alarm:{name:"alarm wire",w:15}
 };
 
+
 // races: ability bonuses, darkvision and a signature trait
 const RACES={
   human:{name:"Human",asi:{str:1,dex:1,con:1,int:1,wis:1,cha:1},skills:["perception"],desc:"+1 to every ability score and an extra skill. Versatile, but no darkvision."},
