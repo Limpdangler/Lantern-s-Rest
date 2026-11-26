@@ -53,3 +53,11 @@ buildClassCards();renderTown();
   G.mons.push(mkMon(DEFAULTS.monsters[2],r.x,r.y,false));G.items.push({x:r.x+r.w-1,y:r.y,item:"potion"});G.pal=PALS.earth;G.lit=new Uint8Array(G.W*G.H).fill(1);buildTerrain();})();
 document.addEventListener("keyup",e=>{if(held&&held._k===e.key.toLowerCase())held=null;});
 requestAnimationFrame(loop);
+
+// ---------- safety net: never stay stuck ----------
+// "busy" means "something is happening, ignore taps". If it's ever left switched on by mistake
+// (nothing on screen, no message, no choice waiting) the game would freeze. This watchdog notices and frees it.
+let busySince=0;
+setInterval(()=>{if(!busy||!G||G.demo){busySince=0;return;}if(!busySince){busySince=Date.now();return;}
+  const idle=!sayState&&!choosing&&$("chPanel").hidden&&!document.querySelector(".ov:not([hidden])");
+  if(idle&&mode==="explore"&&Date.now()-busySince>8000){busy=false;busySince=0;console.warn("Watchdog: cleared a stuck 'busy' state");hud();}},1000);

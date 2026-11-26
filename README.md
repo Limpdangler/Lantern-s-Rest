@@ -32,13 +32,29 @@ python3 build.py
 | `living.js` | Route choice, noise, patrols, factions, floor goals, unknown items, riddles, companions, the town |
 | `dress.js` | Set dressing (skeletons, old camps, webs…) and collapsed passages |
 | `classfx.js` | Class signature abilities, feats, inspiration, reactions |
+| `save.js` | Saving and resuming runs (automatic) |
+| `effects.js` | **The trigger system**: every class/race/subclass/feat/item effect that changes attacks or damage, each in one labelled entry |
 | `ui.js` | Drawing the screen, menus, party sheets, shop, settings |
 | `main.js` | Start-up, controls, saving settings |
 | `style.css`, `body.html` | Page layout and look |
 
+## Adding a new ability
+
+Attack and damage rules don't contain any class-specific code. They announce moments ("an attack hit", "damage is about to land"…) and `src/effects.js` lists every effect that reacts to them, e.g.:
+
+```js
+effect("raceResist","Dwarf (poison) and Tiefling (fire) resistance",{damageIn:async c=>{ ... }});
+```
+
+A new ability is a new `effect(...)` entry. The top of `effects.js` lists every moment and what information it gets.
+
+## Seeds and saves
+
+Every run has a **dungeon seed** (shown in the menu and end screen). Typing the same seed on the town screen builds the same floors, which makes bugs easy to reproduce. Runs save automatically; the town screen offers **Continue run**.
+
 ## Tests (`tests/`)
 
-Automated browser tests (Python + Playwright). `bot.py <class> <steps>` plays the game by itself and reports any errors; the `feat*.py` scripts exercise specific features.
+Automated browser tests (Python + Playwright). `bot.py <class> <steps>` plays the game by itself and reports any errors; `feat*.py` exercise specific features; `save_test.py`, `seed_test.py` and `effects_test.py` check saving, seeds and the trigger system. `run_all.sh` runs the quick ones.
 
 ## Playing
 

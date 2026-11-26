@@ -6,7 +6,7 @@ async def main():
     b=await p.chromium.launch(executable_path="/usr/bin/google-chrome")
     pg=await b.new_page(viewport={"width":390,"height":800})
     errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
-    html=open(""+__import__("os").path.join(__import__("os").path.dirname(__file__),"..","dist","lantern-crawl.html")+"").read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
+    html=open(__import__("os").path.join(__import__("os").path.dirname(__file__),"..","dist","lantern-crawl.html")).read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
     await pg.set_content("<body>"+html+"</body>")
     await pg.wait_for_timeout(300);await pg.click("#btnSetOut");await pg.click("#pick-ranger");await pg.click("#pick-race-elf");await pg.evaluate("window.__fast=0.02")
     await pg.evaluate("setInterval(()=>{const bs=[...document.querySelectorAll('#chBtns button')].filter(x=>!x.disabled);if(!document.getElementById('chPanel').hidden&&bs.length)bs[0].click();},150)")

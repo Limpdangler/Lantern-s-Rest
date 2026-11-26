@@ -73,8 +73,6 @@ function coverOf(a,t){if(cheb(a,t)<=1)return 0;const cs=[[.05,.05],[.95,.05],[.0
   if(best===0)return creature?2:0;return best>=3?5:2;}
 function attackMods(a,t,w,o){o=o||{};const adv=[],dis=[],notes=[];let bonus=atkBonus(a,w);const ranged=!w.melee;
   if(t.st.restrained)adv.push("target restrained");if(t.st.asleep)adv.push("target asleep");
-  if(a.side==="h"&&a.sub==="assassin"&&t.side==="m"&&C&&!t.acted)adv.push("assassinate");
-  if(a.side==="h"&&w.melee&&heroesUp().some(f=>f!==a&&f.sub==="wolf"&&f.st.raging&&cheb(f,t)<=1))adv.push("wolf totem");
   if(t.st.prone){if(cheb(a,t)<=1)adv.push("target prone");else dis.push("target prone, far away");}
   if(t.st.helped)adv.push("ally helping");if(t.st.guided)adv.push("Guiding Bolt");if(t.st.reckless)adv.push("target reckless");
   if(a.st.hidden)adv.push("you're hidden");if(o.adv)adv.push(o.adv);
@@ -86,7 +84,7 @@ function attackMods(a,t,w,o){o=o||{};const adv=[],dis=[],notes=[];let bonus=atkB
   if(ranged&&foesOf(a).some(f=>cheb(f,a)===1&&!(f.side==="h"&&f.down)))dis.push("enemy next to you");
   if(elevAt(a.x,a.y)>elevAt(t.x,t.y)){bonus+=2;notes.push("high ground +2");}
   if(exhOf(a)){bonus-=2*exhOf(a);notes.push(`exhaustion −${2*exhOf(a)}`);}
-  let cover=(ranged&&!w.noCover)?coverOf(a,t):0;if(ranged&&hasFeat(a,"sharpshooter")){if(cover===2)cover=0;bonus+=1;}if(cover)notes.push(cover===2?"half cover +2 AC":"¾ cover +5 AC");
+  let cover=(ranged&&!w.noCover)?coverOf(a,t):0;{const e=fire("attackMods",{a,t,w,o,adv,dis,notes,bonus,cover});bonus=e.bonus;cover=e.cover;}if(cover)notes.push(cover===2?"half cover +2 AC":"¾ cover +5 AC");
   const ac=acOf(t)+cover;const mode=adv.length&&!dis.length?1:dis.length&&!adv.length?-1:0;
   return {adv,dis,mode,bonus,ac,cover,notes,pct:hitPct(bonus+(a.st.blessed?2.5:0),ac,mode)};}
 function hitPct(b,ac,mode){let p=Math.min(.95,Math.max(.05,(21-(ac-b))/20));if(mode>0)p=1-(1-p)*(1-p);else if(mode<0)p=p*p;return Math.round(p*100);}
@@ -95,40 +93,29 @@ function modsText(md){const bits=[];if(md.mode>0)bits.push("advantage: "+md.adv.
 
 // ---------- attacks ----------
 async function attack(a,t,w,o){try{return await attackInner(a,t,w,o);}finally{if(camFocus){await wait(250);camFocus=null;}}}
-async function attackInner(a,t,w,o){o=o||{};const coat=a.coat&&!w.spell?a.coat:null;if(coat)a.coat=null;
+async function attackInner(a,t,w,o){o=o||{};const coat=a.coat&&!w.spell?a.coat:null;if(coat)a.coat=null;const done=async hit=>fireAsync("afterAttack",{a,t,w,hit,coat});
   const md=attackMods(a,t,w,o);faceToward(a,t.x-a.x,t.y-a.y);
   fx.push({type:"lunge",u:a,dx:Math.sign(t.x-a.x),dy:Math.sign(t.y-a.y),t:now()});
   if(!w.melee&&C){camFocus=a;await wait(380);camFocus=t;await wait(320);}
   if(!w.melee)fx.push({type:"shot",from:{x:a.x,y:a.y},to:{x:t.x,y:t.y},t:now(),col:w.type==="fire"?"#ff9a3a":w.type==="radiant"?"#fff0a0":w.type==="necrotic"?"#b080ff":"#f0e0c0"});
   let mode=md.mode;
-  if(t.side==="h"&&t.sub==="light"&&a.side==="m"&&canReact(t)&&(t.res.flare||0)>0&&mode>=0&&cheb(a,t)<=6&&await askReact(t,`Warding Flare against the ${a.name}'s attack?`)){t.reaction=false;t.res.flare--;mode=mode>0?0:-1;fx.push({type:"ring",u:t,col:"#fff0a0",t:now()});await say(`Warding Flare! A burst of light blinds the ${a.name} (disadvantage).`,850);}
-  if(t.side==="h"&&a.side==="m"&&mode>=0){const f=heroesUp().find(h=>h.id==="fighter"&&h!==t&&!h.wild&&cheb(h,t)<=1&&canReact(h));if(f&&await askReact(f,`Protect the ${t.name} from the ${a.name}'s attack? (uses the ${f.name}'s reaction: disadvantage)`)){f.reaction=false;mode=mode>0?0:-1;await say(`The ${f.name} steps in to protect the ${t.name}! (disadvantage)`,800);}}
+  {const e=await fireAsync("beforeRoll",{a,t,w,mode});mode=e.mode;}
   let d=d20(mode>0,mode<0,a);await dice(t,d.r,d.pair);const extraRoll=attackRollBonus(a);
   if(a.side==="h"&&canReroll(a)&&d.r<20&&d.r+md.bonus+extraRoll<md.ac){spendReroll(a,"an attack");d=d20(mode>0,mode<0,a);await dice(t,d.r,d.pair);}
-  const bless=a.st.blessed?rnd(4):0;const tot=d.r+md.bonus+bless+extraRoll;let crit=d.r>=critMin(a);const hit=crit||(d.r!==1&&tot>=md.ac);
-  if(hit&&(t.st.asleep&&cheb(a,t)<=1||(a.side==="h"&&a.sub==="assassin"&&t.st.surprised)))crit=true;
+  const bless=a.st.blessed?rnd(4):0;const tot=d.r+md.bonus+bless+extraRoll;const hit0=d.r>=critMin(a)||(d.r!==1&&tot>=md.ac);
+  let crit=fire("critCheck",{a,t,w,d:d.r,crit:false,hit:hit0}).crit;const hit=crit||(d.r!==1&&tot>=md.ac);
   delete t.st.helped;delete t.st.guided;delete a.st.hidden;
   const nm=`${a.name}'s ${w.name}`;const how=mode>0?" with advantage":mode<0?" with disadvantage":"";const rl=`${d.r}${sgn(md.bonus)}${bless?"+"+bless+" bless":""}${extraRoll?"+"+extraRoll:""} = ${tot}`;
-  if(hit&&!crit&&t.side==="h"&&t.id==="wizard"&&!t.wild&&canReact(t)&&slotAvail(t,1)&&tot<md.ac+5&&await askReact(t,`The ${a.name} rolled ${tot} against the Wizard's AC ${md.ac}. Cast Shield (+5 AC, uses a level 1 slot) to make it miss?`)){
-    useSlot(t,1);t.reaction=false;t.st.shieldSpell=true;fx.push({type:"ring",u:t,col:"#9fd0ff",t:now()});
-    if(t.sub==="abjurer")t.ward=Math.min(wardMax(t),(t.ward||0)+2);await say(`${nm}: ${rl}${how}. The Wizard casts Shield! AC ${md.ac} → ${md.ac+5}. Miss!`,1000);return {hit:false};}
-  if(!hit&&coat)log(`The ${esc(coat.name)} on ${esc(a.name)}'s ${esc(w.name)} is wasted on the miss.`,"miss");
-  if(!hit){float(t,"MISS","#ffffff");await say(`${nm}: ${rl}${acKnown(t)?" vs AC "+md.ac:""}${how}. ${d.r===1?"Fumble!":"Miss!"}`);return {hit:false};}
+  if(hit){const bh=await fireAsync("beforeHit",{a,t,w,total:tot,ac:md.ac,crit,miss:false,msg:""});if(bh.miss){await say(`${nm}: ${rl}${how}. ${bh.msg}`,1000);await done(false);return {hit:false};}}
+  if(!hit){float(t,"MISS","#ffffff");await say(`${nm}: ${rl}${acKnown(t)?" vs AC "+md.ac:""}${how}. ${d.r===1?"Fumble!":"Miss!"}`);await done(false);return {hit:false};}
   if(t.side==="m"&&t.tr.redirect&&canReact(t)){const sub=G.mons.find(m=>m!==t&&m.inCombat&&m.hp>0&&cheb(m,t)===1&&["goblin","archer","shaman","kobold"].includes(m.key));
     if(sub){t.reaction=false;const tx=t.x,ty=t.y;t.x=sub.x;t.y=sub.y;sub.x=tx;sub.y=ty;await say(`The ${t.name} yanks a ${sub.name} into the way!`,900);t=sub;}}
   if(crit)cam.shake=now();
   const dm=roll(w.dice,crit,dmgBonus(a,w));let total=dm.total;const parts=[dm.txt];
-  total+=await subOnHit(a,t,w,crit,parts);if(favoredHit(a,t)){const e=roll("1d4",crit).total;total+=e;parts.push("+1d4 favoured enemy");}
-  if(crit&&a.side==="h"&&a.race==="halforc"&&w.melee&&!w.spell){const p=parseDice(w.dice);if(p){const e=rnd(p.d);total+=e;parts.push(`+${e} savage`);}}
-  if(a.side==="h"&&!w.spell){
-    if(a.conc&&a.conc.type==="mark"&&a.conc.target===t){const e=roll("1d6",crit);total+=e.total;parts.push("+1d6 mark");}
-    if(a.info.sneak&&(w.finesse||!w.melee)&&C&&!C.sneakUsed&&md.mode>=0&&(md.mode>0||friendsOf(a).some(f=>cheb(f,t)===1))){const sd=sneakDice();const e=roll(sd,crit);total+=e.total;C.sneakUsed=true;parts.push(`+${sd} sneak attack`);}}
+  {const e=await fireAsync("onHit",{a,t,w,crit,md,total,parts});total=e.total;}
   await say(`${nm}: ${rl}${acKnown(t)?" vs AC "+md.ac:""}${how}. ${crit?"CRITICAL HIT!":"Hit!"} ${total} ${w.type} damage (${parts.join(" ")}).`,950);
   await dealDamage(t,total,w.type,{src:a,attack:true,melee:w.melee,crit,spellLvl:w.spellLvl,necro:w.necro});
-  await subAfterHit(a,t,w);
-  if(coat&&t.hp>0&&!t.dead&&!t.down){const cd=roll(coat.dice,crit).total;float(t,coat.type.toUpperCase(),coat.type==="acid"?"#b0f060":"#8aff7a");
-    let msg=`The ${coat.name} burns into the wound: ${cd} ${coat.type}`;if(coat.type==="poison"){const s=saveRoll(t,"con",12);if(!s.ok&&!(t.tr&&t.tr.immune&&t.tr.immune.includes("poison"))){t.st.poisoned=2;msg+=" and it's poisoned";}msg+=` (${s.txt})`;}
-    await say(msg+".",900);await dealDamage(t,cd,coat.type,{src:a});}
+  await fireAsync("afterHit",{a,t,w,crit,coat});await done(true);
   if(a.side==="m"&&a.tr.extra&&!t.dead&&!t.down&&t.hp>0){const e=roll(a.tr.extra.dice,crit);await dealDamage(t,e.total,a.tr.extra.type,{src:a});}
   const alive=t.hp>0&&!t.down&&!t.dead;
   if(alive){
@@ -149,26 +136,20 @@ async function dealDamage(u,amt,type,o){o=o||{};if(u.dead||(u.side==="m"&&(u.hp<
   if(tr&&tr.immune&&tr.immune.includes(type)){float(u,"IMMUNE","#ffffff");return 0;}
   if(tr&&tr.resist&&tr.resist.includes(type))n=Math.floor(n/2);
   if(tr&&tr.vuln&&tr.vuln.includes(type)){n*=2;float(u,"WEAK!","#ffe060");}
-  if(u.side==="h"&&u.st.raging&&["slashing","piercing","bludgeoning"].includes(type))n=Math.floor(n/2);
-  if(u.side==="h"&&u.st.raging&&u.sub==="bear"&&type!=="psychic"&&!["slashing","piercing","bludgeoning"].includes(type))n=Math.floor(n/2);
-  if(u.side==="h"&&!u.wild&&u.race&&RACES[u.race].resist&&RACES[u.race].resist.includes(type))n=Math.floor(n/2);
-  if(u.side==="h"&&u.info.uncanny&&o.attack&&canReact(u)&&n>=4&&await askReact(u,`Uncanny Dodge: halve this ${n} damage?`)){u.reaction=false;n=Math.floor(n/2);float(u,"UNCANNY DODGE","#9fd0ff");}
+  {const e=await fireAsync("damageIn",{u,n,type,o});n=e.n;}
   if(u.st.asleep){delete u.st.asleep;float(u,"AWAKE!","#ffffff");}
-  if(u.side==="h"&&u.ward>0&&n>0){const a=Math.min(u.ward,n);u.ward-=a;n-=a;float(u,"WARD -"+a,"#9fd0ff");}
-  if(u.side==="h"&&u.thp>0&&n>0){const a=Math.min(u.thp,n);u.thp-=a;n-=a;float(u,"TEMP -"+a,"#a0ff80");}
   if(n<=0){float(u,"0","#ffffff");hud();return 0;}
   fx.push({type:"flash",u,t:now()});
   if(u.wild){u.wild.hp-=n;float(u,"-"+n,"#ff7a6a");hud();if(u.wild.hp<=0){const over=-u.wild.hp;u.wild=null;computeLight();await say(`${u.name} is forced out of wolf form!`,800);hud();if(over>0)return n+await dealDamage(u,over,type,Object.assign({},o,{attack:false}));}return n;}
   u.hp-=n;float(u,"-"+n,u.side==="h"?"#ff7a6a":"#ffe060");hud();
-  if(u.side==="h"&&u.race==="tiefling"&&!u.rebukeUsed&&u.hp>0&&C&&o.src&&o.src.side==="m"&&o.src.hp>0&&canReact(u)&&await askReact(u,`Hellish Rebuke the ${o.src.name}?`)){u.rebukeUsed=true;u.reaction=false;const src=o.src;const s=saveRoll(src,"dex",8+prof()+abm(u,"cha"));const dm=roll("2d10").total;
-    fx.push({type:"pillar",x:src.x,y:src.y,t:now()});await say(`Hellish Rebuke! The ${u.name} wreathes the ${src.name} in hellfire (${s.txt}).`,950);await dealDamage(src,s.ok?Math.floor(dm/2):dm,"fire",{src:u});}
+  await fireAsync("damageTaken",{u,n,type,o});
   if(u.conc&&u.hp>0){const s=saveRoll(u,"con",Math.max(10,Math.floor(n/2)));if(!s.ok){await say(`${u.name} loses concentration! (${s.txt})`,900);endConc(u);}else log(`${esc(u.name)} keeps concentration (${s.txt}).`,"magic");}
   if(u.hp<=0){if(u.side==="m")await monsterDies(u,o);else await heroDowned(u,-u.hp,o);}
   else if(u.side==="m"&&tr.split&&type==="slashing"&&u.hp>=10)await splitOoze(u);
   else if(u.side==="m")await moraleCheck(u);
   return n;}
 async function heroDowned(h,over,o){h.hp=0;
-  if(h.race==="halforc"&&!h.relentlessUsed&&!(S.rules.deathSaves&&over>=h.maxHp)){h.relentlessUsed=true;h.hp=1;float(h,"RELENTLESS","#ffb070");await say(`Relentless Endurance! The ${h.name} refuses to fall and stays up with 1 HP.`,1000);hud();return;}
+  {const e=await fireAsync("wouldDrop",{h,over,saved:false});if(e.saved)return;}
   if(!C){h.down=true;h.stable=true;h.st={prone:true};h.ds={s:0,f:0};if(h.conc)endConc(h);h.wild=null;if(G.party[0]===h){const i=G.party.findIndex(q=>!q.down&&!q.dead);if(i>0){const q=G.party[i];[q.x,h.x]=[h.x,q.x];[q.y,h.y]=[h.y,q.y];G.party[i]=h;G.party[0]=q;}}hud();fov();
     if(!heroesUp().length){await say(`${h.name} collapses. With nobody left standing, the lantern gutters out...`,1600,true);G.over=true;showEnd(false,`Your party fell on floor ${G.floor}.`);}
     else await say(`${h.name} collapses, unconscious! Give them a potion or rest to bring them round.`,1300,true);return;}
