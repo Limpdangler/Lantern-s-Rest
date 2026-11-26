@@ -61,3 +61,18 @@ let busySince=0;
 setInterval(()=>{if(!busy||!G||G.demo){busySince=0;return;}if(!busySince){busySince=Date.now();return;}
   const idle=!sayState&&!choosing&&$("chPanel").hidden&&!document.querySelector(".ov:not([hidden])");
   if(idle&&mode==="explore"&&Date.now()-busySince>8000){busy=false;busySince=0;console.warn("Watchdog: cleared a stuck 'busy' state");hud();}},1000);
+// ---------- fit everything on one phone screen ----------
+// The game screen shrinks or grows so the buttons, menus and choices underneath always fit without scrolling.
+(function(){const LOG_MIN=44;let queued=false;
+  function fitScreen(){queued=false;const app=$("app"),bz=document.querySelector(".bezel");if(!app||!bz)return;
+    const cs=getComputedStyle(app);const gap=parseFloat(cs.rowGap)||0;let used=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom),n=0;
+    for(const el of app.children){if(el===bz||el.hidden)continue;const st=getComputedStyle(el);if(st.display==="none"||st.position==="absolute"||st.position==="fixed")continue;
+      n++;used+=(el.classList.contains("log")?LOG_MIN:el.offsetHeight)+parseFloat(st.marginTop)+parseFloat(st.marginBottom);}
+    const bs=getComputedStyle(bz);const pad=parseFloat(bs.paddingTop)+parseFloat(bs.paddingBottom),padX=parseFloat(bs.paddingLeft)+parseFloat(bs.paddingRight);
+    const screenH=app.clientHeight-used-gap*n-pad;const full=app.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
+    const w=Math.max(150,Math.min(full,Math.floor(screenH*1.5+padX)));bz.style.minWidth="0";bz.style.width=w+"px";}
+  const queue=()=>{if(!queued){queued=true;requestAnimationFrame(fitScreen);}};
+  window.addEventListener("resize",queue);if(window.visualViewport)visualViewport.addEventListener("resize",queue);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(queue);
+  if(window.ResizeObserver){const ro=new ResizeObserver(queue);const app=$("app");if(app){ro.observe(app);for(const el of app.children)if(!el.classList.contains("bezel")&&!el.classList.contains("log"))ro.observe(el);}}
+  queue();})();
