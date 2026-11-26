@@ -1,0 +1,90 @@
+<div class="app" id="app">
+  <div class="top">
+    <h1>LANTERN CRAWL</h1>
+    <div class="btns">
+      <button class="chip" id="btnNew" type="button">NEW RUN</button>
+      <button class="chip" id="btnSettings" type="button">SETTINGS</button>
+    </div>
+  </div>
+  <div class="bezel">
+    <div class="screen" id="screenWrap">
+      <canvas id="screen" width="240" height="160" aria-label="Game screen"></canvas>
+      <div class="tbox" id="tBox" hidden><span id="tText"></span><i id="tMore" hidden>▼</i></div>
+    </div>
+  </div>
+  <div class="strip" id="strip" hidden></div>
+  <div class="party" id="party"></div>
+  <div class="hud"><span>FLOOR <b id="flT">–</b></span><span>LV <b id="lvT">–</b></span><span>GOLD <b id="goT">–</b></span><span id="faW">FATIGUE <b id="faT">–</b></span><span>FOOD <b id="fdT">–</b></span><span>WOOD <b id="wdT">–</b></span><span>LIGHT <b id="liT">–</b></span><span>GOAL <b id="glT">–</b></span></div>
+  <div class="tgl" id="tglRow"><button class="chip" id="tgSneak" type="button">SNEAK</button><button class="chip" id="tgLight" type="button">LANTERN ON</button></div>
+  <div class="log" id="log" aria-live="polite"></div>
+  <div class="controls" id="controls">
+    <div class="dpad" aria-label="Movement">
+      <button class="dp u" id="kU" type="button" aria-label="Up">▲</button>
+      <button class="dp l" id="kL" type="button" aria-label="Left">◀</button>
+      <button class="dp c" id="kW" type="button" aria-label="Wait a moment">·</button>
+      <button class="dp r" id="kR" type="button" aria-label="Right">▶</button>
+      <button class="dp d" id="kD" type="button" aria-label="Down">▼</button>
+    </div>
+    <div class="ab">
+      <div class="abw"><button class="round" id="kB" type="button" aria-label="Open the party menu">B</button><span>MENU</span></div>
+      <div class="abw a"><button class="round" id="kA" type="button" aria-label="Search the area">A</button><span>SEARCH</span></div>
+    </div>
+  </div>
+  <div class="cpanel" id="cPanel" hidden>
+    <div class="cstat" id="cStat"></div>
+    <div class="cbtns" id="cBtns"></div>
+  </div>
+  <div class="cpanel" id="chPanel" hidden>
+    <div class="cbtns list" id="chBtns"></div>
+  </div>
+
+  <div class="ov" id="ovTown">
+    <h2>Lantern's Rest</h2>
+    <div id="townBody"></div>
+    <div class="row"><button class="big" id="btnSetOut" type="button">SET OUT</button><button class="big alt" id="btnTownSettings" type="button">SETTINGS</button></div>
+  </div>
+  <div class="ov" id="ovClass" hidden>
+    <h2>Choose your first hero</h2>
+    <p>You start alone. Lost adventurers deeper down will join you, up to a party of four. Explore with the D-pad, or tap a spot to walk there. Tap a monster that hasn't seen you to ambush it.</p>
+    <p class="help">When a fight starts, the room becomes a battlefield. Everyone rolls initiative. On a hero's turn, tap blue squares to move and tap enemies to attack. Use SKILLS, ACTIONS (Dash, Dodge, Disengage, Help, Shove, Hide) and ITEMS. Push enemies into fire, acid, traps or off ledges!</p>
+    <div class="cards" id="classCards"></div>
+  </div>
+
+  <div class="ov" id="ovEnd" hidden>
+    <h2 id="endTitle">Your party fell</h2>
+    <p class="stats" id="endStats"></p>
+    <div class="row"><button class="big" id="btnAgain" type="button">PLAY AGAIN</button><button class="big alt" id="btnEndSettings" type="button">SETTINGS</button></div>
+  </div>
+
+  <div class="ov" id="ovMenu" hidden>
+    <div class="tabs"><button class="tab" id="tab-party" type="button">PARTY</button><button class="tab" id="tab-bag" type="button">BAG</button><button class="tab" id="tab-rest" type="button">REST</button><button class="chip" id="menuClose" type="button">CLOSE</button></div>
+    <div id="menuBody"></div>
+  </div>
+
+  <div class="ov" id="ovShop" hidden>
+    <div class="tabs"><h2 style="margin:0;flex:1">Wandering Merchant</h2><button class="chip" id="shopClose" type="button">CLOSE</button></div>
+    <div id="shopBody"></div>
+  </div>
+
+  <div class="ov" id="ovSettings" hidden>
+    <h2>Settings</h2>
+    <p>Change any number, then press Save. Changes start with a new run and stay saved on this phone.</p>
+    <p class="help">Damage uses dice notation: <b>1d8</b> means roll one 8-sided die. Heroes add their ability modifier on top; monster damage includes it (<b>1d6+2</b>). Ability scores (STR, DEX…) set the modifiers: 10 is average, every 2 points above adds +1. AC is the number an attack must reach. RANGE is in squares (1 = must stand next to the target). SPEED is squares per turn.</p>
+    <h3>RULES</h3>
+    <div class="rules" id="setRules"></div>
+    <h3>DUNGEON</h3>
+    <div class="grid" id="setDungeon"></div>
+    <h3>CLASSES</h3>
+    <p class="help">HIT DIE is the die rolled for HP on level up and spent on short rests. DAMAGE is the main weapon or cantrip.</p>
+    <div class="tw"><table id="setClasses"></table></div>
+    <h3>MONSTERS</h3>
+    <p class="help">FROM is the first floor a monster can appear on. Special abilities (pack tactics, webs, splitting, morale and so on) are built in. The boss enrages at half HP.</p>
+    <div class="tw"><table id="setMonsters"></table></div>
+    <p class="msg" id="setMsg"></p>
+    <div class="row">
+      <button class="big" id="btnSave" type="button">SAVE &amp; NEW RUN</button>
+      <button class="big alt" id="btnCancel" type="button">CLOSE</button>
+      <button class="big alt" id="btnReset" type="button">RESET DEFAULTS</button>
+    </div>
+  </div>
+</div>
