@@ -129,6 +129,8 @@ const ITEMS={
   cloakcurse:{unk:"Dusty Cloak",name:"Cloak of the Lost",kind:"gear",cursed:true,price:20,floor:1,w:2,desc:"CURSED: −2 speed. It won't come off until a shrine lifts the curse.",fx:{speed:-2}},
   relic:{name:"Jade Idol",kind:"quest",price:0,floor:99,w:0,desc:"The relic your goal asks for. Bring it to the ladder down."},
   poisonvial:{name:"Poison Vial",kind:"use",price:25,floor:1,w:0,desc:"Drained from a dart trap. Coat a weapon: the next attack deals +2d4 poison and may poison the target (CON save). Rogues do it as a bonus action."},
+  arrows:{name:"Arrows",kind:"supply",price:1,floor:1,w:0,desc:"Ammunition for bows. Each shot uses one; you recover about half after a fight."},
+  flashpowder:{name:"Flash Powder",kind:"use",price:20,floor:1,w:4,desc:"Throw it in combat (range 4): the target makes a CON save or is blinded until its next turn ends."},
   key:{name:"Rusty Key",kind:"key",price:0,floor:99,w:0,desc:"Opens a locked vault door on this floor."},
   wrune1:{unk:"Rune-Carved Stone",name:"Weapon Rune +1",kind:"gear",price:200,floor:1,w:3,desc:"+1 to weapon attack and damage rolls.",fx:{hit:1,dmg:1}},
   wrune2:{unk:"Rune-Carved Stone",name:"Weapon Rune +2",kind:"gear",price:500,floor:4,w:1,desc:"+2 to weapon attack and damage rolls.",fx:{hit:2,dmg:2}},

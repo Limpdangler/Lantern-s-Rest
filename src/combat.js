@@ -43,6 +43,8 @@ async function nextTurn(){
   while(mode==="combat"){
     if(checkEnd())return;
     if(C.cur&&C.cur.st&&C.cur.st.pinned&&C.cur.st.pinned<=C.round)delete C.cur.st.pinned;
+    if(C.cur&&C.cur.st&&C.cur.st.blinded&&C.cur.st.blinded<=C.round)delete C.cur.st.blinded;
+    if(C.cur&&C.cur.side==="h"&&G.mons.some(m=>m.boss&&m.inCombat)){await legendaryAction();if(checkEnd())return;}
     C.idx++;if(C.idx>=C.units.length){C.idx=0;C.round++;tickFire();for(let i=0;i<4;i++)for(const m of G.mons)if(m.state==="investigate"&&!m.inCombat&&m.inv)stepToward(m,m.inv.x,m.inv.y);joinNew();loseTrack();}
     const u=C.units[C.idx];
     if(u.side==="m"&&(u.hp<=0||!u.inCombat))continue;if(u.side==="h"&&u.dead)continue;
@@ -54,7 +56,7 @@ async function nextTurn(){
     u.acted=true;
     if(u.st.asleep&&!u.st.surprised&&C.round>=2&&Math.random()<.5){delete u.st.asleep;float(u,"AWAKE!","#ffffff");}
     if(u.st.asleep){busy=true;buildPanel();float(u,"ZZZ","#c0a0ff");await say(`The ${u.name} is fast asleep.`,600);continue;}
-    if(u.side==="m"){busy=true;buildPanel();await sporesHalo(u);if(u.hp<=0)continue;}
+    if(u.side==="m"){busy=true;buildPanel();await sporesHalo(u);if(u.hp<=0)continue;if(u.boss)u.legend=2;if(await conditionTurn(u))continue;}
     if(fireAt(u.x,u.y)){busy=true;buildPanel();await say(`The ${u.name} is standing in flames!`,600);await dealDamage(u,roll("2d4").total,"fire",{});}
     if(gnd(u.x,u.y)===GROUND.acid&&(u.side==="h"||u.hp>0)){busy=true;buildPanel();await say(`Acid eats at the ${u.name}!`,600);await dealDamage(u,roll("1d6+1").total,"acid",{});}
     if((u.side==="m"&&u.hp<=0)||u.down||u.dead)continue;
@@ -67,7 +69,7 @@ function attacksPer(u){if(u.wild)return u.wild.form==="bear"?2:1;return u.info.e
 const canAttack=()=>C.attacksLeft>0||C.actions>0||C.extraAtk>0;
 function useAttack(u){if(C.attacksLeft<=0&&C.actions<=0&&C.extraAtk>0){C.extraAtk--;C.dreadHit=true;return;}if(C.attacksLeft<=0){C.actions--;C.attacksLeft=attacksPer(u);}C.attacksLeft--;}
 const hasAction=()=>C.actions>0;
-function heroTurn(u){C.moveLeft=speedOf(u);C.actions=1;C.bonus=true;C.attacksLeft=0;C.disengaged=false;C.reckless=false;C.sneakUsed=false;C.objUsed=false;C.mode="move";C.tgt=null;C.sel=null;C.weapon="main";C.panel="main";C.pending=null;
+function heroTurn(u){u.readied=null;C.meleeAttacked=false;C.moveLeft=speedOf(u);C.actions=1;C.bonus=true;C.attacksLeft=0;C.disengaged=false;C.reckless=false;C.sneakUsed=false;C.objUsed=false;C.mode="move";C.tgt=null;C.sel=null;C.weapon="main";C.panel="main";C.pending=null;
   if(u.st.prone){delete u.st.prone;C.moveLeft=Math.floor(C.moveLeft/2);float(u,"STANDS UP","#ffffff");log(`${esc(u.name)} stands up (half movement).`,"miss");}
   C.extraAtk=0;if(u.sub==="gloom"&&!u.dreadDone){u.dreadDone=true;C.moveLeft+=2;C.extraAtk=1;log(`Dread Ambusher: ${esc(u.name)} gets +2 speed and an extra attack this turn.`,"magic");}
   if(u.st.restrained)C.moveLeft=0;
@@ -79,7 +81,7 @@ function afterAction(){if(mode!=="combat")return;if(checkEnd())return;const u=C.
   C.mode="move";C.tgt=null;C.panel="main";refreshReach();busy=false;buildPanel();
   const left=[];if(C.moveLeft)left.push(`${C.moveLeft} movement`);if(C.attacksLeft)left.push(`${C.attacksLeft} more attack${C.attacksLeft>1?"s":""}`);else if(C.actions)left.push(C.actions>1?`${C.actions} actions`:"your action");if(C.bonus)left.push("a bonus action");
   prompt(left.length?`${u.name}: you still have ${left.join(", ")}.${canAttack()&&foesOf(u).some(f=>inReachW(u,f,weaponOf(u,C.weapon)))?" An enemy is in reach!":""}`:`${u.name} is done. Tap END TURN.`);}
-function inReachW(a,t,w){const d=cheb(a,t);if(w.melee)return d<=1;return d<=w.range&&los(a.x,a.y,t.x,t.y);}
+function inReachW(a,t,w){const d=cheb(a,t);if(w.melee)return d<=1;return d<=longRange(w)&&los(a.x,a.y,t.x,t.y);}
 function pathWarnings(u,path){const out=[];let px=u.x,py=u.y;const dis=C.disengaged;
   for(const k of path){const x=k%G.W,y=(k/G.W)|0;
     if(!dis)for(const e of foesOf(u))if(Math.max(Math.abs(e.x-px),Math.abs(e.y-py))===1&&Math.max(Math.abs(e.x-x),Math.abs(e.y-y))>1&&canReact(e)&&canMelee(e)&&!e.fleeing){const s=`an opportunity attack from the ${e.name}`;if(!out.includes(s))out.push(s);}
@@ -91,7 +93,7 @@ function pathWarnings(u,path){const out=[];let px=u.x,py=u.y;const dis=C.disenga
 // ---------- tapping the map ----------
 async function onTile(x,y){const u=C.cur;if(C.mode==="target")return onTarget(x,y);
   const m=monAt(x,y),h=heroAt(x,y),o=objAt(x,y);
-  if(m&&m.inCombat){const w=weaponOf(u,C.weapon);
+  if(m&&m.inCombat){const w=weaponOf(u,C.weapon);if(needsArrow(u,w)&&!(G.bag.arrows>0)){prompt(`Out of arrows! Switch to your other weapon, or buy arrows from a merchant.`);return;}
     if(!canAttack()){prompt(`No attacks left this turn. ${m.name}: ${m.hp}/${m.maxHp} HP${acKnown(m)?", AC "+m.ac:""}.${loreBrief(m)}`);return;}
     if(!inReachW(u,m,w)){prompt(`The ${m.name} is ${cheb(u,m)} squares away: out of reach for your ${w.name} (${w.melee?"must stand next to it; the coloured squares show where everyone really stands":"range "+w.range+", needs a clear line"}). ${m.hp}/${m.maxHp} HP, AC ${m.ac}.`);return;}
     if(C.sel!==m){C.sel=m;const md=attackMods(u,m,w);prompt(`${w.name} vs ${m.name}: ${pctTxt(md,m)} to hit, ${dmgPreview(u,w,m)} damage${modsText(md)}. Tap again to attack.`);return;}
@@ -235,7 +237,7 @@ function actionButtons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;
     if(c.ok){delete u.st.restrained;await say(`Free! (${c.txt})`,800);}else await say(`Still stuck. (${c.txt})`,800);afterAction();}});
   for(const a of G.party)if(a!==u&&a.down&&!a.dead&&!a.stable&&cheb(a,u)<=1)B.push({t:`STABILIZE ${a.name.toUpperCase()}`,sub:"Action · Medicine DC 10 · stops death saves",dis:!act,f:async()=>{busy=true;C.actions--;const c=await check(u,"medicine",10);
     if(c.ok){a.stable=true;a.ds={s:0,f:0};await say(`The ${u.name} stops the bleeding. The ${a.name} is stable. (${c.txt})`,1000);}else await say(`The ${u.name} can't stop the bleeding. (${c.txt})`,900);hud();afterAction();}});
-  B.push(...snuffButtons(u),...classCombatButtons(u));
+  B.push(...snuffButtons(u),...classCombatButtons(u),...rules2Buttons(u));
   {const fast=u.id==="rogue";const ok=fast?C.bonus:hasAction()&&C.attacksLeft===0;const spend=()=>{if(fast)C.bonus=false;else C.actions--;};const cost=fast?"Bonus action (rogue)":"Action";
     if((G.bag.poisonvial||0)>0&&!u.coat&&!u.wild)B.push({t:"POISON YOUR WEAPON",sub:`${cost} · next attack +2d4 poison, CON save or poisoned`,dis:!ok,f:async()=>{busy=true;spend();takeItem("poisonvial");u.coat={name:"poison",type:"poison",dice:"2d4"};await say(`The ${u.name} smears poison along the weapon.`,800);afterAction();}});
     const acid=[[0,0]].concat(DIRS8).some(([dx,dy])=>gnd(u.x+dx,u.y+dy)===GROUND.acid);
@@ -270,7 +272,7 @@ async function disarm(u,t){const c=await check(u,"thieves",t.dc,{adv:!!t.easy});
 function threatScore(m,h,w){return (h.hp/h.maxHp)*4+(h.conc?-2:0)+(h.st.hidden?6:0)+(acOf(h)-13)*.35+(h.st.prone&&w.melee?-1.5:0)+(h.st.dodge?2:0);}
 function truncatePath(dist,path,budget){const out=[];for(const k of path){const n=dist.get(k);if(!n||n.c>budget)break;out.push(k);}while(out.length){const k=out[out.length-1];if(!unitAt(k%G.W,(k/G.W)|0))break;out.pop();}return out;}
 async function monsterTurn(m){const T=m.tr;await wait(200);
-  let move=m.speed;if(m.st.prone){delete m.st.prone;move=Math.floor(move/2);float(m,"STANDS","#ffffff");}
+  let move=m.speed;if(m.st.prone){delete m.st.prone;move=Math.floor(move/2);float(m,"STANDS","#ffffff");}if(m.st.grappled||m.st.paralysed)move=0;
   if(m.st.restrained){const w=weaponOf(m);const near=heroesUp().filter(h=>inReachW(m,h,w));
     if(!near.length||Math.random()<.5){const c=await check(m,"athletics",m.st.restrained.dc,{quiet:true});if(c.ok){const by=m.st.restrained.by;delete m.st.restrained;await say(`The ${m.name} tears free of the ${by==="web"?"webbing":"vines"}!`,750);}
       else{await say(`The ${m.name} struggles against the ${m.st.restrained.by==="web"?"webbing":"vines"}.`,700);return;}}
@@ -319,7 +321,7 @@ async function bossPhase(m){fx.push({type:"wave",u:m,t:now()});await say(`The ${
   renderStrip();await say(`It's enraged (+2 damage)${n?` and ${n} goblins rush in to help!`:"!"}`,1100);}
 
 // ---------- end of combat ----------
-async function victory(){mode="combatEnd";busy=true;buildPanel();const xp=C.xp;
+async function victory(){mode="combatEnd";busy=true;buildPanel();const xp=C.xp;await recoverArrows();
   await say(`Victory! The party earns ${xp} XP.`,1200);for(const msg of gainXpNow(xp))await say(msg,1500);
   for(const h of G.party){if(h.conc)endConc(h);const keep=h.st.poisoned;h.st={};if(keep)h.st.poisoned=keep;h.thp=0;}
   for(const h of G.party)if(h.frenzied&&!h.dead){h.frenzied=false;await addExh(h,1,"the frenzy wears off");}

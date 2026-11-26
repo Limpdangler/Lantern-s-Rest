@@ -430,6 +430,8 @@ const ITEMS={
   cloakcurse:{unk:"Dusty Cloak",name:"Cloak of the Lost",kind:"gear",cursed:true,price:20,floor:1,w:2,desc:"CURSED: −2 speed. It won't come off until a shrine lifts the curse.",fx:{speed:-2}},
   relic:{name:"Jade Idol",kind:"quest",price:0,floor:99,w:0,desc:"The relic your goal asks for. Bring it to the ladder down."},
   poisonvial:{name:"Poison Vial",kind:"use",price:25,floor:1,w:0,desc:"Drained from a dart trap. Coat a weapon: the next attack deals +2d4 poison and may poison the target (CON save). Rogues do it as a bonus action."},
+  arrows:{name:"Arrows",kind:"supply",price:1,floor:1,w:0,desc:"Ammunition for bows. Each shot uses one; you recover about half after a fight."},
+  flashpowder:{name:"Flash Powder",kind:"use",price:20,floor:1,w:4,desc:"Throw it in combat (range 4): the target makes a CON save or is blinded until its next turn ends."},
   key:{name:"Rusty Key",kind:"key",price:0,floor:99,w:0,desc:"Opens a locked vault door on this floor."},
   wrune1:{unk:"Rune-Carved Stone",name:"Weapon Rune +1",kind:"gear",price:200,floor:1,w:3,desc:"+1 to weapon attack and damage rolls.",fx:{hit:1,dmg:1}},
   wrune2:{unk:"Rune-Carved Stone",name:"Weapon Rune +2",kind:"gear",price:500,floor:4,w:1,desc:"+2 to weapon attack and damage rolls.",fx:{hit:2,dmg:2}},
@@ -996,7 +998,7 @@ function rollItem(rich){const pool=Object.entries(ITEMS).filter(([k,v])=>v.floor
 function rollLoot(rich){const items=[];const n=rich?2:ri(1,2);for(let i=0;i<n;i++)items.push(rollItem(rich));
   if(rich&&!items.some(k=>ITEMS[k].kind==="gear")){const g=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&ITEMS[k].floor<=G.floor);items[0]=pick(g);}
   return {gold:ri(8,20)*G.floor*(rich?2:1),items};}
-function shopStock(){const s=["potion","potion","oil","oil","torch","firewood","firewood","antitoxin","scroll_cure","scroll_mm"];if(G.floor>=3)s.push("gpotion","scroll_fb");
+function shopStock(){const s=["potion","potion","oil","oil","torch","firewood","firewood","arrows","arrows","flashpowder","antitoxin","scroll_cure","scroll_mm"];if(G.floor>=3)s.push("gpotion","scroll_fb");
   const gear=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&ITEMS[k].floor<=G.floor);shuffle(gear);return s.concat(gear.slice(0,2));}
 
 // ---------- light & sight ----------
@@ -1216,7 +1218,7 @@ function slotMax(h){const cs=casterOf(h);const t=cs==="full"?SLOTS_FULL:cs==="ha
 function featRes(h){const out=[];if(h.sub==="land")out.push("natrec");for(const f of featsOf(h)){const r=FEATS[f].res;if(r&&!out.includes(r))out.push(r);}if(h.info.arcaneRecovery)out.push("arcane");return out.filter((v,i)=>out.indexOf(v)===i);}
 function restoreAll(h,keepHD){h.pins=2;if(hasFeat(h,"lucky"))h.luck=3;h.goodberry=false;h.sanct=false;h.slots=slotMax(h);for(const k of featRes(h))h.res[k]=RES[k].max(G.level);h.wand=gearFx(h).wand?3:0;if(!keepHD)h.hdLeft=h.hdMax;h.rebukeUsed=false;h.relentlessUsed=false;if(h.sub==="abjurer")h.ward=wardMax(h);}
 function gearFx(h){const f={};for(const id of h.gear){const it=ITEMS[id];if(!it||!it.fx)continue;for(const k in it.fx){if(k.startsWith("set"))f[k]=Math.max(f[k]||0,it.fx[k]);else f[k]=(f[k]||0)+it.fx[k];}}return f;}
-function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)-curse;}
+function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)+(u.st.sof?2:0)-curse;}
 function speedOf(u){if(u.side==="m")return u.speed;let s=u.wild?8:u.def.speed+(gearFx(u).speed||0);s-=exhOf(u);if(u.st&&u.st.pinned)return 0;return Math.max(1,s);}
 function saveBonus(u,a){if(u.side==="m")return abm(u,a)+(u.boss?3:0);return abm(u,a)+(u.info.saves.includes(a)?prof():0)+(gearFx(u).save||0)+(G.blessFloor===G.floor?1:0)+loyalBonus(u);}
 function skillBonus(u,sk){const a=SKILLS[sk];if(u.side==="m")return abm(u,a)+(sk==="perception"&&u.tr.keen?3:0)+(u.boss?2:0)+(sk==="athletics"&&u.tr.shover?2:0);
@@ -1385,7 +1387,7 @@ const xpNeed=()=>G.level*20;
 
 // ---------- concentration ----------
 function startConc(u,data){if(u.conc)endConc(u);u.conc=data;}
-function endConc(u){const c=u.conc;if(!c)return;u.conc=null;
+function endConc(u){const c=u.conc;if(!c)return;u.conc=null;endConcExtra(u,c);
   if(c.type==="bless")for(const t of c.targets)delete t.st.blessed;
   if(c.type==="spikes"){for(const k of c.tiles){G.entangle.delete(k);G.spikes.delete(k);}}
   if(c.type==="entangle"){for(const k of c.tiles)G.entangle.delete(k);for(const m of G.mons.concat(G.party))if(m.st.restrained&&m.st.restrained.by==="entangle"&&m.st.restrained.src===u)delete m.st.restrained;}
@@ -1447,6 +1449,7 @@ async function walk(u,path,o){o=o||{};
           if(r&&r.hit&&(hasFeat(e,"sentinel")||(e.side==="h"&&e.id==="fighter"))){await say(`The ${e.name} holds the line: the ${u.name} is stopped in its tracks!`,850);return false;}}}}
     const d=doorAt(x,y);if(d&&!d.open){d.open=true;computeLight();}
     faceToward(u,x-u.x,y-u.y);u.x=x;u.y=y;await wait(110);
+    if(C&&u.side==="m"&&await readiedStrike(u))return false;
     if(G.spikes&&G.spikes.has(y*G.W+x)&&(u.side==="h"||u.hp>0)){float(u,"THORNS","#8aff7a");await dealDamage(u,roll("2d4").total,"piercing",{});if(u.hp<=0&&u.side==="m"||u.down||u.dead)return false;}
     if(u.side==="h"||C)fov();
     const r=await onEnter(u,x,y,{});if(r.stop||u.hp<=0||u.down||u.dead)return false;}
@@ -1520,6 +1523,8 @@ async function nextTurn(){
   while(mode==="combat"){
     if(checkEnd())return;
     if(C.cur&&C.cur.st&&C.cur.st.pinned&&C.cur.st.pinned<=C.round)delete C.cur.st.pinned;
+    if(C.cur&&C.cur.st&&C.cur.st.blinded&&C.cur.st.blinded<=C.round)delete C.cur.st.blinded;
+    if(C.cur&&C.cur.side==="h"&&G.mons.some(m=>m.boss&&m.inCombat)){await legendaryAction();if(checkEnd())return;}
     C.idx++;if(C.idx>=C.units.length){C.idx=0;C.round++;tickFire();for(let i=0;i<4;i++)for(const m of G.mons)if(m.state==="investigate"&&!m.inCombat&&m.inv)stepToward(m,m.inv.x,m.inv.y);joinNew();loseTrack();}
     const u=C.units[C.idx];
     if(u.side==="m"&&(u.hp<=0||!u.inCombat))continue;if(u.side==="h"&&u.dead)continue;
@@ -1531,7 +1536,7 @@ async function nextTurn(){
     u.acted=true;
     if(u.st.asleep&&!u.st.surprised&&C.round>=2&&Math.random()<.5){delete u.st.asleep;float(u,"AWAKE!","#ffffff");}
     if(u.st.asleep){busy=true;buildPanel();float(u,"ZZZ","#c0a0ff");await say(`The ${u.name} is fast asleep.`,600);continue;}
-    if(u.side==="m"){busy=true;buildPanel();await sporesHalo(u);if(u.hp<=0)continue;}
+    if(u.side==="m"){busy=true;buildPanel();await sporesHalo(u);if(u.hp<=0)continue;if(u.boss)u.legend=2;if(await conditionTurn(u))continue;}
     if(fireAt(u.x,u.y)){busy=true;buildPanel();await say(`The ${u.name} is standing in flames!`,600);await dealDamage(u,roll("2d4").total,"fire",{});}
     if(gnd(u.x,u.y)===GROUND.acid&&(u.side==="h"||u.hp>0)){busy=true;buildPanel();await say(`Acid eats at the ${u.name}!`,600);await dealDamage(u,roll("1d6+1").total,"acid",{});}
     if((u.side==="m"&&u.hp<=0)||u.down||u.dead)continue;
@@ -1544,7 +1549,7 @@ function attacksPer(u){if(u.wild)return u.wild.form==="bear"?2:1;return u.info.e
 const canAttack=()=>C.attacksLeft>0||C.actions>0||C.extraAtk>0;
 function useAttack(u){if(C.attacksLeft<=0&&C.actions<=0&&C.extraAtk>0){C.extraAtk--;C.dreadHit=true;return;}if(C.attacksLeft<=0){C.actions--;C.attacksLeft=attacksPer(u);}C.attacksLeft--;}
 const hasAction=()=>C.actions>0;
-function heroTurn(u){C.moveLeft=speedOf(u);C.actions=1;C.bonus=true;C.attacksLeft=0;C.disengaged=false;C.reckless=false;C.sneakUsed=false;C.objUsed=false;C.mode="move";C.tgt=null;C.sel=null;C.weapon="main";C.panel="main";C.pending=null;
+function heroTurn(u){u.readied=null;C.meleeAttacked=false;C.moveLeft=speedOf(u);C.actions=1;C.bonus=true;C.attacksLeft=0;C.disengaged=false;C.reckless=false;C.sneakUsed=false;C.objUsed=false;C.mode="move";C.tgt=null;C.sel=null;C.weapon="main";C.panel="main";C.pending=null;
   if(u.st.prone){delete u.st.prone;C.moveLeft=Math.floor(C.moveLeft/2);float(u,"STANDS UP","#ffffff");log(`${esc(u.name)} stands up (half movement).`,"miss");}
   C.extraAtk=0;if(u.sub==="gloom"&&!u.dreadDone){u.dreadDone=true;C.moveLeft+=2;C.extraAtk=1;log(`Dread Ambusher: ${esc(u.name)} gets +2 speed and an extra attack this turn.`,"magic");}
   if(u.st.restrained)C.moveLeft=0;
@@ -1556,7 +1561,7 @@ function afterAction(){if(mode!=="combat")return;if(checkEnd())return;const u=C.
   C.mode="move";C.tgt=null;C.panel="main";refreshReach();busy=false;buildPanel();
   const left=[];if(C.moveLeft)left.push(`${C.moveLeft} movement`);if(C.attacksLeft)left.push(`${C.attacksLeft} more attack${C.attacksLeft>1?"s":""}`);else if(C.actions)left.push(C.actions>1?`${C.actions} actions`:"your action");if(C.bonus)left.push("a bonus action");
   prompt(left.length?`${u.name}: you still have ${left.join(", ")}.${canAttack()&&foesOf(u).some(f=>inReachW(u,f,weaponOf(u,C.weapon)))?" An enemy is in reach!":""}`:`${u.name} is done. Tap END TURN.`);}
-function inReachW(a,t,w){const d=cheb(a,t);if(w.melee)return d<=1;return d<=w.range&&los(a.x,a.y,t.x,t.y);}
+function inReachW(a,t,w){const d=cheb(a,t);if(w.melee)return d<=1;return d<=longRange(w)&&los(a.x,a.y,t.x,t.y);}
 function pathWarnings(u,path){const out=[];let px=u.x,py=u.y;const dis=C.disengaged;
   for(const k of path){const x=k%G.W,y=(k/G.W)|0;
     if(!dis)for(const e of foesOf(u))if(Math.max(Math.abs(e.x-px),Math.abs(e.y-py))===1&&Math.max(Math.abs(e.x-x),Math.abs(e.y-y))>1&&canReact(e)&&canMelee(e)&&!e.fleeing){const s=`an opportunity attack from the ${e.name}`;if(!out.includes(s))out.push(s);}
@@ -1568,7 +1573,7 @@ function pathWarnings(u,path){const out=[];let px=u.x,py=u.y;const dis=C.disenga
 // ---------- tapping the map ----------
 async function onTile(x,y){const u=C.cur;if(C.mode==="target")return onTarget(x,y);
   const m=monAt(x,y),h=heroAt(x,y),o=objAt(x,y);
-  if(m&&m.inCombat){const w=weaponOf(u,C.weapon);
+  if(m&&m.inCombat){const w=weaponOf(u,C.weapon);if(needsArrow(u,w)&&!(G.bag.arrows>0)){prompt(`Out of arrows! Switch to your other weapon, or buy arrows from a merchant.`);return;}
     if(!canAttack()){prompt(`No attacks left this turn. ${m.name}: ${m.hp}/${m.maxHp} HP${acKnown(m)?", AC "+m.ac:""}.${loreBrief(m)}`);return;}
     if(!inReachW(u,m,w)){prompt(`The ${m.name} is ${cheb(u,m)} squares away: out of reach for your ${w.name} (${w.melee?"must stand next to it; the coloured squares show where everyone really stands":"range "+w.range+", needs a clear line"}). ${m.hp}/${m.maxHp} HP, AC ${m.ac}.`);return;}
     if(C.sel!==m){C.sel=m;const md=attackMods(u,m,w);prompt(`${w.name} vs ${m.name}: ${pctTxt(md,m)} to hit, ${dmgPreview(u,w,m)} damage${modsText(md)}. Tap again to attack.`);return;}
@@ -1712,7 +1717,7 @@ function actionButtons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;
     if(c.ok){delete u.st.restrained;await say(`Free! (${c.txt})`,800);}else await say(`Still stuck. (${c.txt})`,800);afterAction();}});
   for(const a of G.party)if(a!==u&&a.down&&!a.dead&&!a.stable&&cheb(a,u)<=1)B.push({t:`STABILIZE ${a.name.toUpperCase()}`,sub:"Action · Medicine DC 10 · stops death saves",dis:!act,f:async()=>{busy=true;C.actions--;const c=await check(u,"medicine",10);
     if(c.ok){a.stable=true;a.ds={s:0,f:0};await say(`The ${u.name} stops the bleeding. The ${a.name} is stable. (${c.txt})`,1000);}else await say(`The ${u.name} can't stop the bleeding. (${c.txt})`,900);hud();afterAction();}});
-  B.push(...snuffButtons(u),...classCombatButtons(u));
+  B.push(...snuffButtons(u),...classCombatButtons(u),...rules2Buttons(u));
   {const fast=u.id==="rogue";const ok=fast?C.bonus:hasAction()&&C.attacksLeft===0;const spend=()=>{if(fast)C.bonus=false;else C.actions--;};const cost=fast?"Bonus action (rogue)":"Action";
     if((G.bag.poisonvial||0)>0&&!u.coat&&!u.wild)B.push({t:"POISON YOUR WEAPON",sub:`${cost} · next attack +2d4 poison, CON save or poisoned`,dis:!ok,f:async()=>{busy=true;spend();takeItem("poisonvial");u.coat={name:"poison",type:"poison",dice:"2d4"};await say(`The ${u.name} smears poison along the weapon.`,800);afterAction();}});
     const acid=[[0,0]].concat(DIRS8).some(([dx,dy])=>gnd(u.x+dx,u.y+dy)===GROUND.acid);
@@ -1747,7 +1752,7 @@ async function disarm(u,t){const c=await check(u,"thieves",t.dc,{adv:!!t.easy});
 function threatScore(m,h,w){return (h.hp/h.maxHp)*4+(h.conc?-2:0)+(h.st.hidden?6:0)+(acOf(h)-13)*.35+(h.st.prone&&w.melee?-1.5:0)+(h.st.dodge?2:0);}
 function truncatePath(dist,path,budget){const out=[];for(const k of path){const n=dist.get(k);if(!n||n.c>budget)break;out.push(k);}while(out.length){const k=out[out.length-1];if(!unitAt(k%G.W,(k/G.W)|0))break;out.pop();}return out;}
 async function monsterTurn(m){const T=m.tr;await wait(200);
-  let move=m.speed;if(m.st.prone){delete m.st.prone;move=Math.floor(move/2);float(m,"STANDS","#ffffff");}
+  let move=m.speed;if(m.st.prone){delete m.st.prone;move=Math.floor(move/2);float(m,"STANDS","#ffffff");}if(m.st.grappled||m.st.paralysed)move=0;
   if(m.st.restrained){const w=weaponOf(m);const near=heroesUp().filter(h=>inReachW(m,h,w));
     if(!near.length||Math.random()<.5){const c=await check(m,"athletics",m.st.restrained.dc,{quiet:true});if(c.ok){const by=m.st.restrained.by;delete m.st.restrained;await say(`The ${m.name} tears free of the ${by==="web"?"webbing":"vines"}!`,750);}
       else{await say(`The ${m.name} struggles against the ${m.st.restrained.by==="web"?"webbing":"vines"}.`,700);return;}}
@@ -1796,7 +1801,7 @@ async function bossPhase(m){fx.push({type:"wave",u:m,t:now()});await say(`The ${
   renderStrip();await say(`It's enraged (+2 damage)${n?` and ${n} goblins rush in to help!`:"!"}`,1100);}
 
 // ---------- end of combat ----------
-async function victory(){mode="combatEnd";busy=true;buildPanel();const xp=C.xp;
+async function victory(){mode="combatEnd";busy=true;buildPanel();const xp=C.xp;await recoverArrows();
   await say(`Victory! The party earns ${xp} XP.`,1200);for(const msg of gainXpNow(xp))await say(msg,1500);
   for(const h of G.party){if(h.conc)endConc(h);const keep=h.st.poisoned;h.st={};if(keep)h.st.poisoned=keep;h.thp=0;}
   for(const h of G.party)if(h.frenzied&&!h.dead){h.frenzied=false;await addExh(h,1,"the frenzy wears off");}
@@ -1818,7 +1823,7 @@ async function defeat(){mode="combatEnd";busy=true;buildPanel();await say("The l
 function newRun(ci,race){clearRun();
   const seedIn=parseInt(($("seedIn")&&$("seedIn").value||"").replace(/\D/g,""),10);
   const seed=Number.isFinite(seedIn)?seedIn%1000000:Math.floor(NATIVE_RANDOM()*1000000);
-  G={seed,party:[],bag:{potion:2,torch:1,oil:1,ration:3,firewood:2},gold:0,floor:1,level:1,xp:0,kills:0,over:false,fatigue:0,steps:0,fallen:[],
+  G={seed,party:[],bag:{potion:2,torch:1,oil:1,ration:3,firewood:2,arrows:20},gold:0,floor:1,level:1,xp:0,kills:0,over:false,fatigue:0,steps:0,fallen:[],
     light:true,fuel:FUEL_MAX,lightR:4,lore:{},sneak:false,coldUsed:false,shortRests:0,theme:THEME_KEYS[Math.floor(seededRandom(seed)()*THEME_KEYS.length)],known:new Set(KNOWN_START),idTried:new Set(),goal:null};
   if(hasUp("pack")){G.bag.ration+=2;G.bag.firewood+=2;}if(hasUp("lamp"))G.bag.oil+=2;if(hasUp("apoth"))G.bag.potion+=2;if(hasUp("yard"))G.level=2;
   if(hasUp("armoury")){const g=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&!ITEMS[k].cursed&&ITEMS[k].floor<=2);const it=pick(g);addItem(it);G.known.add(it);}
@@ -2840,6 +2845,76 @@ effect("hellishRebuke","Tiefling: once per long rest, burn whoever hurt you",{da
 effect("relentless","Half-Orc: once per long rest, drop to 1 HP instead of 0",{wouldDrop:async c=>{const h=c.h;
   if(h.race==="halforc"&&!h.relentlessUsed&&!(S.rules.deathSaves&&c.over>=h.maxHp)){h.relentlessUsed=true;h.hp=1;c.saved=true;float(h,"RELENTLESS","#ffb070");await say(`Relentless Endurance! The ${h.name} refuses to fall and stays up with 1 HP.`,1000);hud();}}});
 
+// ================= more 5e rules =================
+// ---------- conditions: blinded, invisible, paralysed, grappled, outlined (Faerie Fire), Shield of Faith ----------
+effect("conditions","Blinded, invisible, paralysed, outlined and grappled creatures",{attackMods:c=>{const a=c.a,t=c.t;
+  if(a.st.blinded)c.dis.push("blinded");if(t.st.blinded)c.adv.push("target blinded");
+  if(t.st.invisible&&!t.st.outlined)c.dis.push("target invisible");if(a.st.invisible&&!a.st.outlined)c.adv.push("you're invisible");
+  if(t.st.paralysed)c.adv.push("target paralysed");if(t.st.outlined)c.adv.push("target outlined");if(t.st.grappled&&!c.w.melee)c.notes.push("target grappled");}});
+effect("paralysedCrit","Melee hits on a paralysed creature are critical hits",{critCheck:c=>{if(c.hit&&c.t.st.paralysed&&cheb(c.a,c.t)<=1)c.crit=true;}});
+effect("invisibleBreaks","Attacking ends Invisibility",{afterAttack:async c=>{if(c.a.st.invisible){delete c.a.st.invisible;if(c.a.conc&&c.a.conc.type==="invis")endConc(c.a);for(const h of G.party)if(h.conc&&h.conc.type==="invis"&&h.conc.target===c.a)endConc(h);}}});
+// ---------- long range & arrows ----------
+const isBow=w=>!!w&&!w.melee&&!w.spell&&!w.thrown&&/bow/i.test(w.name);
+const longRange=w=>!w||w.melee||w.spell?(w?w.range:1):w.thrown?w.range*3:isBow(w)?Math.min(40,w.range*3):w.range;
+effect("longRange","Ranged weapons can shoot past their normal range at disadvantage",{attackMods:c=>{if(!c.w.melee&&!c.w.spell&&cheb(c.a,c.t)>c.w.range)c.dis.push("long range");}});
+function needsArrow(a,w){return a.side==="h"&&isBow(w);}
+effect("arrows","Bows use arrows; half can be recovered after a fight",{afterAttack:async c=>{if(needsArrow(c.a,c.w)&&!c.noArrow){takeItem("arrows");if(C)C.arrowsUsed=(C.arrowsUsed||0)+1;}}});
+async function recoverArrows(){if(!C||!C.arrowsUsed)return;const n=Math.floor(C.arrowsUsed/2);if(n){addItem("arrows",n);log(`You recover ${n} arrow${n>1?"s":""} from the battlefield.`,"miss");}}
+// ---------- Ready action ----------
+async function readiedStrike(m){for(const h of heroesUp()){if(!h.readied||!canReact(h)||m.hp<=0)continue;const w=weaponOf(h,h.readied);if(!inReachW(h,m,w))continue;
+    h.readied=null;h.reaction=false;await say(`The ${h.name}'s readied attack fires as the ${m.name} comes into reach!`,850);await attack(h,m,w,{});if(m.hp<=0)return true;}return false;}
+// ---------- legendary actions (bosses act between your turns) ----------
+async function legendaryAction(){const b=G.mons.find(m=>m.boss&&m.inCombat&&m.hp>0&&!m.st.paralysed&&!m.st.asleep);if(!b||(b.legend||0)<=0)return;if(Math.random()<.35)return;b.legend--;
+  const near=heroesUp().filter(h=>cheb(h,b)<=1);C.cur=b;renderStrip();
+  if(near.length){const t=near.sort((a,c)=>a.hp-c.hp)[0];await say(`Legendary action! The ${b.name} lashes out between turns.`,800);await attack(b,t,weaponOf(b),{});}
+  else{const t=heroesUp().sort((a,c)=>cheb(a,b)-cheb(c,b))[0];if(t){await say(`Legendary action! The ${b.name} stomps forward.`,700);const dist=dijkstra(b,2,{});let best=null,bd=99;for(const [k] of dist){const x=k%G.W,y=(k/G.W)|0;if(unitAt(x,y))continue;const d=cheb({x,y},t);if(d<bd){bd=d;best=k;}}if(best!==null)await walk(b,pathTo(dist,best),{});}}}
+// ---------- two-weapon fighting, jump, grapple, ready, flash powder, ammo checks ----------
+const TWF={rogue:{name:"Off-hand Dagger",dice:"1d4"},ranger:{name:"Off-hand Shortsword",dice:"1d6"}};
+effect("twfTrack","Remember a melee weapon attack this turn (for the off-hand attack)",{afterAttack:async c=>{if(C&&C.cur===c.a&&c.w.melee&&!c.w.spell)C.meleeAttacked=true;}});
+function rules2Buttons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;if(u.wild)return B;
+  const tw=TWF[u.id];if(tw)B.push({t:"OFF-HAND ATTACK",sub:`Bonus action after a melee attack · ${tw.dice} (no ability bonus to damage)`,dis:!C.bonus||!C.meleeAttacked,f:()=>targetMode({kind:"enemy",range:1,label:"Off-hand attack: tap an adjacent enemy.",onPick:async(x,y,t)=>{C.bonus=false;busy=true;
+      await attack(u,t,{name:tw.name,abil:"dex",dice:tw.dice,type:"piercing",range:1,melee:true,finesse:true,offhand:true},{});afterAction();}})});
+  B.push({t:"READY AN ATTACK",sub:"Action · strike the first enemy that comes into reach before your next turn (uses your reaction)",dis:!act,f:async()=>{busy=true;C.actions--;u.readied=C.weapon||"main";await say(`The ${u.name} readies their ${weaponOf(u,u.readied).name}, waiting...`,800);afterAction();}});
+  const jd=Math.max(1,Math.floor(score(u,"str")/5));B.push({t:"JUMP",sub:`Uses movement · leap up to ${jd} squares in a straight line, over pits, puddles and fire`,dis:C.moveLeft<2,f:()=>targetMode({kind:"tile",range:Math.min(jd,C.moveLeft),label:`Jump: tap a free square in a straight line, up to ${Math.min(jd,C.moveLeft)} away.`,onPick:async(x,y)=>{
+      const dx=x-u.x,dy=y-u.y;if(!(dx===0||dy===0||Math.abs(dx)===Math.abs(dy))||isWall(x,y)||unitAt(x,y)||blocksObj(x,y)){prompt("You can only jump in a straight line to a free square.");return;}
+      for(let i=1;i<cheb(u,{x,y});i++)if(isWall(u.x+Math.sign(dx)*i,u.y+Math.sign(dy)*i)){prompt("There's a wall in the way.");return;}
+      busy=true;C.moveLeft-=cheb(u,{x,y});await say(`The ${u.name} takes a running leap!`,600);await walk(u,[y*G.W+x],{});refreshReach();afterAction();}})});
+  B.push({t:"GRAPPLE",sub:"Action · Athletics contest: the enemy can't move until it breaks free",dis:!act,f:()=>targetMode({kind:"enemy",range:1,label:"Grapple which enemy?",onPick:async(x,y,t)=>{if(t.tr&&t.tr.large){prompt("It's far too big to grapple.");return;}
+      busy=true;C.actions--;const a=await check(u,"athletics",0,{quiet:true});const d=rnd(20)+Math.max(skillBonus(t,"athletics"),skillBonus(t,"acrobatics"));
+      if(a.total>=d){t.st.grappled={by:u};float(t,"GRAPPLED","#ffffff");await say(`The ${u.name} grabs the ${t.name} and holds on! (${a.total} vs ${d})`,900);}else await say(`The ${t.name} slips out of reach. (${a.total} vs ${d})`,800);afterAction();}})});
+  if((G.bag.flashpowder||0)>0)B.push({t:"THROW FLASH POWDER",sub:"Action · range 4 · CON save DC 12 or blinded until its next turn ends",dis:!act,f:()=>targetMode({kind:"enemy",range:4,label:"Throw flash powder at which enemy?",onPick:async(x,y,t)=>{busy=true;C.actions--;takeItem("flashpowder");
+      fx.push({type:"boom",x:t.x,y:t.y,t:now()});const s=saveRoll(t,"con",12);if(!s.ok){t.st.blinded=C.round+1;float(t,"BLINDED","#ffffff");}await say(`A blinding flash! (${s.txt})`,800);afterAction();}})});
+  return B;}
+// ---------- new spells ----------
+Object.assign(SPELLS,{
+  shieldoffaith:{name:"Shield of Faith",lvl:1,cost:"bonus",tgt:"ally",range:12,conc:true,desc:"Bonus action, concentration: an ally gets +2 AC."},
+  faeriefire:{name:"Faerie Fire",lvl:1,cost:"action",tgt:"area",range:12,radius:1,conc:true,desc:"Concentration. 3×3 area, DEX save: failures glow, so attacks against them have advantage and they can't hide or turn invisible."},
+  holdperson:{name:"Hold Person",lvl:2,cost:"action",tgt:"enemy",range:12,conc:true,desc:"Concentration. A humanoid makes a WIS save or is paralysed (it repeats the save each turn). Melee hits on it are critical."},
+  invisibility:{name:"Invisibility",lvl:2,cost:"action",tgt:"ally",range:1,conc:true,desc:"Concentration. A touched ally turns invisible until they attack."},
+  mistystep:{name:"Misty Step",lvl:2,cost:"bonus",tgt:"tile",range:6,desc:"Bonus action: teleport to a free square you can see within 6. No opportunity attacks."}});
+CINFO.cleric.spells.push("shieldoffaith","holdperson");CINFO.wizard.spells.push("holdperson","invisibility","mistystep");CINFO.druid.spells.push("faeriefire");
+const HUMANOID={goblin:1,archer:1,shaman:1,goblinboss:1,kobold:1,orc:1};
+Object.assign(SPELL_RUN,{
+  shieldoffaith:u=>targetMode({kind:"ally",range:12,label:"Shield of Faith: tap an ally.",onPick:async(x,y,t)=>{C.bonus=false;useSlot(u,1);startConc(u,{type:"sof",name:"Shield of Faith",target:t});t.st.sof=true;fx.push({type:"ring",u:t,col:"#fff0a0",t:now()});await say(`A shimmering field surrounds the ${t.name}: +2 AC.`,800);hud();}}),
+  faeriefire:u=>targetMode({kind:"tile",range:12,area:1,label:"Faerie Fire: tap the centre of a 3×3 area.",preview:(x,y)=>areaPreview("Faerie Fire",x,y,1,true),onPick:async(x,y)=>{C.actions--;useSlot(u,1);const list=unitsIn(x,y,1,true).filter(v=>v.side==="m");const lit=[];
+      for(const m of list){const s=saveRoll(m,"dex",spellDC(u));if(!s.ok){m.st.outlined=true;delete m.st.invisible;delete m.st.hidden;lit.push(m);float(m,"OUTLINED","#d0a0ff");}}
+      startConc(u,{type:"faerie",name:"Faerie Fire",targets:lit});await say(`Violet light rims ${lit.length} enem${lit.length===1?"y":"ies"}: attacks against them have advantage.`,1000);}}),
+  holdperson:u=>targetMode({kind:"enemy",range:12,label:"Hold Person: tap a humanoid enemy.",onPick:async(x,y,t)=>{if(!HUMANOID[t.key]){prompt(`Hold Person only works on humanoids. The ${t.name} isn't one.`);return;}
+      C.actions--;useSlot(u,2);const s=saveRoll(t,"wis",spellDC(u));if(!s.ok){t.st.paralysed={dc:spellDC(u),by:u};startConc(u,{type:"hold",name:"Hold Person",target:t});float(t,"PARALYSED","#d0a0ff");await say(`The ${t.name} freezes rigid! (${s.txt}) Melee hits on it are critical.`,1000);}
+      else await say(`The ${t.name} shrugs it off. (${s.txt})`,800);}}),
+  invisibility:u=>targetMode({kind:"ally",range:1,label:"Invisibility: tap yourself or an adjacent ally.",onPick:async(x,y,t)=>{C.actions--;useSlot(u,2);t.st.invisible=true;startConc(u,{type:"invis",name:"Invisibility",target:t});float(t,"INVISIBLE","#c0e0ff");await say(`The ${t.name} fades from sight.`,800);hud();}}),
+  mistystep:u=>targetMode({kind:"tile",range:6,label:"Misty Step: tap a free square you can see.",onPick:async(x,y)=>{if(isWall(x,y)||unitAt(x,y)||blocksObj(x,y)||!seen(x,y)){prompt("Pick a free square you can see.");return;}
+      C.bonus=false;useSlot(u,2);fx.push({type:"ring",u,col:"#c0e0ff",t:now()});u.x=x;u.y=y;u.dx=x*TS;u.dy=y*TS;await say("Misty Step! A blink of silver mist.",700);refreshReach();}})});
+function endConcExtra(u,c){if(!c)return;if(c.type==="sof"&&c.target)delete c.target.st.sof;if(c.type==="hold"&&c.target)delete c.target.st.paralysed;if(c.type==="invis"&&c.target)delete c.target.st.invisible;if(c.type==="faerie")for(const m of c.targets||[])delete m.st.outlined;}
+// ---------- start-of-turn conditions for monsters (paralysed, grappled) ----------
+async function conditionTurn(u){// returns true if the creature loses its turn
+  if(u.st.paralysed){const p=u.st.paralysed;const s=saveRoll(u,"wis",p.dc);if(s.ok){delete u.st.paralysed;if(p.by&&p.by.conc&&p.by.conc.type==="hold")p.by.conc=null;float(u,"FREE","#ffffff");await say(`The ${u.name} breaks the hold! (${s.txt})`,800);return true;}
+    float(u,"PARALYSED","#d0a0ff");await say(`The ${u.name} strains against the spell but can't move. (${s.txt})`,800);return true;}
+  if(u.st.grappled){const g=u.st.grappled.by;if(!g||g.down||g.dead||cheb(g,u)>1){delete u.st.grappled;return false;}
+    if(Math.random()<.45){const a=await check(u,Math.random()<.5?"athletics":"acrobatics",0,{quiet:true});const d=rnd(20)+skillBonus(g,"athletics");
+      if(a.total>=d){delete u.st.grappled;await say(`The ${u.name} wrenches free of the ${g.name}'s grip!`,800);}else await say(`The ${u.name} struggles against the ${g.name}'s grip.`,700);return true;}}
+  return false;}
+
 // ================= sprites =================
 const sprCache={};
 function paint(rows,pal,w,h){const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");
@@ -3165,7 +3240,7 @@ function openShop(o){shopObj=o;renderShop();show("ovShop");}
 function renderShop(){const el=$("shopBody");el.innerHTML=`<p>"Lamp oil, rope, bombs? Ah, no bombs. Take a look!" · You have <b>${G.gold}</b> gold.</p><h3>BUY</h3>`;
   const row=(id,price,label,f,dis)=>{const it=ITEMS[id];const d=document.createElement("div");d.className="item";const ic=document.createElement("canvas");ic.width=ic.height=16;d.appendChild(ic);drawIconTo(ic,id);
     d.insertAdjacentHTML("beforeend",`<div><b>${esc(label.startsWith("BUY")?it.name:itemName(id))}</b><br><span class="sm">${esc(label.startsWith("BUY")?it.desc:itemDesc(id))}</span></div>`);const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=`${label} ${price}g`;b.disabled=!!dis;b.addEventListener("click",f);d.appendChild(b);el.appendChild(d);};
-  shopObj.stock.forEach((id,i)=>row(id,ITEMS[id].price,"BUY",()=>{G.gold-=ITEMS[id].price;addItem(id);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<ITEMS[id].price));
+  shopObj.stock.forEach((id,i)=>row(id,id==="arrows"?10:ITEMS[id].price,id==="arrows"?"BUY 10":"BUY",()=>{G.gold-=id==="arrows"?10:ITEMS[id].price;addItem(id,id==="arrows"?10:1);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<ITEMS[id].price));
   el.insertAdjacentHTML("beforeend","<h3>SELL</h3>");const ids=Object.keys(G.bag).filter(id=>ITEMS[id].price>0);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Nothing to sell.</p>");
   for(const id of ids){const p=Math.floor(ITEMS[id].price/2);row(id,p,`SELL (${G.bag[id]})`,()=>{takeItem(id);G.gold+=p;shopObj.stock.push(id);renderShop();hud();});
     if(!isKnown(id))row(id,20,"IDENTIFY",()=>{G.gold-=20;G.known.add(id);renderShop();hud();},G.gold<20);}}

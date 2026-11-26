@@ -20,7 +20,7 @@ function slotMax(h){const cs=casterOf(h);const t=cs==="full"?SLOTS_FULL:cs==="ha
 function featRes(h){const out=[];if(h.sub==="land")out.push("natrec");for(const f of featsOf(h)){const r=FEATS[f].res;if(r&&!out.includes(r))out.push(r);}if(h.info.arcaneRecovery)out.push("arcane");return out.filter((v,i)=>out.indexOf(v)===i);}
 function restoreAll(h,keepHD){h.pins=2;if(hasFeat(h,"lucky"))h.luck=3;h.goodberry=false;h.sanct=false;h.slots=slotMax(h);for(const k of featRes(h))h.res[k]=RES[k].max(G.level);h.wand=gearFx(h).wand?3:0;if(!keepHD)h.hdLeft=h.hdMax;h.rebukeUsed=false;h.relentlessUsed=false;if(h.sub==="abjurer")h.ward=wardMax(h);}
 function gearFx(h){const f={};for(const id of h.gear){const it=ITEMS[id];if(!it||!it.fx)continue;for(const k in it.fx){if(k.startsWith("set"))f[k]=Math.max(f[k]||0,it.fx[k]);else f[k]=(f[k]||0)+it.fx[k];}}return f;}
-function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)-curse;}
+function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)+(u.st.sof?2:0)-curse;}
 function speedOf(u){if(u.side==="m")return u.speed;let s=u.wild?8:u.def.speed+(gearFx(u).speed||0);s-=exhOf(u);if(u.st&&u.st.pinned)return 0;return Math.max(1,s);}
 function saveBonus(u,a){if(u.side==="m")return abm(u,a)+(u.boss?3:0);return abm(u,a)+(u.info.saves.includes(a)?prof():0)+(gearFx(u).save||0)+(G.blessFloor===G.floor?1:0)+loyalBonus(u);}
 function skillBonus(u,sk){const a=SKILLS[sk];if(u.side==="m")return abm(u,a)+(sk==="perception"&&u.tr.keen?3:0)+(u.boss?2:0)+(sk==="athletics"&&u.tr.shover?2:0);
@@ -189,7 +189,7 @@ const xpNeed=()=>G.level*20;
 
 // ---------- concentration ----------
 function startConc(u,data){if(u.conc)endConc(u);u.conc=data;}
-function endConc(u){const c=u.conc;if(!c)return;u.conc=null;
+function endConc(u){const c=u.conc;if(!c)return;u.conc=null;endConcExtra(u,c);
   if(c.type==="bless")for(const t of c.targets)delete t.st.blessed;
   if(c.type==="spikes"){for(const k of c.tiles){G.entangle.delete(k);G.spikes.delete(k);}}
   if(c.type==="entangle"){for(const k of c.tiles)G.entangle.delete(k);for(const m of G.mons.concat(G.party))if(m.st.restrained&&m.st.restrained.by==="entangle"&&m.st.restrained.src===u)delete m.st.restrained;}
@@ -251,6 +251,7 @@ async function walk(u,path,o){o=o||{};
           if(r&&r.hit&&(hasFeat(e,"sentinel")||(e.side==="h"&&e.id==="fighter"))){await say(`The ${e.name} holds the line: the ${u.name} is stopped in its tracks!`,850);return false;}}}}
     const d=doorAt(x,y);if(d&&!d.open){d.open=true;computeLight();}
     faceToward(u,x-u.x,y-u.y);u.x=x;u.y=y;await wait(110);
+    if(C&&u.side==="m"&&await readiedStrike(u))return false;
     if(G.spikes&&G.spikes.has(y*G.W+x)&&(u.side==="h"||u.hp>0)){float(u,"THORNS","#8aff7a");await dealDamage(u,roll("2d4").total,"piercing",{});if(u.hp<=0&&u.side==="m"||u.down||u.dead)return false;}
     if(u.side==="h"||C)fov();
     const r=await onEnter(u,x,y,{});if(r.stop||u.hp<=0||u.down||u.dead)return false;}

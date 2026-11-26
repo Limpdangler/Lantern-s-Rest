@@ -323,7 +323,7 @@ function openShop(o){shopObj=o;renderShop();show("ovShop");}
 function renderShop(){const el=$("shopBody");el.innerHTML=`<p>"Lamp oil, rope, bombs? Ah, no bombs. Take a look!" · You have <b>${G.gold}</b> gold.</p><h3>BUY</h3>`;
   const row=(id,price,label,f,dis)=>{const it=ITEMS[id];const d=document.createElement("div");d.className="item";const ic=document.createElement("canvas");ic.width=ic.height=16;d.appendChild(ic);drawIconTo(ic,id);
     d.insertAdjacentHTML("beforeend",`<div><b>${esc(label.startsWith("BUY")?it.name:itemName(id))}</b><br><span class="sm">${esc(label.startsWith("BUY")?it.desc:itemDesc(id))}</span></div>`);const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=`${label} ${price}g`;b.disabled=!!dis;b.addEventListener("click",f);d.appendChild(b);el.appendChild(d);};
-  shopObj.stock.forEach((id,i)=>row(id,ITEMS[id].price,"BUY",()=>{G.gold-=ITEMS[id].price;addItem(id);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<ITEMS[id].price));
+  shopObj.stock.forEach((id,i)=>row(id,id==="arrows"?10:ITEMS[id].price,id==="arrows"?"BUY 10":"BUY",()=>{G.gold-=id==="arrows"?10:ITEMS[id].price;addItem(id,id==="arrows"?10:1);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<ITEMS[id].price));
   el.insertAdjacentHTML("beforeend","<h3>SELL</h3>");const ids=Object.keys(G.bag).filter(id=>ITEMS[id].price>0);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Nothing to sell.</p>");
   for(const id of ids){const p=Math.floor(ITEMS[id].price/2);row(id,p,`SELL (${G.bag[id]})`,()=>{takeItem(id);G.gold+=p;shopObj.stock.push(id);renderShop();hud();});
     if(!isKnown(id))row(id,20,"IDENTIFY",()=>{G.gold-=20;G.known.add(id);renderShop();hud();},G.gold<20);}}
