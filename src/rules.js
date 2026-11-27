@@ -177,7 +177,7 @@ async function monsterDies(m,o){if(m._dead)return;m._dead=true;learnByFighting(m
   if((m.tr.leader||m.boss)&&C){for(const f of G.mons.filter(q=>q.gid===m.gid&&q.inCombat&&q.tr.morale&&!q.fleeing)){const s=saveRoll(f,"wis",12);if(!s.ok){f.fleeing=true;float(f,"FLEE!","#ffffff");}}
     if(G.mons.some(q=>q.fleeing))await say(`With their leader down, some of them break and run!`,900);}
   if(C)renderStrip();}
-async function moraleCheck(m){if(!m.tr.morale||m.fleeing||m.moraleDone||!C)return;if(m.hp>m.maxHp*.35)return;m.moraleDone=true;
+async function moraleCheck(m){if(!m.tr.morale||m.fleeing||m.moraleDone||!C)return;if(m.hp>m.maxHp*(m.tr.mind==="smart"&&!m.boss?.5:.35))return;m.moraleDone=true;
   const s=saveRoll(m,"wis",10);if(!s.ok){m.fleeing=true;float(m,"FLEE!","#ffffff");await say(`The ${m.name} panics and tries to run! (${s.txt})`,850);}}
 async function splitOoze(m){const p=nearFree(m.x,m.y);if(!p||cheb(p,m)>2)return;const half=Math.floor(m.hp/2);if(half<1)return;m.hp-=half;m.maxHp=Math.max(m.hp,Math.floor(m.maxHp/2));
   const n=mkMon(Object.assign({},monByKey("ooze")||m,{hp:half}),p.x,p.y);n.maxHp=m.maxHp;n.hp=half;n.state="combat";n.gid=m.gid;n.xp=Math.ceil(m.xp/2);
