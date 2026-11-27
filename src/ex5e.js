@@ -71,7 +71,7 @@ function burnFuel(n){if(!G.light||!G.fuel)return;G.fuel=Math.max(0,G.fuel-n);
 function toggleLight(){if(!G||G.demo||G.over||mode!=="explore"||busy)return;
   if(G.light&&G.fuel>0)G.light=false;
   else{if(G.fuel<=0){if(G.bag.oil){takeItem("oil");G.fuel=FUEL_MAX;G.lightR=4;}else if(G.bag.torch){takeItem("torch");G.fuel=Math.floor(FUEL_MAX*.4);G.lightR=3;}else{toast("Nothing to light: you need lantern oil or a torch.");return;}}G.light=true;}
-  toast(G.light?"Light on. You can see, but light can be seen from far away.":"Light off. Only lit areas (and darkvision) let you see, but monsters without darkvision can't see you in the dark.");
+  toast(G.light?"Light on. Monsters can see it from far away.":"Light off. Monsters without darkvision can't see you, but you only see lit areas.");
   computeLight();fov();hud();}
 async function torchInteract(tc){const L=G.party[0];const wz=heroesUp().find(h=>h.id==="wizard"&&cheb(h,tc)<=12&&(los(h.x,h.y,tc.x,tc.y+1)||los(h.x,h.y,tc.lx,tc.ly)));
   if(cheb(L,tc)>1){if(!wz){toast("You can't reach that torch from here.");return;}const c=await choose(`The ${wz.name} can ${tc.out?"light":"snuff"} that torch from here with a cantrip.`,[{t:tc.out?"LIGHT IT":"SNUFF IT"},{t:"LEAVE IT"}]);if(c===0){tc.out=!tc.out;toast(tc.out?"A flick of the fingers and the torch goes out.":"The torch flares to life.");}$("tBox").hidden=true;computeLight();fov();hud();return;}
@@ -106,7 +106,7 @@ const floorCleared=()=>!G.mons.some(m=>m.hp>0&&!m.peace);
 function campRisk(type){const n=G.mons.filter(m=>!m.peace&&m.hp>0).length;if(!n)return 0;if(type==="short")return Math.min(.35,.05*n);const base=Math.min(.8,.2+.07*n);return type==="fire"?base:base*.45;}
 async function campFlow(atLadder){// returns the camp settings, or null if cancelled
   const up=heroesUp(),food=G.bag.ration||0,wood=G.bag.firewood||0;
-  const hungry=food?"":" · NO FOOD: everyone gains exhaustion";
+  const hungry=food?"":` · NO FOOD: exhaustion, HP only back to half${(G.hungry||0)>=1?", and you are STARVING (extra exhaustion)":""}`;
   const c1=await choose(atLadder?"At the foot of the ladder, the party makes camp. It's safe here.":"Make camp here?",[
     {t:"FIRE CAMP",sub:wood?`Full rest · uses 1 firewood${food?" + 1 ration":""}${atLadder?"":" · fire draws attention ("+Math.round(campRisk("fire")*100)+"% ambush)"}${hungry}`:"You have no firewood",dis:!wood},
     {t:"COLD CAMP",sub:`No fire: HP only back to half, no Hit Dice or exhaustion recovered${G.coldUsed?" · ALREADY COLD-CAMPED: everyone gains exhaustion":""}${atLadder?"":" · "+Math.round(campRisk("cold")*100)+"% ambush"}${hungry}`},

@@ -489,3 +489,31 @@ async function barricade(o,d){const what=BARRICADE[o.type];if(o.type==="table")f
   d.barred=false;d.wedged=false;makeNoise(d.x,d.y,5);toast("You drag the barricade aside.");fov();hud();};}
 {const base=drawDoor;drawDoor=function(o,sx,sy){base(o,sx,sy);if(!o.barred||o.open)return;const X=Math.round(sx),Y=Math.round(sy);ctx.fillStyle="#1a1216";ctx.fillRect(X,Y+3,16,4);ctx.fillRect(X,Y+9,16,4);
   ctx.fillStyle="#8a5c34";ctx.fillRect(X+1,Y+4,14,2);ctx.fillRect(X+1,Y+10,14,2);ctx.fillStyle="#5a3a22";ctx.fillRect(X+3,Y+4,1,2);ctx.fillRect(X+12,Y+10,1,2);};}
+
+// ---------- hunger: sleeping on an empty stomach ----------
+{const base=applyLongRest;applyLongRest=async function(camp){const hungry=!((G.bag.ration||0)>0);const out=await base(camp);
+  if(!hungry){G.hungry=0;}
+  else{G.hungry=(G.hungry||0)+1;for(const h of G.party)if(!h.dead)h.hp=Math.min(h.hp,Math.max(1,Math.ceil(h.maxHp/2)));out.push("Nobody recovers properly on an empty stomach: HP only back to half.");
+    if(G.hungry>=2){for(const h of G.party)if(!h.dead)await addExh(h,1,"starving");out.push(`STARVING (${G.hungry} nights without food): everyone gains another level of exhaustion.`);}
+    let grumble=false;for(const h of G.party)if(!h.dead&&!h.isYou&&h.trait){h.appr=Math.max(-10,(h.appr||0)-1);grumble=true;}if(grumble)out.push("Your companions grumble about their empty bellies (they like you a little less).");}
+  hud();return out;};}
+
+// ---------- a fire camp leaves its ashes behind ----------
+{const base=applyLongRest;applyLongRest=async function(camp){const out=await base(camp);if(camp&&camp.type==="fire"&&!camp.atLadder&&G.party[0]){const L=G.party[0];
+    const spot=[[0,0]].concat(DIRS8).map(([dx,dy])=>({x:L.x+dx,y:L.y+dy})).find(p=>!isWall(p.x,p.y)&&!objAt(p.x,p.y)&&!doorAt(p.x,p.y)&&gnd(p.x,p.y)===0&&!(G.stairs&&G.stairs.x===p.x&&G.stairs.y===p.y)&&!heroAt(p.x,p.y))||
+      [[0,0]].concat(DIRS8).map(([dx,dy])=>({x:L.x+dx,y:L.y+dy})).find(p=>!isWall(p.x,p.y)&&!objAt(p.x,p.y)&&!doorAt(p.x,p.y)&&gnd(p.x,p.y)===0);
+    if(spot)G.objs.push({type:"campfire",x:spot.x,y:spot.y,deco:true,seen:true,lit:G.steps,floor:G.floor});}
+  return out;};}
+D2_ACT.campfire=async o=>{const warm=G.steps-o.lit<120;toast(warm?"The remains of your campfire. The embers are still warm.":"A ring of stones around cold ashes: your old campsite.");};
+D2_DRAW.campfire=(f,o,t)=>{const warm=G.steps-o.lit<120;f("#5a5450",3,7,10,7);f("#2a2422",4,8,8,5);f("#6a6460",3,7,2,1);f("#6a6460",11,12,2,1);f("#7a7470",8,7,2,1);
+  f("#3a2a1a",5,10,6,1);f("#4a3020",6,9,1,3);f("#4a3020",9,9,1,3);f("#888078",6,11,4,1);
+  if(warm){const g=.5+.5*Math.sin(t/260+o.x);f(`rgba(255,110,30,${.45+.35*g})`,6,10,1,1);f(`rgba(255,160,40,${.3+.4*(1-g)})`,8,11,1,1);f(`rgba(255,90,20,${.4*g})`,9,10,1,1);}};
+BUMP_NAME.campfire="Your old campfire";
+
+// ---------- make the toggle buttons' words always fit ----------
+function fitChips(){for(const b of document.querySelectorAll("#tglRow .chip")){b.style.fontSize="";let fs=parseFloat(getComputedStyle(b).fontSize)||10;let n=0;
+  while(b.scrollWidth>b.clientWidth+1&&fs>6&&n++<12){fs-=.5;b.style.fontSize=fs+"px";}
+  // still too big (some phones enlarge text): use a shorter word
+  if(b.scrollWidth>b.clientWidth+1){const SHORT={"LIGHT ON":"LIGHT","LIGHT OFF":"DARK","ABILITIES":"ABILITY"};if(SHORT[b.textContent])b.textContent=SHORT[b.textContent];}}}
+{const base=hud;hud=function(...a){const r=base(...a);try{const L=$("tgLight");if(L&&L.dataset.t!==L.textContent){fitChips();L.dataset.t=L.textContent;}}catch(e){}return r;};}
+window.addEventListener("resize",()=>setTimeout(fitChips,50));setTimeout(fitChips,300);

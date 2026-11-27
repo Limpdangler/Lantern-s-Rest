@@ -1,3 +1,4 @@
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 /* Layout: one-screen handheld. 240x160 screen on top (exploration and grid battles happen on the same map),
    party cards, history log, then D-pad (exploring) or the battle action panel (fighting). */

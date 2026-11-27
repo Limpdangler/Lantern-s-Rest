@@ -23,7 +23,7 @@ function say(text,auto=1000,noLog){if(!noLog)log(esc(text),"say");note(text);con
     function adv(){if(st.done)return;st.done=true;clearTimeout(st.timer);more.hidden=true;if(sayState===st)sayState=null;res();}
     st.skip=()=>{if(st.typing)finish();else if(!hold||performance.now()-st.at>350)adv();};st.force=()=>{if(st.typing)finish();adv();};});}
 function prompt(text){sayState=null;$("tBox").hidden=false;$("tText").textContent=text;$("tMore").hidden=true;}
-function toast(text){if(mode==="combat")return;if(!text){$("tBox").hidden=true;return;}prompt(text);clearTimeout(toastT);toastT=setTimeout(()=>{if(mode!=="combat"&&!sayState&&!choosing)$("tBox").hidden=true;},Math.max(3000,text.length*70));if(!/Press A|Nothing to use/.test(text))note(text);}
+function toast(text){if(mode==="combat")return;if(!text){$("tBox").hidden=true;return;}prompt(text);clearTimeout(toastT);toastT=setTimeout(()=>{if(mode!=="combat"&&!sayState&&!choosing)$("tBox").hidden=true;},Math.min(5000,Math.max(2500,text.length*45)));if(!/Press A|Nothing to use/.test(text))note(text);}
 let choosing=null;
 function choose(q,opts){return new Promise(res=>{const panel=$("chPanel");if(!$("ovMenu").hidden)show(null);
     prompt(q);clearTimeout(toastT);$("cPanel").hidden=true;$("controls").hidden=true;panel.hidden=false;const box=$("chBtns");box.innerHTML="";

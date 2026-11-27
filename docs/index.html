@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@500;700;800&display=swap">
 <style>html,body{margin:0;background:#000}
 
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 /* Layout: one-screen handheld. 240x160 screen on top (exploration and grid battles happen on the same map),
    party cards, history log, then D-pad (exploring) or the battle action panel (fighting). */
@@ -2406,7 +2407,7 @@ function burnFuel(n){if(!G.light||!G.fuel)return;G.fuel=Math.max(0,G.fuel-n);
 function toggleLight(){if(!G||G.demo||G.over||mode!=="explore"||busy)return;
   if(G.light&&G.fuel>0)G.light=false;
   else{if(G.fuel<=0){if(G.bag.oil){takeItem("oil");G.fuel=FUEL_MAX;G.lightR=4;}else if(G.bag.torch){takeItem("torch");G.fuel=Math.floor(FUEL_MAX*.4);G.lightR=3;}else{toast("Nothing to light: you need lantern oil or a torch.");return;}}G.light=true;}
-  toast(G.light?"Light on. You can see, but light can be seen from far away.":"Light off. Only lit areas (and darkvision) let you see, but monsters without darkvision can't see you in the dark.");
+  toast(G.light?"Light on. Monsters can see it from far away.":"Light off. Monsters without darkvision can't see you, but you only see lit areas.");
   computeLight();fov();hud();}
 async function torchInteract(tc){const L=G.party[0];const wz=heroesUp().find(h=>h.id==="wizard"&&cheb(h,tc)<=12&&(los(h.x,h.y,tc.x,tc.y+1)||los(h.x,h.y,tc.lx,tc.ly)));
   if(cheb(L,tc)>1){if(!wz){toast("You can't reach that torch from here.");return;}const c=await choose(`The ${wz.name} can ${tc.out?"light":"snuff"} that torch from here with a cantrip.`,[{t:tc.out?"LIGHT IT":"SNUFF IT"},{t:"LEAVE IT"}]);if(c===0){tc.out=!tc.out;toast(tc.out?"A flick of the fingers and the torch goes out.":"The torch flares to life.");}$("tBox").hidden=true;computeLight();fov();hud();return;}
@@ -2441,7 +2442,7 @@ const floorCleared=()=>!G.mons.some(m=>m.hp>0&&!m.peace);
 function campRisk(type){const n=G.mons.filter(m=>!m.peace&&m.hp>0).length;if(!n)return 0;if(type==="short")return Math.min(.35,.05*n);const base=Math.min(.8,.2+.07*n);return type==="fire"?base:base*.45;}
 async function campFlow(atLadder){// returns the camp settings, or null if cancelled
   const up=heroesUp(),food=G.bag.ration||0,wood=G.bag.firewood||0;
-  const hungry=food?"":" · NO FOOD: everyone gains exhaustion";
+  const hungry=food?"":` · NO FOOD: exhaustion, HP only back to half${(G.hungry||0)>=1?", and you are STARVING (extra exhaustion)":""}`;
   const c1=await choose(atLadder?"At the foot of the ladder, the party makes camp. It's safe here.":"Make camp here?",[
     {t:"FIRE CAMP",sub:wood?`Full rest · uses 1 firewood${food?" + 1 ration":""}${atLadder?"":" · fire draws attention ("+Math.round(campRisk("fire")*100)+"% ambush)"}${hungry}`:"You have no firewood",dis:!wood},
     {t:"COLD CAMP",sub:`No fire: HP only back to half, no Hit Dice or exhaustion recovered${G.coldUsed?" · ALREADY COLD-CAMPED: everyone gains exhaustion":""}${atLadder?"":" · "+Math.round(campRisk("cold")*100)+"% ambush"}${hungry}`},
@@ -3866,7 +3867,7 @@ function say(text,auto=1000,noLog){if(!noLog)log(esc(text),"say");note(text);con
     function adv(){if(st.done)return;st.done=true;clearTimeout(st.timer);more.hidden=true;if(sayState===st)sayState=null;res();}
     st.skip=()=>{if(st.typing)finish();else if(!hold||performance.now()-st.at>350)adv();};st.force=()=>{if(st.typing)finish();adv();};});}
 function prompt(text){sayState=null;$("tBox").hidden=false;$("tText").textContent=text;$("tMore").hidden=true;}
-function toast(text){if(mode==="combat")return;if(!text){$("tBox").hidden=true;return;}prompt(text);clearTimeout(toastT);toastT=setTimeout(()=>{if(mode!=="combat"&&!sayState&&!choosing)$("tBox").hidden=true;},Math.max(3000,text.length*70));if(!/Press A|Nothing to use/.test(text))note(text);}
+function toast(text){if(mode==="combat")return;if(!text){$("tBox").hidden=true;return;}prompt(text);clearTimeout(toastT);toastT=setTimeout(()=>{if(mode!=="combat"&&!sayState&&!choosing)$("tBox").hidden=true;},Math.min(5000,Math.max(2500,text.length*45)));if(!/Press A|Nothing to use/.test(text))note(text);}
 let choosing=null;
 function choose(q,opts){return new Promise(res=>{const panel=$("chPanel");if(!$("ovMenu").hidden)show(null);
     prompt(q);clearTimeout(toastT);$("cPanel").hidden=true;$("controls").hidden=true;panel.hidden=false;const box=$("chBtns");box.innerHTML="";
@@ -4875,6 +4876,34 @@ async function barricade(o,d){const what=BARRICADE[o.type];if(o.type==="table")f
   d.barred=false;d.wedged=false;makeNoise(d.x,d.y,5);toast("You drag the barricade aside.");fov();hud();};}
 {const base=drawDoor;drawDoor=function(o,sx,sy){base(o,sx,sy);if(!o.barred||o.open)return;const X=Math.round(sx),Y=Math.round(sy);ctx.fillStyle="#1a1216";ctx.fillRect(X,Y+3,16,4);ctx.fillRect(X,Y+9,16,4);
   ctx.fillStyle="#8a5c34";ctx.fillRect(X+1,Y+4,14,2);ctx.fillRect(X+1,Y+10,14,2);ctx.fillStyle="#5a3a22";ctx.fillRect(X+3,Y+4,1,2);ctx.fillRect(X+12,Y+10,1,2);};}
+
+// ---------- hunger: sleeping on an empty stomach ----------
+{const base=applyLongRest;applyLongRest=async function(camp){const hungry=!((G.bag.ration||0)>0);const out=await base(camp);
+  if(!hungry){G.hungry=0;}
+  else{G.hungry=(G.hungry||0)+1;for(const h of G.party)if(!h.dead)h.hp=Math.min(h.hp,Math.max(1,Math.ceil(h.maxHp/2)));out.push("Nobody recovers properly on an empty stomach: HP only back to half.");
+    if(G.hungry>=2){for(const h of G.party)if(!h.dead)await addExh(h,1,"starving");out.push(`STARVING (${G.hungry} nights without food): everyone gains another level of exhaustion.`);}
+    let grumble=false;for(const h of G.party)if(!h.dead&&!h.isYou&&h.trait){h.appr=Math.max(-10,(h.appr||0)-1);grumble=true;}if(grumble)out.push("Your companions grumble about their empty bellies (they like you a little less).");}
+  hud();return out;};}
+
+// ---------- a fire camp leaves its ashes behind ----------
+{const base=applyLongRest;applyLongRest=async function(camp){const out=await base(camp);if(camp&&camp.type==="fire"&&!camp.atLadder&&G.party[0]){const L=G.party[0];
+    const spot=[[0,0]].concat(DIRS8).map(([dx,dy])=>({x:L.x+dx,y:L.y+dy})).find(p=>!isWall(p.x,p.y)&&!objAt(p.x,p.y)&&!doorAt(p.x,p.y)&&gnd(p.x,p.y)===0&&!(G.stairs&&G.stairs.x===p.x&&G.stairs.y===p.y)&&!heroAt(p.x,p.y))||
+      [[0,0]].concat(DIRS8).map(([dx,dy])=>({x:L.x+dx,y:L.y+dy})).find(p=>!isWall(p.x,p.y)&&!objAt(p.x,p.y)&&!doorAt(p.x,p.y)&&gnd(p.x,p.y)===0);
+    if(spot)G.objs.push({type:"campfire",x:spot.x,y:spot.y,deco:true,seen:true,lit:G.steps,floor:G.floor});}
+  return out;};}
+D2_ACT.campfire=async o=>{const warm=G.steps-o.lit<120;toast(warm?"The remains of your campfire. The embers are still warm.":"A ring of stones around cold ashes: your old campsite.");};
+D2_DRAW.campfire=(f,o,t)=>{const warm=G.steps-o.lit<120;f("#5a5450",3,7,10,7);f("#2a2422",4,8,8,5);f("#6a6460",3,7,2,1);f("#6a6460",11,12,2,1);f("#7a7470",8,7,2,1);
+  f("#3a2a1a",5,10,6,1);f("#4a3020",6,9,1,3);f("#4a3020",9,9,1,3);f("#888078",6,11,4,1);
+  if(warm){const g=.5+.5*Math.sin(t/260+o.x);f(`rgba(255,110,30,${.45+.35*g})`,6,10,1,1);f(`rgba(255,160,40,${.3+.4*(1-g)})`,8,11,1,1);f(`rgba(255,90,20,${.4*g})`,9,10,1,1);}};
+BUMP_NAME.campfire="Your old campfire";
+
+// ---------- make the toggle buttons' words always fit ----------
+function fitChips(){for(const b of document.querySelectorAll("#tglRow .chip")){b.style.fontSize="";let fs=parseFloat(getComputedStyle(b).fontSize)||10;let n=0;
+  while(b.scrollWidth>b.clientWidth+1&&fs>6&&n++<12){fs-=.5;b.style.fontSize=fs+"px";}
+  // still too big (some phones enlarge text): use a shorter word
+  if(b.scrollWidth>b.clientWidth+1){const SHORT={"LIGHT ON":"LIGHT","LIGHT OFF":"DARK","ABILITIES":"ABILITY"};if(SHORT[b.textContent])b.textContent=SHORT[b.textContent];}}}
+{const base=hud;hud=function(...a){const r=base(...a);try{const L=$("tgLight");if(L&&L.dataset.t!==L.textContent){fitChips();L.dataset.t=L.textContent;}}catch(e){}return r;};}
+window.addEventListener("resize",()=>setTimeout(fitChips,50));setTimeout(fitChips,300);
 
 // ================= settings storage, controls, start-up =================
 const KEY="lantern-crawl-settings-v4";
