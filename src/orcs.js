@@ -46,7 +46,7 @@ async function campFight(camp,ours,msg){const orcs=campOrcs(camp);for(const m of
 async function orcTick(){const L=G.party[0];for(const camp of G.orcCamps||[]){if(camp.floor!==G.floor)continue;const orcs=campOrcs(camp);if(!orcs.length)continue;
     const near=orcs.some(m=>cheb(m,L)<=(camp.hostile?9:7)&&(seen(m.x,m.y)||camp.hostile&&los(m.x,m.y,L.x,L.y)));if(!near)continue;
     if(camp.hostile&&!camp.met&&hasHalfOrc()&&orcs.every(m=>!m.inCombat)){camp.met=true;for(const m of orcs){m.peace=true;m.state="idle";}await orcTalk(camp,true);return true;}
-    if(!camp.hostile&&!camp.met){camp.met=true;if(await covetOffer(orcs,"orcs",camp))return true;await orcTalk(camp,true);return true;}}
+    if(!camp.hostile&&!camp.met){camp.met=true;if(await covetOffer(orcs,"orcs",camp,false))return true;await orcTalk(camp,true);return true;}}
   return false;}
 {const base=doMove;doMove=async function(dx,dy,act){const L=G&&G.party[0];if(L&&mode==="explore"){const m=monAt(L.x+dx,L.y+dy);const camp=campOf(m);if(camp&&m.peace){if(!act){hintA(`The ${m.name} eyes you.`);return;}camp.met=true;await orcTalk(camp,false);return;}}return base(dx,dy,act);};}
 D2_ACT.orcfire=async o=>toast("A crackling fire with a spitted boar roasting over it. It smells incredible.");
@@ -73,19 +73,24 @@ SK_MATCHES.push({a:{keys:["orc"],lang:"Orc",label:"orcs"},b:{adv:true,label:"adv
 
 // ---------- "give us that one and you can go" ----------
 const COVET_WHY=["That one's strong. We could use them.","I like the look of that one.","That one's clever. Clever is useful.","That one. Pretty. We'll take them.","That one fights well. Join us, and the rest of you walk free."];
-async function covetOffer(group,label,obj){if(!group.length||Math.random()>.1||obj.covetAsked)return false;obj.covetAsked=true;
+async function covetOffer(group,label,obj,hostile){if(!group.length||Math.random()>.1||obj.covetAsked)return false;obj.covetAsked=true;
   const cands=heroesUp().filter(h=>h.id!=="beast"&&!h.isYou&&!h.rival);if(!cands.length||heroesUp().length<2)return false;const h=pick(cands);const lead=group.find(m=>m.leader)||group[0];
   const speak=lead.rival!==undefined&&lead.cls?true:!!speakerFor(lead)||!MLANG[lead.key];if(!speak)return false;
   for(const m of group)m.bubble=now()+900;
-  const c=await choose(`The ${lead.name} points at ${h.nick||"the "+h.name}. "${pick(COVET_WHY)} Hand them over, and there's no fight. The rest of you go free."`,[{t:"REFUSE",sub:"Nobody gets left behind"},{t:`HAND OVER ${(h.nick||h.name).toUpperCase()}`,sub:"They leave your party for good"}]);$("tBox").hidden=true;
-  if(c!==1)return false;G.party=G.party.filter(x=>x!==h);if(h.wpn)h.wpn=null;log(`${esc(h.nick||h.name)} the ${esc(h.name)} leaves the party with the ${esc(label)}.`,"hurt");approve("finish");
+  // sometimes it's a threat, sometimes they want to buy: gold, or something rare
+  const buy=!hostile||Math.random()<.4;const gold=ri(40,80)*G.floor;const item=buy&&Math.random()<.5?randomWeaponId(true):null;const who=h.nick||"the "+h.name;
+  const q=!buy?`The ${lead.name} points at ${who}. "${pick(COVET_WHY)} Hand them over, and there's no fight. The rest of you go free."`
+    :item?`The ${lead.name} points at ${who}. "${pick(COVET_WHY)} I'll trade you this for them." They hold up ${aN(ITEMS[item].name)}.`
+    :`The ${lead.name} points at ${who}. "${pick(COVET_WHY)} ${gold} gold says they come with us."`;
+  const c=await choose(q,[{t:"REFUSE",sub:"Nobody gets left behind"},{t:!buy?`HAND OVER ${(h.nick||h.name).toUpperCase()}`:item?`TRADE ${(h.nick||h.name).toUpperCase()} FOR IT`:`SELL ${(h.nick||h.name).toUpperCase()} FOR ${gold} GOLD`,sub:`${item?ITEMS[item].desc+" · ":""}They leave your party for good`}]);$("tBox").hidden=true;
+  if(c!==1)return false;if(buy){if(item)addItem(item);else G.gold+=gold;}G.party=G.party.filter(x=>x!==h);if(h.wpn)h.wpn=null;log(`${esc(h.nick||h.name)} the ${esc(h.name)} leaves the party with the ${esc(label)}.`,"hurt");approve("finish");
   for(const m of group){m.peace=true;m.state="idle";}await say(`${h.nick||"The "+h.name} looks back at you once, then walks over to the ${label}. They don't look back again.`,1700,true);$("tBox").hidden=true;
   for(const m of group){const k=G.mons.indexOf(m);if(k>=0)G.mons.splice(k,1);}hud();fov();return true;}
 // rivals and bandits may covet a hero too
-{const base=rivalMeet;rivalMeet=async function(co,first){if(first&&!co.covetAsked){const mem=rivalMembers(co);if(await covetOffer(mem,co.name,co)){co.gone=true;return;}}return base(co,first);};}
+{const base=rivalMeet;rivalMeet=async function(co,first){if(first&&!co.covetAsked){const mem=rivalMembers(co);if(await covetOffer(mem,co.name,co,co.stance==="threat"||co.stance==="revenge")){co.gone=true;return;}}return base(co,first);};}
 async function banditCovet(){const L=G.party[0];for(const co of G.rivals||[]){if(!co.hostile||co.covetAsked||co.floor!==G.floor)continue;const mem=rivalMembers(co).filter(m=>!m.inCombat);if(!mem.length)continue;
-    if(!mem.some(m=>cheb(m,L)<=7&&seen(m.x,m.y)))continue;if(await covetOffer(mem,"bandits",co)){co.gone=true;return true;}co.covetAsked=true;}return false;}
-{const base=skAftermath;skAftermath=async function(sk,arrived){const side=sk.sides.find(s=>s.team===sk.winner);const us=side?skUnits(sk,side):[];if(side&&!side.neutral&&us.length&&await covetOffer(us,side.label,sk))return;return base(sk,arrived);};}
+    if(!mem.some(m=>cheb(m,L)<=7&&seen(m.x,m.y)))continue;if(await covetOffer(mem,"bandits",co,true)){co.gone=true;return true;}co.covetAsked=true;}return false;}
+{const base=skAftermath;skAftermath=async function(sk,arrived){const side=sk.sides.find(s=>s.team===sk.winner);const us=side?skUnits(sk,side):[];if(side&&us.length&&(side.lang==="Common"||speakerFor(us[0]))&&await covetOffer(us,side.label,sk,!side.neutral)){for(const m of us){const k=G.mons.indexOf(m);if(k>=0)G.mons.splice(k,1);}sk.state="done";sk.talked=true;return;}return base(sk,arrived);};}
 
 // ---------- the demon's bargain ----------
 function placeDemon(r,tiles,door){for(const t of tiles)if(!(t.x===door.x&&t.y===door.y))G.objs.push({type:"hellfloor",x:t.x,y:t.y,deco:true,seen:true});

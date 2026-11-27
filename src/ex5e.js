@@ -110,7 +110,7 @@ async function campFlow(atLadder){// returns the camp settings, or null if cance
   const c1=await choose(atLadder?"At the foot of the ladder, the party makes camp. It's safe here.":"Make camp here?",[
     {t:"FIRE CAMP",sub:wood?`Full rest · uses 1 firewood${food?" + 1 ration":""}${atLadder?"":" · fire draws attention ("+Math.round(campRisk("fire")*100)+"% ambush)"}${hungry}`:"You have no firewood",dis:!wood},
     {t:"COLD CAMP",sub:`No fire: HP only back to half, no Hit Dice or exhaustion recovered${G.coldUsed?" · ALREADY COLD-CAMPED: everyone gains exhaustion":""}${atLadder?"":" · "+Math.round(campRisk("cold")*100)+"% ambush"}${hungry}`},
-    {t:atLadder?"DON'T REST":"CANCEL"}]);
+    {t:atLadder?"DON'T REST":"CANCEL",sub:atLadder?"Carry straight on":""}]);
   if(c1<0||c1===2)return null;const camp={type:c1===0?"fire":"cold",atLadder};approve(camp.type==="fire"?"firecamp":"coldcamp");
   if(!atLadder&&up.length>1){const opts=up.map(h=>{const pp=passive(h,"perception")-2*exhOf(h)-(camp.type==="cold"&&!heroDV(h)?5:0);return {t:h.name.toUpperCase(),sub:`Passive Perception ${pp}${camp.type==="cold"&&!heroDV(h)?" (dark: −5)":""}${h.race==="elf"?" · elves only need 4 hours' trance":""}`};});
     const w=await choose("Who keeps watch? Their Passive Perception decides whether an ambush is spotted in time.",opts);camp.watch=up[Math.max(0,w)];}

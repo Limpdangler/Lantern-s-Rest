@@ -190,9 +190,9 @@ async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&
     else if(c===3){const r=await check(inti,"intimidation",14,talk);if(r.ok){await flee(r,"They scatter in terror!");break;}else{await fight(`They laugh at you. (${r.txt}) Attack!`);return;}}
     else{grp.forEach(q=>q.parley=0);busy=false;startCombat({by:grp});return;}}
   $("tBox").hidden=true;hud();}
-async function stairsPrompt(){const c=await choose(`A ladder leads down to floor ${G.floor+1}. The party can camp safely at the bottom.`,[{t:"CLIMB DOWN"},{t:"NOT YET",sub:"Keep exploring this floor"}]);
+async function stairsPrompt(){const c=await choose(`A ladder leads down to floor ${G.floor+1}. The party can camp safely at the bottom if they want to.`,[{t:"CLIMB DOWN"},{t:"NOT YET",sub:"Keep exploring this floor"}]);
   if(c!==0)return;if(G.goal&&G.goal.type==="relic"&&!G.goal.done&&G.bag.relic){takeItem("relic");await goalDone("You hand the idol to a waiting scout.");}
-  if(!await ladderRest()){$("tBox").hidden=true;return;}await checkDeserters();if(!G.party.length)return;
+  await ladderRest();$("tBox").hidden=true;await checkDeserters();if(!G.party.length)return;
   if(G.floor+1<S.dungeon.floors)await chooseRoute();G.floor++;genFloor();hud();lastSaveStep=-1;autoSave(true);
   toast(`Floor ${G.floor}${G.floor>=S.dungeon.floors?". The ground shakes. Something huge is down here.":": "+THEMES[G.theme].name+"."}${G.goal?" Goal: "+G.goal.desc+".":""}`);
   log(`Floor ${G.floor}. The party rests at the foot of the ladder.`,"lv");}

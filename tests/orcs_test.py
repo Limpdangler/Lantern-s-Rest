@@ -29,7 +29,7 @@ async def main():
       G.floor=3;t.genFloor();G.mons=[];G.orcCamps=[];const r0=G.rooms.find(r=>r.role!=='start')||G.rooms[0];t.placeOrcCamp(r0,null);const camp=G.orcCamps[0];G.bag.ration=6;
       window.__want='GIFT';await t.orcTalk(camp,true);await t.orcTalk(camp,false);window.__want=null;o.camp=[camp.favour,camp.friendly,t.campOrcs(camp).length];
       // covet: hand over a party member
-      const grp=t.campOrcs(camp);const n0=G.party.length;Math.random=()=>0.01;window.__want='HAND OVER';const took=await t.covetOffer(grp,'orcs',{});Math.random=R;window.__want=null;o.covet=[took,n0-G.party.length];
+      const grp=t.campOrcs(camp);const n0=G.party.length;Math.random=()=>0.01;window.__want='HAND OVER|SELL|TRADE';const took=await t.covetOffer(grp,'orcs',{});Math.random=R;window.__want=null;o.covet=[took,n0-G.party.length];
       // demon bargain
       const dm={type:'demon',x:L.x+1,y:L.y,deco:true};G.objs.push(dm);const asi0=JSON.stringify(L.demonAsi||{});window.__want='STRENGTH|SERPENT|IRON|SHARPER|SILVER|EYES|TONGUES|GOLD|WEAPON';await t.D2_ACT.demon(dm);window.__want=null;
       o.dbg=[JSON.stringify(L.asi),asi0,G.party.length,L.saveCurse,L.hpCurse];o.demon=[!!dm.gone,JSON.stringify(L.demonAsi||{})!==asi0||!!L.devilEyes||!!L.allTongues||!!L.saveCurse||!!L.hpCurse];

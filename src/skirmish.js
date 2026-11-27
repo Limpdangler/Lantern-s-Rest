@@ -51,15 +51,23 @@ function skDescribe(sk){const [A,B]=sk.sides;const a=skUnits(sk,A),b=skUnits(sk,
 async function skReveal(sk){sk.revealed=true;skApplyPhase(sk);const L=G.party[0];
   if(sk.phase==="over"){sk.state="done";await skAftermath(sk,true);return;}
   for(const m of skUnits(sk))m.bubble=now()+900;
-  const c=await choose(skDescribe(sk)+" Nobody has noticed you yet.",[{t:"JOIN THE FIGHT",sub:"Roll initiative and jump into the order"},{t:"HANG BACK AND WATCH",sub:"See who wins, then deal with them"},{t:"SLIP AWAY",sub:"Back off quietly"}]);
-  $("tBox").hidden=true;if(c===0)await skJoin(sk);else{sk.state="watching";if(c===2)toast("You back away from the fight. The clash of steel echoes behind you.");}}
+  const c=await choose(skDescribe(sk)+" Nobody has noticed you yet.",[{t:"JOIN THE FIGHT",sub:"Roll initiative and jump into the order"},{t:"WAIT AND WATCH",sub:`Stay put and let it play out${G.sneak?" (you're sneaking)":" · they might spot you"}`},{t:"HANG BACK",sub:"Keep exploring; it carries on without you"},{t:"SLIP AWAY",sub:"Back off quietly"}]);
+  $("tBox").hidden=true;if(c===0){await skJoin(sk);return;}sk.state="watching";if(c===1)await skWait(sk);else if(c===3)toast("You back away from the fight. The clash of steel echoes behind you.");}
+// do they notice the party watching? Sneaking: a Stealth contest. Otherwise: a fair chance each round, more if you're close
+async function skNotice(sk){const L=G.party[0];const watchers=skUnits(sk).filter(m=>!m.neutral&&!skSideOf(sk,m).neutral&&cheb(m,L)<=10&&los(m.x,m.y,L.x,L.y));if(!watchers.length)return false;
+  let spotted=null;for(const m of watchers){if(G.sneak){const here=L.y*G.W+L.x;if(sk.hidAt!==here){sk.hidAt=here;sk.hideRoll=Math.min(...heroesUp().map(h=>rnd(20)+skillBonus(h,"stealth")));sk.checked=[];}
+      if(!sk.checked.includes(m.id||m.name+m.x)){sk.checked.push(m.id||m.name+m.x);if(sk.hideRoll<10+abm(m,"wis")+(m.tr.dv?0:2)){spotted=m;break;}}}
+    else if(Math.random()<(cheb(m,L)<=4?.15:.06)){spotted=m;break;}}
+  if(!spotted)return false;spotted.bubble=now()+900;float(spotted,"!","#ffffff");await say(`The ${spotted.name} glances your way mid-swing... and spots you!`,1100,true);$("tBox").hidden=true;await skJoin(sk);return true;}
+async function skWait(sk){let n=0;while(sk.state==="watching"&&n++<40&&mode==="explore"){if(await skNotice(sk))return;sk.noNotice=true;try{await skRound(sk);}finally{sk.noNotice=false;}G.steps+=1;await wait(350);}
+  if(sk.state==="watching"&&mode==="explore")toast("The fight drags on. You stop watching.");}
 async function skJoin(sk){if(sk.state==="joined"||sk.state==="done")return;sk.state="joined";const units=skUnits(sk);const order=[];
   for(const m of units){m.peace=false;m.state="combat";m.neutral=!!(skSideOf(sk,m)||{}).neutral;m.keepInit=rnd(20)+abm(m,"dex");order.push(m);}
   order.sort((a,b)=>b.keepInit-a.keepInit);log(`The fight is already under way. Their order: ${order.map(m=>`${esc(m.name)} ${m.keepInit}`).join(", ")}. The party rolls in.`,"magic");
   const ad=sk.sides.find(s=>s.neutral);if(ad)log(`The ${esc(ad.label)} are fighting on your side for now. They won't attack you unless you attack them.`,"lv");
   busy=false;await startCombat({extra:units});}
 // one round of a fight you're watching from a distance
-async function skRound(sk){const L=G.party[0];const units=skUnits(sk);let any=false;
+async function skRound(sk){const L=G.party[0];const units=skUnits(sk);let any=false;if(!sk.noNotice&&mode==="explore"&&await skNotice(sk))return;
   for(const m of units){if(m.hp<=0)continue;const foes=units.filter(q=>q.hp>0&&q.team!==m.team).sort((a,b)=>cheb(a,m)-cheb(b,m));const t=foes[0];if(!t)break;
     if(cheb(t,m)>1&&weaponOf(m).melee){stepToward(m,t.x,t.y);continue;}
     if(Math.random()<.6){const d=Math.max(1,Math.round(avgDice(m.dmg)));t.hp-=d;any=true;if(seen(t.x,t.y)){float(t,"-"+d,"#ffe060");m.bubble=0;}if(t.hp<=0){t.hp=1;skKill(sk,t);}}}

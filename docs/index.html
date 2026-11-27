@@ -2234,9 +2234,9 @@ async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&
     else if(c===3){const r=await check(inti,"intimidation",14,talk);if(r.ok){await flee(r,"They scatter in terror!");break;}else{await fight(`They laugh at you. (${r.txt}) Attack!`);return;}}
     else{grp.forEach(q=>q.parley=0);busy=false;startCombat({by:grp});return;}}
   $("tBox").hidden=true;hud();}
-async function stairsPrompt(){const c=await choose(`A ladder leads down to floor ${G.floor+1}. The party can camp safely at the bottom.`,[{t:"CLIMB DOWN"},{t:"NOT YET",sub:"Keep exploring this floor"}]);
+async function stairsPrompt(){const c=await choose(`A ladder leads down to floor ${G.floor+1}. The party can camp safely at the bottom if they want to.`,[{t:"CLIMB DOWN"},{t:"NOT YET",sub:"Keep exploring this floor"}]);
   if(c!==0)return;if(G.goal&&G.goal.type==="relic"&&!G.goal.done&&G.bag.relic){takeItem("relic");await goalDone("You hand the idol to a waiting scout.");}
-  if(!await ladderRest()){$("tBox").hidden=true;return;}await checkDeserters();if(!G.party.length)return;
+  await ladderRest();$("tBox").hidden=true;await checkDeserters();if(!G.party.length)return;
   if(G.floor+1<S.dungeon.floors)await chooseRoute();G.floor++;genFloor();hud();lastSaveStep=-1;autoSave(true);
   toast(`Floor ${G.floor}${G.floor>=S.dungeon.floors?". The ground shakes. Something huge is down here.":": "+THEMES[G.theme].name+"."}${G.goal?" Goal: "+G.goal.desc+".":""}`);
   log(`Floor ${G.floor}. The party rests at the foot of the ladder.`,"lv");}
@@ -2455,7 +2455,7 @@ async function campFlow(atLadder){// returns the camp settings, or null if cance
   const c1=await choose(atLadder?"At the foot of the ladder, the party makes camp. It's safe here.":"Make camp here?",[
     {t:"FIRE CAMP",sub:wood?`Full rest · uses 1 firewood${food?" + 1 ration":""}${atLadder?"":" · fire draws attention ("+Math.round(campRisk("fire")*100)+"% ambush)"}${hungry}`:"You have no firewood",dis:!wood},
     {t:"COLD CAMP",sub:`No fire: HP only back to half, no Hit Dice or exhaustion recovered${G.coldUsed?" · ALREADY COLD-CAMPED: everyone gains exhaustion":""}${atLadder?"":" · "+Math.round(campRisk("cold")*100)+"% ambush"}${hungry}`},
-    {t:atLadder?"DON'T REST":"CANCEL"}]);
+    {t:atLadder?"DON'T REST":"CANCEL",sub:atLadder?"Carry straight on":""}]);
   if(c1<0||c1===2)return null;const camp={type:c1===0?"fire":"cold",atLadder};approve(camp.type==="fire"?"firecamp":"coldcamp");
   if(!atLadder&&up.length>1){const opts=up.map(h=>{const pp=passive(h,"perception")-2*exhOf(h)-(camp.type==="cold"&&!heroDV(h)?5:0);return {t:h.name.toUpperCase(),sub:`Passive Perception ${pp}${camp.type==="cold"&&!heroDV(h)?" (dark: −5)":""}${h.race==="elf"?" · elves only need 4 hours' trance":""}`};});
     const w=await choose("Who keeps watch? Their Passive Perception decides whether an ambush is spotted in time.",opts);camp.watch=up[Math.max(0,w)];}
@@ -5163,15 +5163,23 @@ function skDescribe(sk){const [A,B]=sk.sides;const a=skUnits(sk,A),b=skUnits(sk,
 async function skReveal(sk){sk.revealed=true;skApplyPhase(sk);const L=G.party[0];
   if(sk.phase==="over"){sk.state="done";await skAftermath(sk,true);return;}
   for(const m of skUnits(sk))m.bubble=now()+900;
-  const c=await choose(skDescribe(sk)+" Nobody has noticed you yet.",[{t:"JOIN THE FIGHT",sub:"Roll initiative and jump into the order"},{t:"HANG BACK AND WATCH",sub:"See who wins, then deal with them"},{t:"SLIP AWAY",sub:"Back off quietly"}]);
-  $("tBox").hidden=true;if(c===0)await skJoin(sk);else{sk.state="watching";if(c===2)toast("You back away from the fight. The clash of steel echoes behind you.");}}
+  const c=await choose(skDescribe(sk)+" Nobody has noticed you yet.",[{t:"JOIN THE FIGHT",sub:"Roll initiative and jump into the order"},{t:"WAIT AND WATCH",sub:`Stay put and let it play out${G.sneak?" (you're sneaking)":" · they might spot you"}`},{t:"HANG BACK",sub:"Keep exploring; it carries on without you"},{t:"SLIP AWAY",sub:"Back off quietly"}]);
+  $("tBox").hidden=true;if(c===0){await skJoin(sk);return;}sk.state="watching";if(c===1)await skWait(sk);else if(c===3)toast("You back away from the fight. The clash of steel echoes behind you.");}
+// do they notice the party watching? Sneaking: a Stealth contest. Otherwise: a fair chance each round, more if you're close
+async function skNotice(sk){const L=G.party[0];const watchers=skUnits(sk).filter(m=>!m.neutral&&!skSideOf(sk,m).neutral&&cheb(m,L)<=10&&los(m.x,m.y,L.x,L.y));if(!watchers.length)return false;
+  let spotted=null;for(const m of watchers){if(G.sneak){const here=L.y*G.W+L.x;if(sk.hidAt!==here){sk.hidAt=here;sk.hideRoll=Math.min(...heroesUp().map(h=>rnd(20)+skillBonus(h,"stealth")));sk.checked=[];}
+      if(!sk.checked.includes(m.id||m.name+m.x)){sk.checked.push(m.id||m.name+m.x);if(sk.hideRoll<10+abm(m,"wis")+(m.tr.dv?0:2)){spotted=m;break;}}}
+    else if(Math.random()<(cheb(m,L)<=4?.15:.06)){spotted=m;break;}}
+  if(!spotted)return false;spotted.bubble=now()+900;float(spotted,"!","#ffffff");await say(`The ${spotted.name} glances your way mid-swing... and spots you!`,1100,true);$("tBox").hidden=true;await skJoin(sk);return true;}
+async function skWait(sk){let n=0;while(sk.state==="watching"&&n++<40&&mode==="explore"){if(await skNotice(sk))return;sk.noNotice=true;try{await skRound(sk);}finally{sk.noNotice=false;}G.steps+=1;await wait(350);}
+  if(sk.state==="watching"&&mode==="explore")toast("The fight drags on. You stop watching.");}
 async function skJoin(sk){if(sk.state==="joined"||sk.state==="done")return;sk.state="joined";const units=skUnits(sk);const order=[];
   for(const m of units){m.peace=false;m.state="combat";m.neutral=!!(skSideOf(sk,m)||{}).neutral;m.keepInit=rnd(20)+abm(m,"dex");order.push(m);}
   order.sort((a,b)=>b.keepInit-a.keepInit);log(`The fight is already under way. Their order: ${order.map(m=>`${esc(m.name)} ${m.keepInit}`).join(", ")}. The party rolls in.`,"magic");
   const ad=sk.sides.find(s=>s.neutral);if(ad)log(`The ${esc(ad.label)} are fighting on your side for now. They won't attack you unless you attack them.`,"lv");
   busy=false;await startCombat({extra:units});}
 // one round of a fight you're watching from a distance
-async function skRound(sk){const L=G.party[0];const units=skUnits(sk);let any=false;
+async function skRound(sk){const L=G.party[0];const units=skUnits(sk);let any=false;if(!sk.noNotice&&mode==="explore"&&await skNotice(sk))return;
   for(const m of units){if(m.hp<=0)continue;const foes=units.filter(q=>q.hp>0&&q.team!==m.team).sort((a,b)=>cheb(a,m)-cheb(b,m));const t=foes[0];if(!t)break;
     if(cheb(t,m)>1&&weaponOf(m).melee){stepToward(m,t.x,t.y);continue;}
     if(Math.random()<.6){const d=Math.max(1,Math.round(avgDice(m.dmg)));t.hp-=d;any=true;if(seen(t.x,t.y)){float(t,"-"+d,"#ffe060");m.bubble=0;}if(t.hp<=0){t.hp=1;skKill(sk,t);}}}
@@ -5705,7 +5713,7 @@ async function campFight(camp,ours,msg){const orcs=campOrcs(camp);for(const m of
 async function orcTick(){const L=G.party[0];for(const camp of G.orcCamps||[]){if(camp.floor!==G.floor)continue;const orcs=campOrcs(camp);if(!orcs.length)continue;
     const near=orcs.some(m=>cheb(m,L)<=(camp.hostile?9:7)&&(seen(m.x,m.y)||camp.hostile&&los(m.x,m.y,L.x,L.y)));if(!near)continue;
     if(camp.hostile&&!camp.met&&hasHalfOrc()&&orcs.every(m=>!m.inCombat)){camp.met=true;for(const m of orcs){m.peace=true;m.state="idle";}await orcTalk(camp,true);return true;}
-    if(!camp.hostile&&!camp.met){camp.met=true;if(await covetOffer(orcs,"orcs",camp))return true;await orcTalk(camp,true);return true;}}
+    if(!camp.hostile&&!camp.met){camp.met=true;if(await covetOffer(orcs,"orcs",camp,false))return true;await orcTalk(camp,true);return true;}}
   return false;}
 {const base=doMove;doMove=async function(dx,dy,act){const L=G&&G.party[0];if(L&&mode==="explore"){const m=monAt(L.x+dx,L.y+dy);const camp=campOf(m);if(camp&&m.peace){if(!act){hintA(`The ${m.name} eyes you.`);return;}camp.met=true;await orcTalk(camp,false);return;}}return base(dx,dy,act);};}
 D2_ACT.orcfire=async o=>toast("A crackling fire with a spitted boar roasting over it. It smells incredible.");
@@ -5732,19 +5740,24 @@ SK_MATCHES.push({a:{keys:["orc"],lang:"Orc",label:"orcs"},b:{adv:true,label:"adv
 
 // ---------- "give us that one and you can go" ----------
 const COVET_WHY=["That one's strong. We could use them.","I like the look of that one.","That one's clever. Clever is useful.","That one. Pretty. We'll take them.","That one fights well. Join us, and the rest of you walk free."];
-async function covetOffer(group,label,obj){if(!group.length||Math.random()>.1||obj.covetAsked)return false;obj.covetAsked=true;
+async function covetOffer(group,label,obj,hostile){if(!group.length||Math.random()>.1||obj.covetAsked)return false;obj.covetAsked=true;
   const cands=heroesUp().filter(h=>h.id!=="beast"&&!h.isYou&&!h.rival);if(!cands.length||heroesUp().length<2)return false;const h=pick(cands);const lead=group.find(m=>m.leader)||group[0];
   const speak=lead.rival!==undefined&&lead.cls?true:!!speakerFor(lead)||!MLANG[lead.key];if(!speak)return false;
   for(const m of group)m.bubble=now()+900;
-  const c=await choose(`The ${lead.name} points at ${h.nick||"the "+h.name}. "${pick(COVET_WHY)} Hand them over, and there's no fight. The rest of you go free."`,[{t:"REFUSE",sub:"Nobody gets left behind"},{t:`HAND OVER ${(h.nick||h.name).toUpperCase()}`,sub:"They leave your party for good"}]);$("tBox").hidden=true;
-  if(c!==1)return false;G.party=G.party.filter(x=>x!==h);if(h.wpn)h.wpn=null;log(`${esc(h.nick||h.name)} the ${esc(h.name)} leaves the party with the ${esc(label)}.`,"hurt");approve("finish");
+  // sometimes it's a threat, sometimes they want to buy: gold, or something rare
+  const buy=!hostile||Math.random()<.4;const gold=ri(40,80)*G.floor;const item=buy&&Math.random()<.5?randomWeaponId(true):null;const who=h.nick||"the "+h.name;
+  const q=!buy?`The ${lead.name} points at ${who}. "${pick(COVET_WHY)} Hand them over, and there's no fight. The rest of you go free."`
+    :item?`The ${lead.name} points at ${who}. "${pick(COVET_WHY)} I'll trade you this for them." They hold up ${aN(ITEMS[item].name)}.`
+    :`The ${lead.name} points at ${who}. "${pick(COVET_WHY)} ${gold} gold says they come with us."`;
+  const c=await choose(q,[{t:"REFUSE",sub:"Nobody gets left behind"},{t:!buy?`HAND OVER ${(h.nick||h.name).toUpperCase()}`:item?`TRADE ${(h.nick||h.name).toUpperCase()} FOR IT`:`SELL ${(h.nick||h.name).toUpperCase()} FOR ${gold} GOLD`,sub:`${item?ITEMS[item].desc+" · ":""}They leave your party for good`}]);$("tBox").hidden=true;
+  if(c!==1)return false;if(buy){if(item)addItem(item);else G.gold+=gold;}G.party=G.party.filter(x=>x!==h);if(h.wpn)h.wpn=null;log(`${esc(h.nick||h.name)} the ${esc(h.name)} leaves the party with the ${esc(label)}.`,"hurt");approve("finish");
   for(const m of group){m.peace=true;m.state="idle";}await say(`${h.nick||"The "+h.name} looks back at you once, then walks over to the ${label}. They don't look back again.`,1700,true);$("tBox").hidden=true;
   for(const m of group){const k=G.mons.indexOf(m);if(k>=0)G.mons.splice(k,1);}hud();fov();return true;}
 // rivals and bandits may covet a hero too
-{const base=rivalMeet;rivalMeet=async function(co,first){if(first&&!co.covetAsked){const mem=rivalMembers(co);if(await covetOffer(mem,co.name,co)){co.gone=true;return;}}return base(co,first);};}
+{const base=rivalMeet;rivalMeet=async function(co,first){if(first&&!co.covetAsked){const mem=rivalMembers(co);if(await covetOffer(mem,co.name,co,co.stance==="threat"||co.stance==="revenge")){co.gone=true;return;}}return base(co,first);};}
 async function banditCovet(){const L=G.party[0];for(const co of G.rivals||[]){if(!co.hostile||co.covetAsked||co.floor!==G.floor)continue;const mem=rivalMembers(co).filter(m=>!m.inCombat);if(!mem.length)continue;
-    if(!mem.some(m=>cheb(m,L)<=7&&seen(m.x,m.y)))continue;if(await covetOffer(mem,"bandits",co)){co.gone=true;return true;}co.covetAsked=true;}return false;}
-{const base=skAftermath;skAftermath=async function(sk,arrived){const side=sk.sides.find(s=>s.team===sk.winner);const us=side?skUnits(sk,side):[];if(side&&!side.neutral&&us.length&&await covetOffer(us,side.label,sk))return;return base(sk,arrived);};}
+    if(!mem.some(m=>cheb(m,L)<=7&&seen(m.x,m.y)))continue;if(await covetOffer(mem,"bandits",co,true)){co.gone=true;return true;}co.covetAsked=true;}return false;}
+{const base=skAftermath;skAftermath=async function(sk,arrived){const side=sk.sides.find(s=>s.team===sk.winner);const us=side?skUnits(sk,side):[];if(side&&us.length&&(side.lang==="Common"||speakerFor(us[0]))&&await covetOffer(us,side.label,sk,!side.neutral)){for(const m of us){const k=G.mons.indexOf(m);if(k>=0)G.mons.splice(k,1);}sk.state="done";sk.talked=true;return;}return base(sk,arrived);};}
 
 // ---------- the demon's bargain ----------
 function placeDemon(r,tiles,door){for(const t of tiles)if(!(t.x===door.x&&t.y===door.y))G.objs.push({type:"hellfloor",x:t.x,y:t.y,deco:true,seen:true});
