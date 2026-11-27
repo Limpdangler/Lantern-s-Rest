@@ -149,7 +149,19 @@ Object.assign(GLYPHS,{
 // which left the screen black on return. Redraw them whenever the game comes back into view.
 function redrawCaches(){try{for(const k in sprCache)delete sprCache[k];for(const k in glyphCache)delete glyphCache[k];
   if(G&&G.t&&G.pal){buildTerrain();computeLight();fov();}hud();}catch(e){console.warn(e);}}
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)redrawCaches();});
-window.addEventListener("pageshow",e=>{if(e.persisted)redrawCaches();});
-window.addEventListener("focus",()=>redrawCaches());
+// is the main screen's drawing surface gone? then swap in a fresh canvas (taps are passed on to the old handler)
+function screenLost(){try{return !!(ctx.isContextLost&&ctx.isContextLost());}catch(e){return true;}}
+function freshScreen(){const old=cv;const n=document.createElement("canvas");n.id=old.id;n.className=old.className;n.width=old.width;n.height=old.height;n.style.cssText=old.style.cssText;
+  n.addEventListener("pointerdown",e=>old.dispatchEvent(new PointerEvent("pointerdown",e)));old.replaceWith(n);cv=n;ctx=n.getContext("2d");ctx.imageSmoothingEnabled=false;cv.addEventListener("contextrestored",()=>{ctx.imageSmoothingEnabled=false;redrawCaches();});}
+// a picture that should have something in it but is completely see-through has been wiped by the phone
+function blankCanvas(c,x,y,w,h){try{const d=c.getContext("2d").getImageData(x,y,w,h).data;for(let i=3;i<d.length;i+=4)if(d[i])return false;return true;}catch(e){return true;}}
+function picturesWiped(){if(!G||!G.terr||!G.party.length)return false;const L=G.party[0];
+  if(blankCanvas(G.terr,Math.max(0,L.x*TS),Math.max(0,L.y*TS),16,16))return true;
+  const s=heroSpr(L.look||L.id,"f",0,L.race);return blankCanvas(s,0,0,s.width,s.height);}
+function healScreen(){if(document.hidden)return;try{if(screenLost())freshScreen();if(picturesWiped())redrawCaches();}catch(e){console.warn(e);}}
+function afterReturn(){redrawCaches();for(const t of [250,800,2000,4000])setTimeout(healScreen,t);}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)afterReturn();});
+window.addEventListener("pageshow",e=>{if(e.persisted)afterReturn();});
+window.addEventListener("focus",()=>afterReturn());
 cv.addEventListener("contextrestored",()=>{ctx.imageSmoothingEnabled=false;redrawCaches();});
+setInterval(healScreen,2500);

@@ -1,5 +1,5 @@
 // ================= world: map, features, light, sight, paths =================
-const cv=$("screen"),ctx=cv.getContext("2d");ctx.imageSmoothingEnabled=false;
+let cv=$("screen"),ctx=cv.getContext("2d");ctx.imageSmoothingEnabled=false;
 const SW=240,TS=16;let SH=160;// the screen is 240 pixels wide; on a tall phone it can show more rows (SH grows)
 let G=null,C=null,mode="title",busy=false,camFocus=null;
 const cam={x:0,y:0,shake:0};
