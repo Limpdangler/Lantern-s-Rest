@@ -1,5 +1,5 @@
 import re
-parts=["util.js","data.js","sprites.js","chars.js","chars2.js","mons2.js","world.js","terrain.js","rules.js","combat.js","explore.js","ex5e.js","subs.js","living.js","dress.js","classfx.js","save.js","effects.js","rules2.js","social.js","houserules.js","classes2.js","gear.js","classes3.js","ui.js","hotbar.js","dungeon2.js","backgrounds.js","world2.js","skirmish.js","chests.js","classes4.js","secrets.js","main.js"]
+parts=["util.js","data.js","sprites.js","chars.js","chars2.js","mons2.js","world.js","terrain.js","rules.js","combat.js","explore.js","ex5e.js","subs.js","living.js","dress.js","classfx.js","save.js","effects.js","rules2.js","social.js","houserules.js","classes2.js","gear.js","classes3.js","ui.js","hotbar.js","dungeon2.js","backgrounds.js","world2.js","skirmish.js","chests.js","classes4.js","secrets.js","weapons.js","orcs.js","main.js"]
 js="\n".join(open("src/"+p).read() for p in parts)
 css=open("src/style.css").read()
 body=open("src/body.html").read()

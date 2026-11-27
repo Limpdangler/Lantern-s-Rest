@@ -63,8 +63,8 @@ function weaponOf(u,which){
 function meleeWeapon(u){if(u.side==="m")return u.range===1?weaponOf(u):null;if(u.wild)return weaponOf(u);const m=weaponOf(u,"main");if(m.melee)return m;const a=weaponOf(u,"alt");return a.melee?a:null;}
 const canMelee=u=>!!meleeWeapon(u);
 function wAbil(u,w){if(w.finesse)return abm(u,"dex")>=abm(u,"str")?"dex":"str";return w.abil||"str";}
-function atkBonus(u,w){if(u.side==="m")return u.hit;let b=prof()+abm(u,wAbil(u,w))+(G.blessFloor===G.floor?1:0)+loyalBonus(u);if(!w.spell)b+=gearFx(u).hit||0;return b;}
-function dmgBonus(u,w){if(u.side==="m"||w.cantrip)return 0;let b=abm(u,wAbil(u,w))+(gearFx(u).dmg||0);if(!w.melee&&!w.spell)b+=gearFx(u).rdmg||0;if(u.st.raging&&w.melee&&!w.spell)b+=2;return b;}
+function atkBonus(u,w){if(u.side==="m")return u.hit;let b=(w.noProf?0:prof())+(w.plus||0)+abm(u,wAbil(u,w))+(G.blessFloor===G.floor?1:0)+loyalBonus(u);if(!w.spell)b+=gearFx(u).hit||0;return b;}
+function dmgBonus(u,w){if(u.side==="m"||w.cantrip)return 0;let b=abm(u,wAbil(u,w))+(w.plus||0)+(gearFx(u).dmg||0);if(!w.melee&&!w.spell)b+=gearFx(u).rdmg||0;if(u.st.raging&&w.melee&&!w.spell)b+=2;return b;}
 function lineBlocked(x0,y0,x1,y1,a,t){const steps=Math.ceil(Math.hypot(x1-x0,y1-y0)*4);
   for(let i=1;i<steps;i++){const px=x0+(x1-x0)*i/steps,py=y0+(y1-y0)*i/steps;const tx=Math.floor(px),ty=Math.floor(py);
     if((tx===a.x&&ty===a.y)||(tx===t.x&&ty===t.y))continue;if(blocksSight(tx,ty))return true;const o=objAt(tx,ty);if(o&&givesCover(o))return true;}return false;}

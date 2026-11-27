@@ -99,7 +99,7 @@ async function listenAtDoor(d){const h=bestAt("perception");const dc=d.iron?15:1
   d.heard=msg;G.steps+=2;await say(`${msg} (${r.txt})`,1700,true);$("tBox").hidden=true;}
 // ---------- carrying capacity ----------
 const WEIGHT={bottle:0,firewood:2,ration:1,oil:1,torch:1,relic:2,key:0,arrows:.05};
-const itemWeight=id=>WEIGHT[id]!==undefined?WEIGHT[id]:ITEMS[id]&&ITEMS[id].kind==="gear"?1:.5;
+const itemWeight=id=>ITEMS[id]&&ITEMS[id].wt!==undefined?ITEMS[id].wt:WEIGHT[id]!==undefined?WEIGHT[id]:ITEMS[id]&&ITEMS[id].kind==="gear"?1:.5;
 function packLoad(){let w=0;for(const id in G.bag)w+=itemWeight(id)*(G.bag[id]||0);return Math.round(w*10)/10;}
 function packCap(){return 12+heroesUp().filter(h=>h.id!=="beast").reduce((a,h)=>a+Math.max(4,Math.floor(score(h,"str")/2)+Math.max(0,abm(h,"con"))*2),0);}// 12 + each hero: half their STR + 2 per CON bonus
 const overloaded=()=>!!(G&&G.bag&&!G.demo&&packLoad()>packCap());
