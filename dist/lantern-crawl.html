@@ -5011,6 +5011,14 @@ Object.assign(GLYPHS,{
   $("btnFull").addEventListener("click",()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen().catch(()=>toast("Full screen isn't allowed here: try F11."));}catch(e){toast("Full screen isn't allowed here: try F11.");}});
   document.addEventListener("fullscreenchange",()=>{$("btnFull").textContent=document.fullscreenElement?"EXIT FULL":"FULL SCREEN";});
   if(window.ResizeObserver){const ro=new ResizeObserver(()=>window.dispatchEvent(new Event("resize")));for(const c of [colL,colC])ro.observe(c);for(const id of ["strip","fxRow","tglRow","cPanel","chPanel"])ro.observe($(id));}})();
+// Phones throw away big off-screen pictures (like the pre-drawn map) while the tab is in the background,
+// which left the screen black on return. Redraw them whenever the game comes back into view.
+function redrawCaches(){try{for(const k in sprCache)delete sprCache[k];for(const k in glyphCache)delete glyphCache[k];
+  if(G&&G.t&&G.pal){buildTerrain();computeLight();fov();}hud();}catch(e){console.warn(e);}}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)redrawCaches();});
+window.addEventListener("pageshow",e=>{if(e.persisted)redrawCaches();});
+window.addEventListener("focus",()=>redrawCaches());
+cv.addEventListener("contextrestored",()=>{ctx.imageSmoothingEnabled=false;redrawCaches();});
 
 })();
 </script>
