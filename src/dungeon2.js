@@ -79,7 +79,7 @@ async function topple(p,u,dx,dy){if(!dx&&!dy)dx=1;const line=fallLine(p,dx,dy);c
   if(reachCount()<before)for(const o of laid){o.gone=true;G.ground[o.y][o.x]=GROUND.rubble;}
   cam.shake=now();makeNoise(p.x,p.y,14);fx.push({type:"boom",x:(line[1]||line[0]||[p.x])[0],y:(line[1]||line[0]||[0,p.y])[1],t:now()});buildTerrain();computeLight();fov();
   await say(`${u.side==="h"?"The "+u.name:"The "+u.name} topples the pillar! It crashes down in a roar of stone and dust.`,1100,!C);
-  for(const v of hit){const s=saveRoll(v,"dex",13);let d=roll("3d6").total;if(s.ok)d=Math.floor(d/2);else{v.st.prone=true;float(v,"PRONE","#ffffff");}
+  for(const v of hit){const s=await dodgeRoll(v,13);let d=roll("3d6").total;if(s.ok)d=Math.floor(d/2);else{v.st.prone=true;float(v,"PRONE","#ffffff");}
     log(`${esc(v.name)} is caught under the pillar: ${s.txt}.`,"hurt");await dealDamage(v,d,"bludgeoning",{});}
   // monsters who watch a pillar come down on their friends may lose their nerve
   if(C)for(const q of G.mons)if(q.inCombat&&q.hp>0&&q.tr.morale&&!q.fleeing&&!q.boss&&cheb(q,p)<=5&&hit.some(v=>v.side==="m")){if(!saveRoll(q,"wis",10).ok){q.fleeing=true;float(q,"FLEE!","#ffffff");}}
@@ -88,7 +88,7 @@ async function tipShelf(o,u){const dx=Math.sign(o.x-u.x),dy=Math.sign(o.y-u.y);c
   if(!r.ok){await say(`The ${u.name} heaves at the shelf, but it won't tip. (${r.txt})`,900);return;}
   const before=reachCount();o.gone=true;makeNoise(o.x,o.y,9);cam.shake=now();const v=unitAt(tx,ty);
   if(v){G.ground[ty][tx]=GROUND.rubble;buildTerrain();await say(`The ${u.name} tips the ${o.type==="flasks"?"shelf of flasks":"bookshelf"} over onto the ${v.name}! (${r.txt})`,1000);
-    const s=saveRoll(v,"dex",12);let d=roll("2d6").total;if(s.ok)d=Math.floor(d/2);else{v.st.prone=true;float(v,"PRONE","#ffffff");}log(`${esc(v.name)}: ${s.txt}.`,"hurt");await dealDamage(v,d,"bludgeoning",{});
+    const s=await dodgeRoll(v,12);let d=roll("2d6").total;if(s.ok)d=Math.floor(d/2);else{v.st.prone=true;float(v,"PRONE","#ffffff");}log(`${esc(v.name)}: ${s.txt}.`,"hurt");await dealDamage(v,d,"bludgeoning",{});
     if(o.type==="flasks"&&v.hp>0)await dealDamage(v,roll("1d6").total,"acid",{});}
   else{const t={type:"toppled",x:tx,y:ty,deco:true,vert:!dx};G.objs.push(t);if(reachCount()<before){t.gone=true;G.ground[ty][tx]=GROUND.rubble;buildTerrain();}
     await say(`The ${u.name} tips the shelf over with a crash. (${r.txt})`,900);}
@@ -188,7 +188,7 @@ function pointOfInterest(){const L=G.party[0];const c=[];const v=G.rooms.find(r=
     else if(o.type==="merchant")c.push({x:o.x,y:o.y,what:"a travelling merchant"});else if(o.type==="shrine"&&!o.used)c.push({x:o.x,y:o.y,what:"an old shrine"});}
   if(G.stairs&&!G.explored[G.stairs.y][G.stairs.x])c.push({x:G.stairs.x,y:G.stairs.y,what:"the ladder down"});return c.length?pick(c):null;}
 function revealFloor(){for(let y=0;y<G.H;y++)for(let x=0;x<G.W;x++){if(isWall(x,y))continue;const r=roomOf(x,y);if(r&&r.role==="secret")continue;G.explored[y][x]=true;}}
-{const base=decoInteract;decoInteract=async function(o){if(D2_ACT[o.type]){o.seen=true;try{await D2_ACT[o.type](o);}finally{if(mode==="explore")$("tBox").hidden=true;hud();}return;}return base(o);};}
+{const base=decoInteract;decoInteract=async function(o){if(D2_ACT[o.type]){o.seen=true;try{await D2_ACT[o.type](o);}finally{if(o.type==="mural")o.seen=!!o.read;if(o.type==="fungus")o.seen=!!o.picked;if(mode==="explore")$("tBox").hidden=true;hud();}return;}return base(o);};}
 
 // ---------- drawing the furniture ----------
 const D2_DRAW={
@@ -269,7 +269,7 @@ async function grudgeTick(){const L=G.party[0];const g=(G.grudges||[]).find(q=>!
 
 // ---------- chance events while exploring ----------
 const EVENTS=[
-  {w:3,run:async L=>{const v=pick(heroesUp());const s=saveRoll(v,"dex",11);cam.shake=now();for(const [dx,dy] of shuffle(DIRS8.slice()).slice(0,2)){const x=L.x+dx*2,y=L.y+dy*2;if(!isWall(x,y)&&!objAt(x,y)&&gnd(x,y)===0&&!(G.stairs&&G.stairs.x===x&&G.stairs.y===y))G.ground[y][x]=GROUND.rubble;}buildTerrain();
+  {w:3,run:async L=>{const v=pick(heroesUp());const s=await dodgeRoll(v,11);cam.shake=now();for(const [dx,dy] of shuffle(DIRS8.slice()).slice(0,2)){const x=L.x+dx*2,y=L.y+dy*2;if(!isWall(x,y)&&!objAt(x,y)&&gnd(x,y)===0&&!(G.stairs&&G.stairs.x===x&&G.stairs.y===y))G.ground[y][x]=GROUND.rubble;}buildTerrain();
     await say(`The floor shudders. Dust and stones rain from the ceiling!${s.ok?` The ${v.name} dives clear. (${s.txt})`:` A rock clips the ${v.name}. (${s.txt})`}`,1400,true);if(!s.ok)await dealDamage(v,roll("1d6").total,"bludgeoning",{});}},
   {w:2,run:async L=>{const sl=G.mons.filter(m=>m.hp>0&&m.state==="sleep"&&!m.peace).sort((a,b)=>cheb(a,L)-cheb(b,L))[0];if(sl)for(const m of G.mons)if(m.gid===sl.gid)m.state="patrol";
     await say(`A scream echoes through the tunnels${sl?` from the ${dirTo(L,sl)}`:""}, then silence.${sl?" Something nearby is awake now.":""}`,1400,true);}},
@@ -328,7 +328,8 @@ async function rivalMeet(co,first){const mem=rivalMembers(co);if(!mem.length)ret
     {t:easy?"TEAM UP":"PROPOSE A TEAM-UP",sub:rev?"They're not interested":easy?"They fight beside you on this floor; at the ladder they take half the gold you find from now on":co.triedTeam?"They already said no":`Persuasion DC ${dcP} · ${oddsTag(ps,"persuasion",dcP)} · they'd take half the gold at the ladder`,dis:rev||!easy&&!!co.triedTeam},
     {t:"SCARE THEM OFF",sub:co.triedScare?"They're not falling for that again":`Intimidation DC ${dI} · ${oddsTag(sk,"intimidation",dI)}`,dis:!!co.triedScare},
     {t:"ATTACK THEM",sub:"They're watching you: no surprise"},
-    {t:rev&&first?"REFUSE":st==="threat"&&first?"IGNORE THE THREAT":"GO YOUR SEPARATE WAYS",sub:rev&&first?"They'll attack":st==="threat"&&first?"They might not take that well":"They'll keep looting this floor: race them to the chests"}];
+    {t:rev&&first?"REFUSE":st==="threat"&&first?"IGNORE THE THREAT":"GO YOUR SEPARATE WAYS",sub:rev&&first?"They'll attack":st==="threat"&&first?"They might not take that well":"They'll keep looting this floor: race them to the chests"},
+    {t:"LIE TO THEM",sub:co.triedLie?"They won't fall for it twice":`Deception DC ${dcP+(rev?2:0)} · ${oddsTag(bestAt("deception"),"deception",dcP+(rev?2:0))} · "This floor's picked clean, and there's a troll..."`,dis:!!co.triedLie}];
   const c=await choose(intro,opts);$("tBox").hidden=true;
   if(c===0){G.gold-=pay;hud();await say(`${co.leader} pockets the coins. "Pleasure doing business." ${cap(co.name)} head off up the tunnels and are gone.`,1500,true);rivalLeave(co,"paid");}
   else if(c===1){if(!easy){co.triedTeam=true;const r=await check(ps,"persuasion",dcP);if(!r.ok){await say(`"Share with you lot? Not a chance." (${r.txt})`,1200,true);$("tBox").hidden=true;return;}
@@ -337,6 +338,9 @@ async function rivalMeet(co,first){const mem=rivalMembers(co);if(!mem.length)ret
     if(r.ok){await say(`The ${sk.name} stares ${co.leader} down until they look away. "Not worth it. Come on." ${cap(co.name)} back off and leave the floor. (${r.txt})`,1600,true);rivalLeave(co,"scared");}
     else{await say(`${co.leader} just laughs. (${r.txt})`,1000,true);if(st==="threat"||rev){await rivalFight(co);return;}}}
   else if(c===3){await rivalFight(co);return;}
+  else if(c===5){co.triedLie=true;const dv=bestAt("deception");const r=await check(dv,"deception",dcP+(rev?2:0));
+    if(r.ok){await say(`The ${dv.name} spins a grim tale: the floor's been stripped bare, and something huge is nesting by the ladder. ${co.leader} goes pale. "...Right. We're off." ${cap(co.name)} leave the floor. (${r.txt})`,1800,true);rivalLeave(co,"fooled");}
+    else{await say(`${co.leader} squints. "Nice try." (${r.txt})`,1000,true);if(st==="threat"||rev){await rivalFight(co);return;}}}
   else{if(rev||st==="threat"&&first&&Math.random()<.5){await say(`"Wrong answer." ${cap(co.name)} draw their weapons!`,1100,true);await rivalFight(co);return;}
     toast(`${cap(co.name)} watch you go. Best find the treasure before they do.`);}
   $("tBox").hidden=true;hud();}
@@ -345,9 +349,13 @@ function rivalLeave(co,why){for(const m of rivalMembers(co))G.mons.splice(G.mons
 // rivals who survive meeting you may turn up again, deeper down
 function rememberRivals(co){if(!co.history)return;G.rivalPast=(G.rivalPast||[]).filter(c=>c.name!==co.name);G.rivalPast.push({name:co.name,short:co.short,leader:co.leader,history:co.history,bribe:co.bribe||0,floor:G.floor});}
 async function rivalFight(co){const mem=rivalMembers(co);co.history="fought";for(const m of mem){m.peace=false;m.state="hunt";}$("tBox").hidden=true;busy=false;startCombat({extra:mem,bumped:mem[0]});}
-async function rivalJoin(co){const mem=rivalMembers(co);const names=[];
+async function rivalJoin(co){if(co.treach===undefined)co.treach=Math.random()<(co.stance==="teamup"&&!co.returning?.25:.15);
+  if(co.treach&&!co.warned){co.warned=true;const ins=heroesUp().filter(h=>h.id!=="beast").sort((a,b)=>skillBonus(b,"insight")-skillBonus(a,"insight"))[0];
+    if(ins&&passive(ins,"insight")>=12+G.floor){const c=await choose(`(Insight ${passive(ins,"insight")}) Something is off. ${co.leader}'s smile never reaches their eyes, and they keep glancing at your coin purse. The ${ins.name} doesn't trust them.`,[{t:"TEAM UP ANYWAY",sub:"Keep a hand on your sword"},{t:"CALL IT OFF",sub:"Go your separate ways"}]);
+      $("tBox").hidden=true;if(c===1){toast(`You back away from the deal. ${cap(co.name)} shrug and move on.`);return;}}}
+  const mem=rivalMembers(co);const names=[];
   for(const m of mem){const def=S.classes.find(c=>c.id===m.cls)||S.classes[0];const h=mkHero(def,m.race||"human");nameHero(h);if(m.leader)h.nick=co.leader;
-    h.rival=co.id;h.perk=h.perk||pick(Object.keys(PERKS));h.humanFeat=true;h.feats=[];h.picks=9;if(G.level>=3&&SUBS[h.id]){const ss=SUBS[h.id].filter(s=>s.id!=="gunslinger");if(ss.length)h.sub=pick(ss).id;}
+    h.rival=co.id;h.perk=h.perk||pick(Object.keys(PERKS));if(typeof BACKGROUNDS!=="undefined"){h.bg=pick(Object.keys(BACKGROUNDS));h.bgHidden=true;}h.humanFeat=true;h.feats=[];h.picks=9;if(G.level>=3&&SUBS[h.id]){const ss=SUBS[h.id].filter(s=>s.id!=="gunslinger");if(ss.length)h.sub=pick(ss).id;}
     applyLevel(h,false);h.hp=h.maxHp;h.x=m.x;h.y=m.y;h.dx=h.x*TS;h.dy=h.y*TS;G.mons.splice(G.mons.indexOf(m),1);G.party.push(h);names.push(`${h.nick} the ${h.name}`);}
   co.allied=true;co.gold0=G.gold;co.fights=0;if(co.treach===undefined)co.treach=Math.random()<(co.stance==="teamup"&&!co.returning?.25:.15);log(`${esc(cap(co.name))} join the party for this floor: ${esc(names.join(", "))}.`,"lv");hud();
   await say(`${cap(co.name)} join you: ${names.join(", ")}. They'll fight under your command until the ladder, then take half of any gold found from now on (you have ${G.gold} now).`,2000,true);$("tBox").hidden=true;}
@@ -390,6 +398,7 @@ function rivalLootChest(co,mem,o){const L=G.party[0];const vis=seen(o.x,o.y)||me
   const alive=rivalMembers(co).filter(q=>q!==m).length;const share=alive?Math.floor(co.pot/(alive+1)):co.pot;co.pot-=share;c.loot.gold+=share+ri(3,8)*G.floor;if(Math.random()<.35){const it=rollItem(false);if(it)c.loot.items.push(it);}};}
 
 // ---------- every step while exploring ----------
+async function dodgeRoll(v,dc){if(v.side==="h"&&!v.down&&skillBonus(v,"acrobatics")>saveBonus(v,"dex")){const r=await check(v,"acrobatics",dc);return {ok:r.ok,txt:"Acrobatics: "+r.txt};}return saveRoll(v,"dex",dc);}
 async function d2Step(){if(mode!=="explore"||!G||G.over||G.demo||!G.party.length)return;const L=G.party[0];relinkRivals();
   const r=roomOf(L.x,L.y);if(r&&r.theme&&!r.themeSeen){r.themeSeen=true;const T=ROOM_THEMES[r.theme];log(`You enter ${T.name}. ${T.desc}`,"miss");toast(T.desc);}
   if(await grudgeTick())return;if(mode!=="explore")return;if(await rivalTick())return;if(mode!=="explore")return;await eventTick();}
@@ -406,13 +415,14 @@ async function allyTurn(u){busy=true;buildPanel();await wait(300);
     const canHit=f=>inReachW(u,f,w)&&(w.melee||los(u.x,u.y,f.x,f.y));
     // a wounded ally drinks one of their own potions (they carry one each)
     if(u.hp<u.maxHp*.35&&!u.potUsed){u.potUsed=true;const h=roll("2d4+2").total;heal(u,h);await say(`${u.nick||"The "+u.name} gulps down a potion: +${h} HP.`,800);}
+    if(!C||mode!=="combat"||C.cur!==u)return;
     if(!foes().some(canHit)&&C.moveLeft>0){const dist=dijkstra(u,C.moveLeft);let best=null,bs=1e9;
       for(const [k,v] of dist){const x=k%G.W,y=(k/G.W)|0;const occ=unitAt(x,y);if(occ&&occ!==u)continue;const fs=foes();const near=Math.min(...fs.map(f=>cheb(f,{x,y})));
         let sc=v.w*.3;if(w.melee)sc+=near===1?0:near*3;else{const shoot=fs.some(f=>cheb(f,{x,y})<=w.range&&los(x,y,f.x,f.y));sc+=shoot?0:20;if(near<=1)sc+=8;sc-=coverScore(x,y)*.5;}
         if(sc<bs){bs=sc;best=k;}}
-      if(best!==null&&best!==u.y*G.W+u.x){const path=truncatePath(dist,pathTo(dist,best),C.moveLeft);if(path.length){await walk(u,path);C.moveLeft=0;}}}
-    if(u.down||u.dead||mode!=="combat")return;
-    for(let i=0;i<attacksPer(u);i++){const t=foes().filter(canHit).sort((a,b)=>a.hp-b.hp)[0];if(!t)break;await attack(u,t,w,{});if(mode!=="combat")return;}}
+      if(best!==null&&best!==u.y*G.W+u.x){const path=truncatePath(dist,pathTo(dist,best),C.moveLeft);if(path.length){await walk(u,path);if(C)C.moveLeft=0;}}}
+    if(u.down||u.dead||mode!=="combat"||!C||C.cur!==u)return;
+    for(let i=0;i<attacksPer(u);i++){const t=foes().filter(canHit).sort((a,b)=>a.hp-b.hp)[0];if(!t)break;await attack(u,t,w,{});if(mode!=="combat"||!C||C.cur!==u)return;}}
   finally{if(mode==="combat"&&C&&C.cur===u){busy=true;nextTurn();}}}
 // ...and some were only ever using you
 {const base=victory;victory=async function(){await base();if(mode!=="explore"||G.over)return;const co=(G.rivals||[]).find(c=>c.allied&&c.floor===G.floor);if(!co)return;co.fights=(co.fights||0)+1;

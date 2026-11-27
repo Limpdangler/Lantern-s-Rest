@@ -63,3 +63,49 @@ function drawCampScene(t){const W=SW,H=SH;ctx.fillStyle="#0b0809";ctx.fillRect(0
     if(talking){const bx=Math.round(s.x)+(S2*6),by=y-8;ctx.fillStyle="#1a1216";ctx.fillRect(bx-1,by-1,16,10);ctx.fillStyle="#f4ecd8";ctx.fillRect(bx,by,14,8);ctx.fillRect(bx+2,by+8,3,2);
       ctx.fillStyle="#1a1216";const d=Math.floor(t/300)%4;for(let i=0;i<Math.min(3,d);i++)ctx.fillRect(bx+3+i*4,by+4,2,2);}}
   if(!fireDrawn)drawFire();}
+
+// ================= more chances for every skill to matter =================
+// History: old carvings in chapels, halls and libraries
+D2_ACT.mural=async o=>{const h=bestAt("history");if(o.read){toast(o.msg||"Faded carvings you've already studied.");return;}
+  const c=await choose("Old carvings cover the wall: kings, battles, and what might be a map.",[{t:"STUDY THE CARVINGS",sub:`History DC 12 · ${oddsTag(h,"history",12)}`},{t:"LEAVE THEM"}]);if(c!==0)return;o.read=true;G.steps+=4;
+  const r=await check(h,"history",12);if(!r.ok){o.msg="Carvings too worn to make sense of.";await say(`Too worn to make sense of. (${r.txt})`,1000,true);return;}
+  const poi=pointOfInterest();const L=G.party[0];
+  if(poi&&Math.random()<.6){revealAround(poi.x,poi.y,2);o.msg=`The carvings showed ${poi.what} to the ${dirTo(o,poi)}.`;if(typeof note==="function")note(o.msg);
+    await say(`The ${h.name} recognises the style: these are builders' plans. They show ${poi.what} to the ${dirTo(L,poi)} (marked on your map). (${r.txt})`,1800,true);}
+  else{const xp=5*G.floor;o.msg="An old tale of the people who dug these halls.";await say(`The ${h.name} pieces together the story of the people who built this place. (+${xp} XP) (${r.txt})`,1500,true);for(const m of gainXpNow(xp))await say(m,1500,true);}};
+D2_DRAW.mural=(f,o)=>{f("#4a4440",1,0,14,7);f("#6a6460",2,1,12,5);f("#8a8478",3,2,3,3);f("#8a8478",8,2,2,1);f("#8a8478",11,2,2,3);f("#5a5450",7,4,4,1);f("#3a3430",1,7,14,1);};
+BUMP_NAME.mural="Old carvings";
+// Nature: strange fungus that might be food, medicine or poison
+D2_ACT.fungus=async o=>{if(o.picked){toast("Picked clean.");return;}const h=bestAt("nature");
+  const c=await choose("A cluster of pale, faintly glowing mushrooms.",[{t:"IDENTIFY THEM",sub:`Nature DC 12 · ${oddsTag(h,"nature",12)}`},{t:"JUST EAT ONE",sub:"Feeling lucky?"},{t:"LEAVE THEM"}]);if(c===2||c<0)return;o.picked=true;
+  if(c===0){const r=await check(h,"nature",12);
+    if(!r.ok){await say(`The ${h.name} can't tell what they are. Better not risk it. (${r.txt})`,1100,true);return;}
+    if(o.kind==="poison"){addItem("poisonvial");await say(`Deathcap! The ${h.name} carefully squeezes the juice into a vial: weapon poison. (${r.txt})`,1500,true);}
+    else if(o.kind==="heal"){for(const x of heroesUp())heal(x,roll("1d4+1").total);await say(`Healer's cap: the ${h.name} brews them into a quick tea. Everyone heals a little. (${r.txt})`,1500,true);}
+    else{addItem("ration");await say(`Cave oyster mushrooms: good eating. +1 ration. (${r.txt})`,1300,true);}hud();return;}
+  const L=G.party[0];if(o.kind==="poison"){await say(`The ${L.name} takes a bite... and turns green.`,1000,true);await dealDamage(L,roll("2d4").total,"poison",{});}
+  else if(o.kind==="heal"){heal(L,roll("1d4+1").total);await say(`Bitter, but the ${L.name} feels better for it.`,1100,true);}else await say("Chewy. Tastes of mud. Probably fine.",1000,true);hud();};
+D2_DRAW.fungus=(f,o,t)=>{const g=.5+.5*Math.sin(t/400+o.x*3);const c=o.kind==="poison"?"#d0c8a0":o.kind==="heal"?"#a0d8b0":"#d8c8b0";
+  for(const [x,y,s] of [[3,9,3],[8,7,4],[11,11,2],[6,12,2]]){f("#8a7a6a",x+Math.floor(s/2),y+s-1,1,3);f(c,x,y,s,Math.ceil(s/2)+1);f(`rgba(180,255,220,${.25*g})`,x,y,s,1);}};
+BUMP_NAME.fungus="Glowing mushrooms";
+{const fb=(k,extra)=>{const base=FURNISH[k];FURNISH[k]=function(r,add){base(r,add);extra(r,add);};};
+  const mural=(r,add)=>{const sp=edgeSpots(r,"top").filter(p=>!G.objs.some(o=>o.x===p.x&&o.y===p.y));if(sp.length&&Math.random()<.75){const p=pick(sp);add("mural",p.x,p.y);}};
+  fb("chapel",mural);fb("hall",mural);fb("library",mural);fb("prison",(r,add)=>{if(Math.random()<.3)mural(r,add);});
+  fb("cellar",(r,add)=>{for(let i=0;i<ri(1,2);i++){const q=interiorFree(r,false);if(q)add("fungus",q.x,q.y,{kind:pick(["food","heal","poison"])});}});}
+{const base=themeRooms;themeRooms=function(){base();if(G.demo)return;for(let i=0;i<ri(0,2);i++){const r=pick(G.rooms.filter(r=>!r.role||r.role==="stairs"));if(!r)break;const q=interiorFree(r,false);if(q)G.objs.push({type:"fungus",x:q.x,y:q.y,deco:true,kind:pick(["food","heal","poison"])});}};}
+// Acrobatics: slick oil underfoot
+{const base=onEnter;onEnter=async function(u,x,y,o){if(mode==="explore"&&G&&u===G.party[0]&&gnd(x,y)===GROUND.oil&&!fireAt(x,y)&&!G.sneak){G.slipped=G.slipped||[];const k=y*G.W+x;
+    if(!G.slipped.includes(k)){G.slipped.push(k);const r=await check(u,"acrobatics",10);if(!r.ok){makeNoise(x,y,6);await say(`The ${u.name} skids on the oil and goes down with a clatter! (${r.txt})`,1100,true);await dealDamage(u,1,"bludgeoning",{});$("tBox").hidden=true;}}}
+  return base(u,x,y,o);};}
+// more chance events
+EVENTS.push(
+  {w:2,run:async L=>{const r=await check(L,"acrobatics",12);if(r.ok)await say(`The floor gives way under the ${L.name}'s foot, but they twist and roll clear as the stones drop into the dark. (${r.txt})`,1500,true);
+    else{makeNoise(L.x,L.y,8);await say(`The floor crumbles! The ${L.name} drops into a shallow pit and has to be hauled out. (${r.txt})`,1400,true);await dealDamage(L,roll("1d6").total,"bludgeoning",{});}}},
+  {w:1,run:async()=>{const h=bestAt("history");const r=await check(h,"history",12);const g=ri(3,8)*G.floor;
+    if(r.ok){G.gold+=g*3;await say(`A handful of strange old coins lies in the dust. The ${h.name} recognises them: imperial crowns, worth far more to a collector. (${g*3} gold) (${r.txt})`,1600,true);}
+    else{G.gold+=g;await say(`A handful of strange old coins lies in the dust. Worth ${g} gold for the metal, at least. (${r.txt})`,1400,true);}hud();}},
+  {w:1,cond:()=>G.floor>=2,run:async L=>{const h=bestAt("insight");const r=await check(h,"insight",13);
+    if(r.ok){await say(`A figure slumps against the wall, groaning for help. But the ${h.name} notices their boots are clean and their hand is near a knife. A trap! You give them a wide berth. (${r.txt})`,1800,true);return;}
+    const sp=spawnSpots(L,2,4);if(!sp.length)return;const co={id:-1,gid:7600+(G.gidN=(G.gidN||0)+1),short:"Bandit",name:"bandits",leader:"The bandit"};const out=[];
+    for(const cls of ["rogue","fighter"]){const p=out.length?nearFree(sp[0].x,sp[0].y):sp[0];if(!p)break;const m=makeRival(cls,co,p.x,p.y);m.peace=false;m.state="hunt";m.ambusher=true;m.rival=0;m.hp=m.maxHp=Math.max(6,m.maxHp-6);G.mons.push(m);out.push(m);}
+    await say(`A wounded traveller begs for help. As the ${L.name} leans in, they draw a knife, and a second bandit leaps from the shadows! (${r.txt})`,1600,true);$("tBox").hidden=true;busy=false;startCombat({extra:out,by:out});}});
