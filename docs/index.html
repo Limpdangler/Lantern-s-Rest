@@ -271,6 +271,14 @@ input.err{border-color:var(--bad);background:#4a1f26}
 .app.wide .hotgrid{grid-auto-columns:76px}
 .app.wide .hot{width:76px}
 
+.gearlist h3 .sm{font-family:var(--body);font-size:12px;color:var(--muted);margin-left:6px}
+.gearlist .gslot{display:block;width:100%;text-align:left;margin:4px 0}
+.gslot .slotname{display:inline-block;font-family:var(--pixel);font-size:7px;color:var(--gold);margin-right:6px;vertical-align:middle}
+.gslot.pend{border-style:dashed;opacity:.85}
+.gearbase{margin:2px 0 6px}
+.gearlist .gslot{border-style:solid;border-color:#3a6a6c}
+.gearlist .gslot.pend{border-style:dashed;border-color:#6a8a8c}
+
 </style>
 
 <div class="app" id="app">
@@ -2085,7 +2093,7 @@ async function interact(o){
   if(o.type==="shrine"){if(o.used){toast("The shrine's light has gone out.");return;}const h=bestAt("religion");
     const cursed=G.party.some(p=>!p.dead&&p.gear.some(id=>ITEMS[id].cursed));
     const c=await choose("An old shrine to a forgotten god. A faint blue light pulses inside.",[{t:"PRAY",sub:`${h.name}: Religion DC 12 · blessing or curse`},{t:"OFFER 25 GOLD",sub:"A sure blessing",dis:G.gold<25},{t:"LEAVE IT"}].concat(cursed?[{t:"LIFT CURSES",sub:"Ask the shrine to break your cursed items (uses the shrine)"}]:[]));
-    if(c===3){o.used=true;for(const p of G.party){const bad=p.gear.filter(id=>ITEMS[id].cursed);p.gear=p.gear.filter(id=>!ITEMS[id].cursed);if(bad.length)applyLevel(p,false);}await say("The cursed items crumble to dust in the shrine's light.",1400,true);$("tBox").hidden=true;hud();return;}
+    if(c===3){o.used=true;for(const p of G.party){const bad=p.gear.filter(id=>ITEMS[id].cursed);p.gear=p.gear.filter(id=>!ITEMS[id].cursed);if(p.pending)p.pending=p.pending.filter(id=>!ITEMS[id].cursed);if(bad.length)applyLevel(p,false);}await say("The cursed items crumble to dust in the shrine's light.",1400,true);$("tBox").hidden=true;hud();return;}
     if(c===2||c<0)return;approve(c===0?"pray":"offer");o.used=true;let ok=true;if(c===0){const r=await check(h,"religion",12);ok=r.ok;log(`Shrine: ${r.txt}.`,"magic");}else G.gold-=25;
     if(ok){G.blessFloor=G.floor;for(const p of G.party){if(!p.dead){heal(p,Math.ceil(p.maxHp/2));}}await say("Warm light washes over the party: healed, and blessed with +1 to hit and saves on this floor.",1700,true);}
     else{G.curseFloor=G.floor;for(const p of heroesUp())p.hp=Math.max(1,p.hp-rnd(6));await say("The light turns cold. The party is cursed: −1 AC on this floor.",1600,true);}
@@ -3488,6 +3496,44 @@ function aimButtons(h){const A=[];if(G.party[0]!==h)return A;
 function wizardFire(h){if(h.id!=="wizard"||h.wild)return [];return [{t:"FIRE BOLT",sub:"Cantrip: set fire to a door, barrel, web or oil, or relight a torch, up to 12 squares away",f:()=>{G.aim={kind:"firebolt",by:h};closeMenu();toast("Tap what to set alight (up to 12 squares).");}}];}
 {const base=classActions;classActions=h=>{const A=base(h);if(h.dead||h.down||mode!=="explore")return A;return A.concat(wizardFire(h),aimButtons(h));};}
 
+// ================= magic gear: one item per body slot, up to 3 attuned, and attuning takes a rest =================
+const GEAR_SLOTS={weapon:"Weapon",armour:"Armour",head:"Head",neck:"Neck",cloak:"Cloak",hands:"Hands",wrists:"Wrists",ring:"Ring",feet:"Feet",held:"Held"};
+const SLOT_OF={wrune1:"weapon",wrune2:"weapon",arune:"armour",ring:"ring",ringcurse:"ring",cloak:"cloak",cloakcurse:"cloak",boots:"feet",gauntlets:"hands",gloves:"hands",
+  headband:"head",amulet:"neck",periapt:"neck",bracers:"wrists",wand:"held"};
+const MAX_ATTUNED=3;
+const slotOf=id=>SLOT_OF[id]||"held";
+const isPending=(h,id)=>!!(h.pending&&h.pending.includes(id));
+function gearInSlot(h,slot){return h.gear.find(id=>slotOf(id)===slot)||null;}
+// why this hero can't put the item on right now (or null if they can)
+function wearBlock(h,id){const s=slotOf(id);const cur=gearInSlot(h,s);if(cur)return `Already wearing ${ITEMS[cur].name} (${GEAR_SLOTS[s]}). Take it off first.`;
+  if(h.gear.length>=MAX_ATTUNED)return `Can only be attuned to ${MAX_ATTUNED} magic items at once.`;return null;}
+function wearItem(h,id){const why=wearBlock(h,id);if(why)return why;takeItem(id);h.gear.push(id);h.pending=(h.pending||[]).concat([id]);
+  return `${h.name} puts on the ${isKnown(id)?ITEMS[id].name:ITEMS[id].unk||ITEMS[id].name}. It will only work once they've rested with it (a short or long rest attunes it).`;}
+function removeItem(h,id){if(ITEMS[id].cursed&&!isPending(h,id))return `The ${ITEMS[id].name} won't come off! Pray at a shrine to lift the curse.`;
+  h.gear=h.gear.filter(x=>x!==id);if(h.pending)h.pending=h.pending.filter(x=>x!==id);addItem(id);if(id==="wand")h.wand=0;applyLevel(h,false);h.hp=Math.min(h.hp,h.maxHp);hud();return null;}
+// called at the end of every rest
+function attuneAll(){const lines=[];for(const h of G.party){if(h.dead||!h.pending||!h.pending.length)continue;
+  for(const id of h.pending){const was=isKnown(id);G.known.add(id);if(id==="wand")h.wand=3;
+    lines.push(ITEMS[id].cursed?`${h.name} attunes to the ${was?ITEMS[id].name:ITEMS[id].unk}... and feels a chill. It's a ${ITEMS[id].name}! CURSED: it won't come off.`:`${h.name} attunes to the ${was?ITEMS[id].name:ITEMS[id].unk}${was?"":`: it's ${aN(ITEMS[id].name)}!`} (${ITEMS[id].desc})`);}
+  h.pending=[];applyLevel(h,false);}
+  return lines;}
+{const base=gearFx;gearFx=h=>{if(!h.pending||!h.pending.length)return base(h);const keep=h.gear;h.gear=h.gear.filter(id=>!h.pending.includes(id));try{return base(h);}finally{h.gear=keep;}};}
+{const base=shortRest;shortRest=async function(){await base();const l=attuneAll();if(l.length)await say(l.join(" "),1800,true);};}
+{const base=applyLongRest;applyLongRest=async camp=>{const out=await base(camp);return out.concat(attuneAll());};}
+// the list of worn gear (character card and full sheet)
+function renderGear(el,h,withWear){const box=document.createElement("div");box.className="gearlist";
+  box.insertAdjacentHTML("beforeend",`<h3>EQUIPPED GEAR <span class="sm">${h.gear.length}/${MAX_ATTUNED} attunement</span></h3>`);
+  box.insertAdjacentHTML("beforeend",`<p class="help gearbase">Always: ${esc(weaponOf(h,"main").name)}${h.info.alt&&!h.info.alt.save?" + "+esc(weaponOf(h,"alt").name):""} · ${h.info.armour==="heavy"?"heavy armour":h.info.armour==="none"?"no armour":h.info.armour==="medium"?"medium armour":"light armour"}${SHIELD_USERS.includes(h.id)?(h.shieldBroken?" · shield BROKEN":" · shield"):""}${h.armourOff?" (taken off)":""}</p>`);
+  if(!h.gear.length)box.insertAdjacentHTML("beforeend",`<p class="help">No magic items worn.</p>`);
+  for(const id of h.gear){const it=ITEMS[id];const pend=isPending(h,id);const nm=isKnown(id)?it.name:it.unk||it.name;const b=document.createElement("button");b.type="button";b.className="gslot"+(pend?" pend":"");
+    b.innerHTML=`<span class="slotname">${GEAR_SLOTS[slotOf(id)]}</span><b>${esc(nm)}</b><small>${pend?"Not attuned yet: rest to make it work":isKnown(id)?esc(it.desc):""} · ${it.cursed&&!pend?"cursed: it won't come off":"tap to take off"}</small>`;
+    b.addEventListener("click",()=>{const why=removeItem(h,id);if(why)alertMenu(why);else renderMenu();});box.appendChild(b);}
+  if(withWear){const bagGear=Object.keys(G.bag).filter(id=>G.bag[id]>0&&ITEMS[id]&&ITEMS[id].kind==="gear");
+    for(const id of bagGear){const why=wearBlock(h,id);const b=document.createElement("button");b.type="button";b.className="big alt";
+      b.innerHTML=`PUT ON: ${esc(isKnown(id)?ITEMS[id].name:ITEMS[id].unk||ITEMS[id].name)}<br><small>${esc(GEAR_SLOTS[slotOf(id)])}${why?" · "+esc(why):" · works after a rest"}</small>`;b.disabled=!!why;
+      b.addEventListener("click",()=>{const msg=wearItem(h,id);renderMenu();hud();alertMenu(msg);});box.appendChild(b);}}
+  el.appendChild(box);}
+
 // ================= sprites =================
 const sprCache={};
 function paint(rows,pal,w,h){const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");
@@ -3738,9 +3784,7 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
         <div class="abl">${abl}</div>
         <p class="sm"><b>${esc(w.name)}</b> ${sgn(atkBonus(h,w))} to hit, ${esc(w.dice)}${dmgBonus(h,w)?sgn(dmgBonus(h,w)):""} ${w.type}${w.melee?"":", range "+w.range}${a.save?"":` · <b>${esc(a.name)}</b> ${sgn(atkBonus(h,a))}, ${esc(a.dice)}${dmgBonus(h,a)?sgn(dmgBonus(h,a)):""}`}<br>
         Saves: ${h.info.saves.map(s=>ABN[s]+" "+sgn(saveBonus(h,s))).join(", ")} · Passive Perception ${passive(h,"perception")}<br>Skills: ${sk}<br>${res}${res&&slots?"<br>":""}${slots}</p>`);
-      const gear=document.createElement("div");gear.className="gear";for(let i=0;i<3;i++){const id=h.gear[i];const g=document.createElement("button");g.type="button";g.className="gslot";
-        if(id){g.innerHTML=`<b>${esc(ITEMS[id].name)}</b><small>${esc(ITEMS[id].desc)} · tap to unequip</small>`;g.addEventListener("click",()=>{if(ITEMS[id].cursed){alertMenu(`The ${ITEMS[id].name} won't come off! Pray at a shrine to lift the curse.`);return;}h.gear.splice(i,1);addItem(id);if(id==="wand")h.wand=0;applyLevel(h,false);h.hp=Math.min(h.hp,h.maxHp);renderMenu();hud();});}
-        else{g.innerHTML="<small>Empty gear slot</small>";g.disabled=true;}gear.appendChild(g);}d.appendChild(gear);
+      if(focus===null)renderGear(d,h,false);
       if(focus===null)for(const a of classActions(h)){const b=document.createElement("button");b.type="button";b.className="big alt";b.innerHTML=`${esc(a.t)}<br><small>${esc(a.sub||"")}</small>`;b.disabled=!!a.dis;b.addEventListener("click",a.f);d.appendChild(b);}
       if(focus===null&&h.id==="druid"&&!h.dead&&!h.down&&mode==="explore"){const b=document.createElement("button");b.type="button";b.className="big alt";
         if(h.wild){b.textContent="REVERT TO NORMAL FORM";b.addEventListener("click",()=>{h.wild=null;computeLight();fov();renderMenu();hud();});}
@@ -3756,8 +3800,7 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
       const btn=(t,f,dis)=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=t;b.disabled=!!dis;b.addEventListener("click",f);acts.appendChild(b);};
       if(mode==="explore"&&id!=="relic")btn(id==="arrows"?"DROP 10":"DROP ONE",()=>{const n=id==="arrows"?Math.min(10,G.bag[id]):1;takeItem(id,n);const L=G.party[0];if(id==="arrows")G.items.push({x:L.x,y:L.y,item:id,n});else G.items.push({x:L.x,y:L.y,item:id});renderMenu();hud();});
       if(!isKnown(id)){const pot=it.kind==="use"&&!id.startsWith("scroll");btn(pot?"TASTE IT (MEDICINE)":"IDENTIFY (ARCANA)",async()=>{await identify(id);const msg=$("menuBody").querySelector(".msg");const keep=msg?msg.textContent:"";renderMenu();if(keep)alertMenu(keep);},G.idTried.has(id));}
-      if(it.kind==="gear")for(const h of G.party.filter(h=>!h.dead&&h.id!=="beast"))btn(`EQUIP: ${h.name.toUpperCase()}`,()=>{if(h.gear.length>=3){alertMenu(`${h.name} has no free gear slot.`);return;}const was=isKnown(id);takeItem(id);h.gear.push(id);G.known.add(id);if(id==="wand")h.wand=3;applyLevel(h,false);renderMenu();hud();
-        if(!was)alertMenu(ITEMS[id].cursed?`${h.name} puts it on... and feels a chill. It's a ${ITEMS[id].name}! CURSED: it won't come off.`:`${h.name} attunes to it: it's ${aN(ITEMS[id].name)}!`);},h.gear.length>=3);
+      if(it.kind==="gear")for(const h of G.party.filter(h=>!h.dead&&h.id!=="beast")){const why=wearBlock(h,id);btn(`PUT ON: ${h.name.toUpperCase()}`,()=>{const msg=wearItem(h,id);renderMenu();hud();alertMenu(msg);},!!why);}
       if(id==="potion"||id==="gpotion"&&isKnown(id))for(const h of G.party)btn(`GIVE: ${h.name.toUpperCase()}`,()=>{takeItem(id);heal(h,roll(id==="potion"?"2d4+2":"4d4+4").total);renderMenu();hud();},h.hp>=h.maxHp&&!h.down);
       if(COPYABLE[id]&&isKnown(id)){const wz=G.party.find(h=>h.id==="wizard"&&!h.dead);if(wz)btn(`COPY INTO SPELLBOOK (25g)`,()=>{if(G.gold<25){alertMenu("You need 25 gold for the special inks.");return;}const sp=COPYABLE[id];wz.learned=wz.learned||[];if(spellsOf(wz).includes(sp)){alertMenu("The wizard already knows that spell.");return;}G.gold-=25;takeItem(id);wz.learned.push(sp);renderMenu();hud();alertMenu(`The ${wz.name} copies ${SPELLS[sp].name} into the spellbook. It's theirs to cast now.`);});}
       if(id==="poisonvial")for(const h of G.party.filter(h=>!h.dead&&!h.down&&h.id!=="beast"))btn(`COAT: ${h.name.toUpperCase()}`,()=>{takeItem(id);h.coat={name:"poison",type:"poison",dice:"2d4"};renderMenu();alertMenu(`The ${h.name}'s weapon is coated in poison for one attack.`);},!!h.coat);
@@ -4016,7 +4059,8 @@ function heroCardTop(el,i){const h=G.party[i];const N=G.party.length;
   const abil=heroWild(h).concat(classActions(h));
   if(abil.length){el.insertAdjacentHTML("beforeend","<h3>ABILITIES</h3>");for(const a of abil)cardBtn(el,a);}
   const uses=heroUses(h);if(uses.length){el.insertAdjacentHTML("beforeend",`<h3>USE AN ITEM ON ${esc((h.nick||h.name).toUpperCase())}</h3>`);for(const u of uses)cardBtn(el,u);}
-  if(!abil.length&&!uses.length)el.insertAdjacentHTML("beforeend",`<p class="help">Nothing to use right now.</p>`);}
+  if(!abil.length&&!uses.length)el.insertAdjacentHTML("beforeend",`<p class="help">Nothing to use right now.</p>`);
+  if(h.id!=="beast")renderGear(el,h,true);}
 function heroCardBottom(el,i){const N=G.party.length;if(N<2)return;const row=document.createElement("div");row.className="march";
   row.insertAdjacentHTML("beforeend",`<span>Marching order: #${i+1} of ${N}</span>`);
   const sw=(a,b)=>{const A=G.party[a],B=G.party[b];[A.x,B.x]=[B.x,A.x];[A.y,B.y]=[B.y,A.y];G.party[a]=B;G.party[b]=A;};

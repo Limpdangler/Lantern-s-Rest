@@ -157,7 +157,8 @@ function heroCardTop(el,i){const h=G.party[i];const N=G.party.length;
   const abil=heroWild(h).concat(classActions(h));
   if(abil.length){el.insertAdjacentHTML("beforeend","<h3>ABILITIES</h3>");for(const a of abil)cardBtn(el,a);}
   const uses=heroUses(h);if(uses.length){el.insertAdjacentHTML("beforeend",`<h3>USE AN ITEM ON ${esc((h.nick||h.name).toUpperCase())}</h3>`);for(const u of uses)cardBtn(el,u);}
-  if(!abil.length&&!uses.length)el.insertAdjacentHTML("beforeend",`<p class="help">Nothing to use right now.</p>`);}
+  if(!abil.length&&!uses.length)el.insertAdjacentHTML("beforeend",`<p class="help">Nothing to use right now.</p>`);
+  if(h.id!=="beast")renderGear(el,h,true);}
 function heroCardBottom(el,i){const N=G.party.length;if(N<2)return;const row=document.createElement("div");row.className="march";
   row.insertAdjacentHTML("beforeend",`<span>Marching order: #${i+1} of ${N}</span>`);
   const sw=(a,b)=>{const A=G.party[a],B=G.party[b];[A.x,B.x]=[B.x,A.x];[A.y,B.y]=[B.y,A.y];G.party[a]=B;G.party[b]=A;};
