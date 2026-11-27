@@ -115,8 +115,11 @@ function classCombatButtons(u){const B=[];if(u.wild)return B;const act=hasAction
   if(u.id==="druid"&&G.fire.size)B.push({t:"SHAPE WATER: DOUSE",sub:"Action · put out fires in a 5×5 area within 6",dis:!act,f:()=>targetMode({kind:"tile",range:6,label:"Douse where?",onPick:async(x,y)=>{C.actions--;busy=true;await douse(u,x,y);afterAction();}})});
   const rw=["main","alt"].map(k=>weaponOf(u,k)).find(w=>!w.melee&&!w.spell&&!w.thrown);
   if(rw&&(G.bag.oil||0)>0)B.push({t:"FLAMING ARROW",sub:`Action · uses an oil flask · ${rw.name}: +1d6 fire and sets the spot alight (webs, oil, wood)`,dis:!act,f:()=>targetMode({kind:"tile",range:rw.range,label:"Tap an enemy or a spot to set alight.",onPick:async(x,y)=>{C.actions--;takeItem("oil");busy=true;const t=monAt(x,y);
-      if(t&&t.inCombat){await attack(u,t,Object.assign({},rw,{name:"Flaming "+rw.name}),{onHit:async tt=>{if(tt.hp>0)await dealDamage(tt,roll("1d6").total,"fire",{src:u});}});}else fx.push({type:"shot",from:{x:u.x,y:u.y},to:{x,y},t:now(),col:"#ff9a3a"});
-      igniteAt(x,y);if(!G.fire.has(y*G.W+x)&&gnd(x,y)!==GROUND.water)G.fire.set(y*G.W+x,2);computeLight();await scorch();afterAction();}})});
+      let land={x,y};
+      if(t&&t.inCombat){const r=await attack(u,t,Object.assign({},rw,{name:"Flaming "+rw.name}),{onHit:async tt=>{if(tt.hp>0)await dealDamage(tt,roll("1d6").total,"fire",{src:u});}});
+        if(!r||!r.hit){land=flightPath(u,x,y,rw.range);fx.push({type:"shot",from:{x,y},to:land,t:now(),col:"#ff9a3a"});await wait(200);log(`The flaming arrow flies past and lands ${land.wall?"against the wall":land.who?"at the "+esc(land.who.name)+"'s feet":"on the floor"} further on.`,"miss");}}
+      else fx.push({type:"shot",from:{x:u.x,y:u.y},to:{x,y},t:now(),col:"#ff9a3a"});
+      x=land.x;y=land.y;await fireOnTile(x,y,u);igniteAt(x,y);if(!G.fire.has(y*G.W+x)&&gnd(x,y)!==GROUND.water)G.fire.set(y*G.W+x,2);computeLight();await scorch();afterAction();}})});
   return B;}
 // ---------- map overlays: tracks, owl, magic shimmer, your own traps ----------
 function drawClassOverlays(camX,camY,t){
@@ -127,3 +130,8 @@ function drawClassOverlays(camX,camY,t){
   const sh=(x,y)=>{if(!G.explored[y][x])return;const sx=x*TS-camX,sy=y*TS-camY,p=(t/180+x+y)%6;ctx.fillStyle="rgba(170,140,255,.9)";ctx.fillRect(sx+3+p*2%10,sy+2+(p*3)%9,1,1);ctx.fillRect(sx+11-(p*2)%8,sy+5+(p*5)%8,1,1);};
   for(const o of G.objs)if(o.magic&&!o.opened&&!o.gone)sh(o.x,o.y);for(const c of G.corpses||[])if(c.magic&&!c.searched)sh(c.x,c.y);for(const it of G.items)if(it.magic)sh(it.x,it.y);
   for(const tr of G.traps)if(tr.ours&&!tr.done&&G.explored[tr.y][tr.x]){const sx=tr.x*TS-camX,sy=tr.y*TS-camY;ctx.strokeStyle="rgba(120,220,120,.7)";ctx.strokeRect(sx+2.5,sy+2.5,11,11);}}
+
+// where a missed shot ends up: it carries on in a straight line until it hits a wall or a creature
+function flightPath(a,x,y,range){const dx=x-a.x,dy=y-a.y,n=Math.max(Math.abs(dx),Math.abs(dy))||1;let last={x,y};
+  for(let i=n+1;i<=Math.max(n+1,range||n+6);i++){const px=Math.round(a.x+dx*i/n),py=Math.round(a.y+dy*i/n);if(!inB(px,py)||isWall(px,py)||(doorAt(px,py)&&!doorAt(px,py).open))return Object.assign(last,{wall:true});
+    const w=unitAt(px,py);if(w&&w!==a)return {x:px,y:py,who:w};last={x:px,y:py};}return last;}

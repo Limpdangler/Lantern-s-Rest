@@ -66,7 +66,7 @@ setInterval(()=>{if(!busy||!G||G.demo){busySince=0;return;}if(!busySince){busySi
 (function(){const LOG_MIN=44;let queued=false;
   function fitScreen(){queued=false;const app=$("app"),bz=document.querySelector(".bezel");if(!app||!bz)return;
     if(app.classList.contains("wide")){const col=$("colL");const bs=getComputedStyle(bz);const padX=parseFloat(bs.paddingLeft)+parseFloat(bs.paddingRight),padY=parseFloat(bs.paddingTop)+parseFloat(bs.paddingBottom);
-      const strip=$("strip");const sh=strip&&!strip.hidden?strip.offsetHeight+8:0;const w=col.clientWidth-padX,h=col.clientHeight-sh-padY;let sc=Math.min(w/240,h/160);if(sc>=3)sc=Math.floor(sc);
+      let sh=0;for(const el of col.children){if(el===bz||el.hidden||getComputedStyle(el).display==="none")continue;sh+=el.offsetHeight+10;}const w=col.clientWidth-padX,h=col.clientHeight-sh-padY;let sc=Math.min(w/240,h/160);if(sc>=3)sc=Math.floor(sc);
       bz.style.minWidth="0";bz.style.width=Math.max(150,Math.floor(240*sc+padX))+"px";return;}
     const cs=getComputedStyle(app);const gap=parseFloat(cs.rowGap)||0;let used=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom),n=0;
     for(const el of app.children){if(el===bz||el.hidden)continue;const st=getComputedStyle(el);if(st.display==="none"||st.position==="absolute"||st.position==="fixed")continue;
@@ -80,16 +80,26 @@ setInterval(()=>{if(!busy||!G||G.demo){busySince=0;return;}if(!busySince){busySi
   if(window.ResizeObserver){const ro=new ResizeObserver(queue);const app=$("app");if(app){ro.observe(app);for(const el of app.children)if(!el.classList.contains("bezel")&&!el.classList.contains("log"))ro.observe(el);}}
   queue();})();
 
-// ---------- PC layout: on a wide screen the game fills the window, with the party, log and actions down the right ----------
-(function(){const app=$("app");if(!app)return;const order=[...app.children];const L=document.createElement("div");L.id="colL";const R=document.createElement("div");R.id="colR";
-  const leftIds=["strip"],rightSel=el=>!el.classList.contains("top")&&!el.classList.contains("ov")&&!el.classList.contains("bezel")&&el.id!=="strip";
+// ---------- PC layout: the game screen in the middle (Solasta-style), menu icons down the left, party and log on the right ----------
+Object.assign(GLYPHS,{
+  bag:["....nnnn....","...n....n...","..nnnnnnnn..",".nNnnnnnnNn.",".nnnngGnnnn.",".nnnnGGnnnn.",".nnnnnnnnnn.",".nnnnnnnnnn.",".nNnnnnnnNn.","..nnnnnnnn..","............","............"],
+  map:["............",".mmm.mmm.mm.",".mmm.mmm.mm.",".mrmm.mmmmm.",".mmmmmr.mm.",".mm.mmmmrmm.",".mmmm.mmmmm.",".mmmmmmm.mm.",".mm.mmmmmmm.","............","............","............"],
+  book:["............",".nnnnnnnnn..",".nmmmmmmmn..",".nmkkkkkmn..",".nmmmmmmmn..",".nmkkkkmmn..",".nmmmmmmmn..",".nmkkkkkmn..",".nnnnnnnnn..","............","............","............"],
+  people:["............","...ss..ss...","..ssss.ss...","...ss..ss...",".bbbbbbbbb..",".bbbbbbbbb..",".bbbbbbbbb..",".bb.bb.bb...","............","............","............","............"],
+  camp:[".....r......","....ror.....","....ror.....","...roor.....","...ryyr.....","..nnnnnnn...",".n.n.n.n.n..","............","............","............","............","............"]});
+(function(){const app=$("app");if(!app)return;const order=[...app.children];
+  const rail=document.createElement("nav");rail.id="rail";const L=document.createElement("div");L.id="colL";const R=document.createElement("div");R.id="colR";
+  const RAIL=[["people","PARTY",()=>openMenu("party")],["bag","BAG",()=>openMenu("bag")],["map","MAP",()=>openMap()],["book","NOTES",()=>openMenu("notes")],["camp","REST",()=>openMenu("rest")]];
+  for(const [g,label,f] of RAIL){const b=document.createElement("button");b.type="button";b.className="railbtn";b.title=label;const c=document.createElement("canvas");c.width=c.height=12;c.getContext("2d").drawImage(glyphCanvas(g),0,0);b.appendChild(c);b.insertAdjacentHTML("beforeend",`<span>${label}</span>`);b.addEventListener("click",()=>{if(mode==="explore"&&!busy)f();});rail.appendChild(b);}
   const keys=document.createElement("p");keys.className="keyhelp";keys.innerHTML="<b>Keys:</b> arrows/WASD move · E/Space use · B menu · F search · Q sneak · L light · M map · <b>in fights</b> 1–9 actions, E end turn, Esc cancel";
-  function setLayout(){const wide=innerWidth>=900&&innerWidth/innerHeight>=1.15;if(wide===app.classList.contains("wide"))return;
-    if(wide){const firstOv=app.querySelector(".ov");app.insertBefore(L,firstOv);app.insertBefore(R,firstOv);
-      L.appendChild($("strip"));L.appendChild(document.querySelector(".bezel"));for(const el of order)if(rightSel(el))R.appendChild(el);R.appendChild(keys);app.classList.add("wide");}
-    else{const firstOv=app.querySelector(".ov");for(const el of order)if(!el.classList.contains("ov")&&!el.classList.contains("top"))app.insertBefore(el,firstOv);L.remove();R.remove();keys.remove();app.classList.remove("wide");document.querySelector(".bezel").style.width="";}
+  const centre=["strip","fxRow","tglRow","cPanel","chPanel"];
+  function setLayout(){const wide=innerWidth>=900&&innerWidth/innerHeight>=1.15;if(wide===app.classList.contains("wide"))return;const bz=document.querySelector(".bezel");
+    if(wide){const firstOv=app.querySelector(".ov");app.insertBefore(rail,firstOv);app.insertBefore(L,firstOv);app.insertBefore(R,firstOv);
+      L.appendChild($("strip"));L.appendChild(bz);for(const id of centre.slice(1))L.appendChild($(id));
+      for(const el of order)if(!el.classList.contains("top")&&!el.classList.contains("ov")&&el!==bz&&!centre.includes(el.id))R.appendChild(el);R.appendChild(keys);app.classList.add("wide");}
+    else{const firstOv=app.querySelector(".ov");for(const el of order)if(!el.classList.contains("ov")&&!el.classList.contains("top"))app.insertBefore(el,firstOv);rail.remove();L.remove();R.remove();keys.remove();app.classList.remove("wide");bz.style.width="";}
     $("btnFull").hidden=!wide||!document.documentElement.requestFullscreen;window.dispatchEvent(new Event("resize"));}
   addEventListener("resize",setLayout);setLayout();
   $("btnFull").addEventListener("click",()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen().catch(()=>toast("Full screen isn't allowed here: try F11."));}catch(e){toast("Full screen isn't allowed here: try F11.");}});
   document.addEventListener("fullscreenchange",()=>{$("btnFull").textContent=document.fullscreenElement?"EXIT FULL":"FULL SCREEN";});
-  if(window.ResizeObserver){const ro=new ResizeObserver(()=>window.dispatchEvent(new Event("resize")));ro.observe(L);}})();
+  if(window.ResizeObserver){const ro=new ResizeObserver(()=>window.dispatchEvent(new Event("resize")));ro.observe(L);for(const id of centre)ro.observe($(id));}})();

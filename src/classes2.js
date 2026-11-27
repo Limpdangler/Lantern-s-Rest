@@ -73,7 +73,7 @@ async function chooseTraits(){if(!G)return;for(const h of G.party){if(h.dead||h.
   let k;if(c0===1){const c=await choose(`Choose a trait for the ${h.name}:`,keys.map(k=>({t:PERKS[k].name.toUpperCase(),sub:PERKS[k].desc})));k=keys[Math.max(0,c)];}else k=pick(keys);
   h.perk=k;applyLevel(h,false);log(`${esc(h.nick||h.name)} the ${esc(h.name)}: trait <b>${esc(PERKS[k].name)}</b>. ${esc(PERKS[k].desc)}`,"lv");if(c0!==1)toast(`${h.name}'s trait: ${PERKS[k].name}. ${PERKS[k].desc}`);}
   $("tBox").hidden=true;hud();}
-async function newHeroPrompts(){await humanFeats();await chooseTraits();}
+async function newHeroPrompts(){await humanFeats();await chooseTraits();for(const h of G.party)if(h.id==="ranger"&&!h.favored&&!h.dead)await chooseFavored(h);}
 
 // ---------- rest tasks: what each class does while the others rest ----------
 // On a long rest everyone does theirs. On a short rest, only heroes healthy enough not to need a Hit Die do (the rest are busy bandaging).

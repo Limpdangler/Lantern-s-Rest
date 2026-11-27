@@ -85,7 +85,7 @@ function afterAction(){if(mode!=="combat")return;if(checkEnd())return;const u=C.
 function inReachW(a,t,w){const d=cheb(a,t);if(w.melee)return d<=1;return d<=longRange(w)&&los(a.x,a.y,t.x,t.y);}
 function pathWarnings(u,path){const out=[];let px=u.x,py=u.y;const dis=C.disengaged;
   for(const k of path){const x=k%G.W,y=(k/G.W)|0;
-    if(!dis)for(const e of foesOf(u))if(Math.max(Math.abs(e.x-px),Math.abs(e.y-py))===1&&Math.max(Math.abs(e.x-x),Math.abs(e.y-y))>1&&canReact(e)&&canMelee(e)&&!e.fleeing){const s=`an opportunity attack from the ${e.name}`;if(!out.includes(s))out.push(s);}
+    if(!dis)for(const e of foesOf(u))if(Math.max(Math.abs(e.x-px),Math.abs(e.y-py))===1&&Math.max(Math.abs(e.x-x),Math.abs(e.y-y))>1&&canReact(e)&&canMelee(e)&&!e.fleeing&&!e.st.prone){const s=`an opportunity attack from the ${e.name}`;if(!out.includes(s))out.push(s);}
     if(fireAt(x,y)&&!out.includes("fire"))out.push("fire");const g=gnd(x,y);
     if(g===GROUND.acid&&!out.includes("acid"))out.push("acid");if(g===GROUND.oil&&!fireAt(x,y)&&!out.includes("slippery oil"))out.push("slippery oil");if(g===GROUND.crack&&!out.includes("cracked floor"))out.push("cracked floor");
     px=x;py=y;}

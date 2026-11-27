@@ -25,17 +25,17 @@ function say(text,auto=1000,noLog){if(!noLog)log(esc(text),"say");note(text);con
 function prompt(text){sayState=null;$("tBox").hidden=false;$("tText").textContent=text;$("tMore").hidden=true;}
 function toast(text){if(mode==="combat")return;if(!text){$("tBox").hidden=true;return;}prompt(text);clearTimeout(toastT);toastT=setTimeout(()=>{if(mode!=="combat"&&!sayState&&!choosing)$("tBox").hidden=true;},Math.max(3000,text.length*70));if(!/Press A|Nothing to use/.test(text))note(text);}
 let choosing=null;
-function choose(q,opts){return new Promise(res=>{const panel=$("chPanel");const wasC=$("cPanel").hidden,wasCtl=$("controls").hidden;
+function choose(q,opts){return new Promise(res=>{const panel=$("chPanel");if(!$("ovMenu").hidden)show(null);
     prompt(q);clearTimeout(toastT);$("cPanel").hidden=true;$("controls").hidden=true;panel.hidden=false;const box=$("chBtns");box.innerHTML="";
     choosing={res};const shownAt=performance.now();
     opts.forEach((o,i)=>{const b=document.createElement("button");b.type="button";b.className="cb";b.id="ch-"+i;b.disabled=!!o.dis;b.innerHTML=`<b>${esc(o.t)}</b>${o.sub?`<small>${esc(o.sub)}</small>`:""}`;
       b.addEventListener("pointerdown",()=>{b._armed=true;});b.addEventListener("click",()=>{if(!b._armed&&performance.now()-shownAt<450)return;done(i);});// ignore the "ghost" tap from the finger that was already on the screen when the choices appeared
       box.appendChild(b);});
-    function done(i){panel.hidden=true;$("cPanel").hidden=wasC;$("controls").hidden=wasCtl;choosing=null;res(i);}
+    function done(i){panel.hidden=true;const fight=mode==="combat"&&!!C;$("cPanel").hidden=!fight;$("controls").hidden=fight;$("tglRow").hidden=fight;choosing=null;res(i);}
     choosing.cancel=()=>done(-1);});}
 
 // ================= HUD & log =================
-function hud(){if(!G||G.demo)return;const box=$("party");box.innerHTML="";
+function hud(){if(!G||G.demo)return;if(mode==="explore"&&!C&&!choosing){$("controls").hidden=false;$("tglRow").hidden=false;$("cPanel").hidden=true;$("chPanel").hidden=true;}const box=$("party");box.innerHTML="";
   for(let i=0;i<Math.max(S.dungeon.party,G.party.length);i++){const h=G.party[i];const d=document.createElement("div");
     if(!h){d.className="pc empty";d.textContent="empty";box.appendChild(d);continue;}
     d.className="pc"+(C&&C.cur===h?" cur":"")+(h.down?" down":"");
