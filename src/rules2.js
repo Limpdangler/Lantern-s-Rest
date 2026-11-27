@@ -8,7 +8,7 @@ effect("paralysedCrit","Melee hits on a paralysed creature are critical hits",{c
 effect("invisibleBreaks","Attacking ends Invisibility",{afterAttack:async c=>{if(c.a.st.invisible){delete c.a.st.invisible;if(c.a.conc&&c.a.conc.type==="invis")endConc(c.a);for(const h of G.party)if(h.conc&&h.conc.type==="invis"&&h.conc.target===c.a)endConc(h);}}});
 // ---------- long range & arrows ----------
 const isBow=w=>!!w&&!w.melee&&!w.spell&&!w.thrown&&/bow/i.test(w.name);
-const longRange=w=>!w||w.melee||w.spell?(w?w.range:1):w.thrown?w.range*3:isBow(w)?Math.min(40,w.range*3):w.range;
+const longRange=w=>w&&w.gun?w.range*3:!w||w.melee||w.spell?(w?w.range:1):w.thrown?w.range*3:isBow(w)?Math.min(40,w.range*3):w.range;
 effect("longRange","Ranged weapons can shoot past their normal range at disadvantage",{attackMods:c=>{if(!c.w.melee&&!c.w.spell&&cheb(c.a,c.t)>c.w.range)c.dis.push("long range");}});
 function needsArrow(a,w){return a.side==="h"&&isBow(w);}
 effect("arrows","Bows use arrows; half can be recovered after a fight",{afterAttack:async c=>{if(needsArrow(c.a,c.w)&&!c.noArrow){takeItem("arrows");if(C)C.arrowsUsed=(C.arrowsUsed||0)+1;}}});

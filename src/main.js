@@ -10,7 +10,7 @@ let S=loadSettings();
 let held=null;
 function facingDir(L,dx,dy){if(dx)return L.face==="s"&&!!L.flip===(dx<0);return dy<0?L.face==="b":L.face==="f";}
 // returns true if this press should only turn the leader (they weren't facing that way yet)
-function turnFirst(dx,dy,fn){const L=G&&!G.demo&&G.party&&G.party[0];fn.wait=0;if(L&&G.look&&mode==="explore"){faceToward(L,dx,dy);fn.wait=1e15;return true;}if(!L||mode!=="explore"||busy||choosing||sayState||facingDir(L,dx,dy))return false;
+function turnFirst(dx,dy,fn){const L=G&&!G.demo&&G.party&&G.party[0];fn.wait=0;if(G&&G.scout)return false;if(L&&G.look&&mode==="explore"){faceToward(L,dx,dy);fn.wait=1e15;return true;}if(!L||mode!=="explore"||busy||choosing||sayState||facingDir(L,dx,dy))return false;
   faceToward(L,dx,dy);fn.wait=performance.now()+160;return true;}
 function hold(el,fn,dir){const stop=()=>{if(held===fn)held=null;el.classList.remove("on");};
   el.addEventListener("pointerdown",e=>{e.preventDefault();el.classList.add("on");if(G)G.walkTo=null;const cleared=clearInterruptions();held=fn;if(cleared){fn.wait=0;return;}if(dir&&turnFirst(dir[0],dir[1],fn))return;fn();});
@@ -22,7 +22,17 @@ function hold(el,fn,dir){const stop=()=>{if(held===fn)held=null;el.classList.rem
 window.addEventListener("blur",()=>{held=null;});
 const tap=(el,fn)=>{el.addEventListener("click",e=>{if(fn!==pressA&&(sayState||(choosing&&mode==="explore"))){if(clearInterruptions()){whenFree(()=>fn(e));return;}}fn(e);});el.addEventListener("contextmenu",e=>e.preventDefault());};
 async function waitStep(){if(mode!=="explore"||busy||!G||G.over)return;busy=true;G.steps++;await huntStep();if(G.fire.size)tickFire();fov();busy=false;await checkAwareness();}
-hold($("kU"),()=>tryMove(0,-1),[0,-1]);hold($("kD"),()=>tryMove(0,1),[0,1]);hold($("kL"),()=>tryMove(-1,0),[-1,0]);hold($("kR"),()=>tryMove(1,0),[1,0]);
+// the D-pad: press a direction, or slide your thumb across it to change direction without lifting
+(function(){const pad=document.querySelector(".dpad");if(!pad)return;const KEYS={kU:[0,-1],kD:[0,1],kL:[-1,0],kR:[1,0]};let pid=null,cur=null;
+  const dirAt=(x,y)=>{const r=pad.getBoundingClientRect();const cx=r.left+r.width/2,cy=r.top+r.height/2,dx=x-cx,dy=y-cy;if(Math.hypot(dx,dy)<r.width*.14)return null;return Math.abs(dx)>Math.abs(dy)?(dx<0?"kL":"kR"):(dy<0?"kU":"kD");};
+  const light=id=>{for(const k in KEYS)$(k).classList.toggle("on",k===id);};
+  function go(id,first){cur=id;light(id);const [dx,dy]=KEYS[id];const fn=()=>tryMove(dx,dy);fn.wait=0;if(G)G.walkTo=null;
+    if(first){const cleared=clearInterruptions();held=fn;if(cleared)return;if(turnFirst(dx,dy,fn))return;fn();}else{held=fn;if(G&&G.party&&!G.scout&&!G.look&&!facingDir(G.party[0],dx,dy))faceToward(G.party[0],dx,dy);}}
+  function stop(){pid=null;cur=null;light(null);held=null;}
+  pad.addEventListener("pointerdown",e=>{const id=KEYS[e.target.id]?e.target.id:dirAt(e.clientX,e.clientY);if(!id)return;e.preventDefault();pid=e.pointerId;try{pad.setPointerCapture(pid);}catch(_){}go(id,true);});
+  pad.addEventListener("pointermove",e=>{if(e.pointerId!==pid)return;const id=dirAt(e.clientX,e.clientY);if(id&&id!==cur)go(id,false);});
+  for(const ev of ["pointerup","pointercancel","lostpointercapture"])pad.addEventListener(ev,e=>{if(e.pointerId===pid)stop();});
+  for(const k in KEYS)$(k).addEventListener("contextmenu",e=>e.preventDefault());})();
 tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("tgSkills"),quickAbilities);tap($("lookBtn"),()=>toggleLook());tap($("btnMap"),openMap);tap($("mapClose"),()=>show(null));tap($("mapCv"),()=>show(null));tap($("kB"),()=>openMenu());
 function tileFromEvent(e){const r=cv.getBoundingClientRect();const sx=(e.clientX-r.left)/r.width*SW,sy=(e.clientY-r.top)/r.height*SH;const wx=sx+cam.x,wy=sy+cam.y;
   for(const u of G.party.concat(G.mons)){if(u.dead)continue;const e2=elevAt(u.x,u.y)*3;if(wx>=u.x*TS&&wx<u.x*TS+TS&&wy>=u.y*TS-(u.side==="h"||HUMAN[u.sprite]?12:0)-e2&&wy<u.y*TS+TS-e2)return {x:u.x,y:u.y};}

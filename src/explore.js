@@ -11,7 +11,7 @@ function newRun(ci,race){clearRun();
   genFloor();mode="explore";busy=false;C=null;showCombatUI(false);hud();
   toast(`Floor 1: ${THEMES[G.theme].name}. Find the ladder down, and look for lost adventurers to join you.${G.goal?" Goal: "+G.goal.desc+".":""}`);
   setTimeout(()=>{if(!busy&&mode==="explore"&&!window.__skipIntro)newHeroPrompts();},400);}
-async function tryMove(dx,dy,act){if(mode!=="explore"||busy||!G||G.over)return;if(G.aim){G.aim=null;toast("Never mind.");}busy=true;try{await doMove(dx,dy,act);}finally{if(mode==="explore")busy=false;}}
+async function tryMove(dx,dy,act){if(mode!=="explore"||busy||!G||G.over)return;if(G.scout){owlStep(dx,dy);return;}if(G.aim){G.aim=null;toast("Never mind.");}busy=true;try{await doMove(dx,dy,act);}finally{if(mode==="explore")busy=false;}}
 async function doMove(dx,dy,act){// act: true when the player chose to use what is there (A button or tapping it), false when just walking with the D-pad
 if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const [h]=G.party.splice(i,1);G.party.unshift(h);hud();}}const L=G.party[0];L.face=dy<0?"b":dy>0?"f":"s";if(dx)L.flip=dx<0;const nx=L.x+dx,ny=L.y+dy;
   const m=monAt(nx,ny);if(m){
@@ -101,7 +101,8 @@ async function doorInteract(d){
     {t:"PICK THE LOCK",sub:d.fail.pick&&(G.bag.lockpick||0)>0&&!/broken pick/.test(d.fail.pick)?`Try again with a spare lockpick (${G.bag.lockpick}) · ${oddsTag(th,"thieves",15)} · quiet`:`${oddsTag(th,"thieves",15)}${toolNote(th)} · quiet`},
     {t:"FORCE IT",sub:`Shoulder-charge · ${oddsTag(st,"athletics",fdc)} · LOUD`},
     {t:"RAGE AND SMASH",sub:barb?`${barb.name}: uses a Rage · always works on wood · LOUD`:"Needs a barbarian with Rage left",dis:!barb||d.iron},{t:"BURN IT",sub:d.iron?"Iron doesn't burn":canBurn?"Uses an oil flask or torch · slow, smoky, draws attention":"You need an oil flask or a torch",dis:!canBurn},
-    {t:d.iron?"WORK THE HINGES LOOSE":"BREAK IT DOWN",sub:d.iron?((d.fail.pick||d.fail.force)?"Always works, but takes ages: the party tires and the racket may draw wanderers":"Try the other ways first"):"Hack it apart with weapons · always works · takes a while · VERY LOUD",dis:d.iron&&!(d.fail.pick||d.fail.force)},{t:"LEAVE IT"}]);
+    {t:d.iron?"WORK THE HINGES LOOSE":"BREAK IT DOWN",sub:d.iron?((d.fail.pick||d.fail.force)?"Always works, but takes ages: the party tires and the racket may draw wanderers":"Try the other ways first"):"Hack it apart with weapons · always works · takes a while · VERY LOUD",dis:d.iron&&!(d.fail.pick||d.fail.force)},{t:"LEAVE IT"}].concat(heroesUp().some(h=>h.sub==="gunslinger"&&!h.wild&&!h.jammed)?[{t:"SHOOT THE LOCK OFF",sub:`Uses a bullet · less reliable than picking it · DEAFENINGLY LOUD · ${G.bag.bullets||0} bullets`,dis:!(G.bag.bullets>0)}]:[]));
+  if(c===7){await shootLock(d,heroesUp().find(h=>h.sub==="gunslinger"));hud();return;}
   if(c===0){takeItem("key");d.locked=false;d.open=true;toast("The key turns. The door swings open.");}
   else if(c===1){if(d.fail.pick){if((G.bag.lockpick||0)>0&&!/broken pick/.test(d.fail.pick)){takeItem("lockpick");d.fail.pick=null;toast("You fit a fresh pick into the lock...");await wait(500);}else{toast(d.fail.pick);return;}}const r=await check(th,"thieves",15);G.steps+=5;
     if(r.ok){d.locked=false;d.open=true;toast(`Click! (${r.txt})`);}
@@ -197,6 +198,8 @@ function ambushSpot(){const L=G.party[0];for(let r=4;r<=7;r++)for(let k=0;k<30;k
 async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   if(G.pebble){throwPebble(x,y);return;}
   if(G.aim){await aimAt(x,y);return;}
+  if(G.scout){owlFlyTo(x,y);return;}
+  if(gnd(x,y)===GROUND.powder&&cheb(G.party[0],{x,y})<=1){busy=true;try{const c=await choose("A trail of gunpowder.",[{t:"LIGHT THE FUSE",sub:"Touch the lantern flame to it, then stand back"},{t:"LEAVE IT"}]);$("tBox").hidden=true;if(c===0){igniteAt(x,y);await wait(700);await scorch();}}finally{busy=false;}return;}
   if(stompable(x,y)&&cheb(G.party[0],{x,y})<=1&&!(x===G.party[0].x&&y===G.party[0].y)){busy=true;try{const c=await choose("Flames lick across the floor here.",[{t:"STOMP IT OUT",sub:"Takes a moment"},{t:"LEAVE IT"}]);$("tBox").hidden=true;if(c===0){stompFire(x,y);G.steps+=1;toast("You stamp the flames out.");}}finally{busy=false;}return;}
   if(!G.owlPick&&needsReach(x,y)&&cheb(G.party[0],{x,y})>1){const ok=await walkUpTo(x,y);const torch=G.torches.some(t=>t.x===x&&t.y===y);if(!ok&&!torch){if(mode==="explore")toast("You can't find a way over there.");return;}if(mode!=="explore"||busy||G.over)return;}
   {const d=doorAt(x,y);const L=G.party[0];if(d&&d.open&&!d.burnt&&cheb(L,d)===1&&!unitAt(x,y)){const ft=heroesUp().find(h=>h.id==="fighter");busy=true;try{
@@ -228,7 +231,7 @@ async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   G.walkTo=null;}
 // ---------- walking up to things, and the A (interact) button ----------
 // things you have to be next to before you can use them: tapping one from afar walks the leader over first
-function needsReach(x,y){if(!G.explored[y]||!G.explored[y][x])return false;if(stompable(x,y))return true;
+function needsReach(x,y){if(!G.explored[y]||!G.explored[y][x])return false;if(stompable(x,y))return true;if(gnd(x,y)===GROUND.powder)return true;
   if(G.torches.some(t=>t.x===x&&t.y===y)||G.dropLights.some(l=>l.x===x&&l.y===y))return true;
   if(G.traps.some(q=>q.x===x&&q.y===y&&q.disarmed&&!q.rearmFail)&&heroesUp().some(h=>h.id==="rogue"))return true;
   if(G.objs.some(o=>!o.gone&&o.x===x&&o.y===y&&(o.deco||o.type==="rubble"||o.type==="cavein")&&(BLOCKERS[o.type]||!o.seen)))return true;
@@ -247,7 +250,7 @@ async function walkUpTo(x,y){const L=G.party[0];if(cheb(L,{x,y})<=1)return true;
 function aKind(x,y){if(!inB(x,y))return null;const m=monAt(x,y);if(m&&seen(x,y)&&!isHiddenMon(m))return "bump";
   if(G.npc&&G.npc.x===x&&G.npc.y===y)return "bump";const d=doorAt(x,y);if(d&&!d.open)return "bump";if(d&&d.open&&!d.burnt&&!unitAt(x,y))return "tap";
   if((G.holes||[]).some(q=>q.x===x&&q.y===y))return "bump";if(needsReach(x,y))return "tap";const o=objAt(x,y);if(o&&BLOCKERS[o.type])return "bump";const t=trapAt(x,y);if(t&&t.found&&!t.done&&!t.disarmed)return "bump";return null;}
-async function pressA(){if(sayState){sayState.skip();return;}if(G&&G.look){toggleLook(false);return;}if(mode!=="explore"||busy||choosing||!G||G.over||G.demo)return;const L=G.party[0];
+async function pressA(){if(sayState){sayState.skip();return;}if(G&&G.scout){recallOwl();return;}if(G&&G.look){toggleLook(false);return;}if(mode!=="explore"||busy||choosing||!G||G.over||G.demo)return;const L=G.party[0];
   if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){busy=true;try{await stairsPrompt();}finally{if(mode==="explore")busy=false;}return;}
   const fd=L.face==="b"?[0,-1]:L.face==="f"?[0,1]:[L.flip?-1:1,0];
   const dirs=[fd].concat(DIRS8.filter(d=>d[0]!==fd[0]||d[1]!==fd[1]));

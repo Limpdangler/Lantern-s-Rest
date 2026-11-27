@@ -1,6 +1,6 @@
 // ================= combat engine =================
 function showCombatUI(on){$("controls").hidden=on;if($("lookBtn"))$("lookBtn").hidden=on;$("tglRow").hidden=on;$("cPanel").hidden=!on;$("strip").hidden=!on;if(!on){$("tBox").hidden=true;}}
-async function startCombat(o){o=o||{};if(mode==="combat"||mode==="combatEnd"||!G||G.over)return;busy=true;mode="combat";clearTimeout(toastT);
+async function startCombat(o){o=o||{};if(mode==="combat"||mode==="combatEnd"||!G||G.over)return;if(G.scout)recallOwl("The owl flees back to the wizard as fighting breaks out.");busy=true;mode="combat";clearTimeout(toastT);
   const parts=new Set();if(o.bumped)parts.add(o.bumped);for(const m of o.extra||[])parts.add(m);
   for(const m of G.mons){if(m.peace||m.hp<=0)continue;if(m.state==="hunt")parts.add(m);
     if(G.party.some(h=>!h.dead&&!h.down&&(monsterSees(Object.assign({},m,{state:"idle"}),h)||(seen(m.x,m.y)&&cheb(m,h)<=S.dungeon.sight))))parts.add(m);}
@@ -35,7 +35,7 @@ function loseTrack(){// enemies that can't see or reach the party for 3 rounds w
 function renderStrip(){const el=$("strip");el.innerHTML="";if(!C)return;
   const list=C.units.filter(u=>u.side==="h"?!u.dead:(u.hp>0&&u.inCombat));const ci=Math.max(0,list.indexOf(C.cur));
   for(let i=0;i<Math.min(list.length,9);i++){const u=list[(ci+i)%list.length];const c=document.createElement("canvas");c.width=c.height=16;const x=c.getContext("2d");
-    if(u.side==="h"){if(u.wild)x.drawImage(wildSpr(u),0,0);else if(u.id==="beast")x.drawImage(monSpr("wolf"),0,0);else x.drawImage(heroSpr(u.id,"f",0,u.race),0,2,16,16,0,0,16,16);}else if(HUMAN[u.sprite])x.drawImage(heroSpr(u.sprite,"f"),0,SMALL[u.sprite]?7:2,16,16,0,0,16,16);else{const im=monSpr(u.sprite);x.drawImage(im,0,0,im.width,im.height,0,0,16,16);}
+    if(u.side==="h"){if(u.wild)x.drawImage(wildSpr(u),0,0);else if(u.id==="beast")x.drawImage(monSpr("wolf"),0,0);else x.drawImage(heroSpr(u.look||u.id,"f",0,u.race),0,2,16,16,0,0,16,16);}else if(HUMAN[u.sprite])x.drawImage(heroSpr(u.sprite,"f"),0,SMALL[u.sprite]?7:2,16,16,0,0,16,16);else{const im=monSpr(u.sprite);x.drawImage(im,0,0,im.width,im.height,0,0,16,16);}
     c.className=(u.side==="m"?"m":"")+(i===0?" cur":"")+(u.down?" dn":"");el.appendChild(c);}}
 function checkEnd(){if(mode!=="combat")return true;
   if(!C.units.some(u=>u.side==="m"&&u.hp>0&&u.inCombat)){victory();return true;}
@@ -82,7 +82,7 @@ function afterAction(){if(mode!=="combat")return;if(checkEnd())return;const u=C.
   C.mode="move";C.tgt=null;C.panel="main";refreshReach();busy=false;buildPanel();
   const left=[];if(C.moveLeft)left.push(`${C.moveLeft} movement`);if(C.attacksLeft)left.push(`${C.attacksLeft} more attack${C.attacksLeft>1?"s":""}`);else if(C.actions)left.push(C.actions>1?`${C.actions} actions`:"your action");if(C.bonus)left.push("a bonus action");
   prompt(left.length?`${u.name}: you still have ${left.join(", ")}.${canAttack()&&foesOf(u).some(f=>inReachW(u,f,weaponOf(u,C.weapon)))?" An enemy is in reach!":""}`:`${u.name} is done. Tap END TURN.`);}
-function inReachW(a,t,w){const d=cheb(a,t);if(w.melee)return d<=1;return d<=longRange(w)&&los(a.x,a.y,t.x,t.y);}
+function inReachW(a,t,w){const d=cheb(a,t);if(w.melee)return d<=(w.reach||1);return d<=longRange(w)&&los(a.x,a.y,t.x,t.y);}
 function pathWarnings(u,path){const out=[];let px=u.x,py=u.y;const dis=C.disengaged;
   for(const k of path){const x=k%G.W,y=(k/G.W)|0;
     if(!dis)for(const e of foesOf(u))if(Math.max(Math.abs(e.x-px),Math.abs(e.y-py))===1&&Math.max(Math.abs(e.x-x),Math.abs(e.y-y))>1&&canReact(e)&&canMelee(e)&&!e.fleeing&&!e.st.prone){const s=`an opportunity attack from the ${e.name}`;if(!out.includes(s))out.push(s);}
@@ -94,7 +94,7 @@ function pathWarnings(u,path){const out=[];let px=u.x,py=u.y;const dis=C.disenga
 // ---------- tapping the map ----------
 async function onTile(x,y){const u=C.cur;if(C.mode==="target")return onTarget(x,y);
   const m=monAt(x,y),h=heroAt(x,y),o=objAt(x,y);
-  if(m&&m.inCombat){const w=weaponOf(u,C.weapon);if(needsArrow(u,w)&&!(G.bag.arrows>0)){prompt(`Out of arrows! Switch to your other weapon, or buy arrows from a merchant.`);return;}
+  if(m&&m.inCombat){const w=weaponOf(u,C.weapon);if(needsArrow(u,w)&&!(G.bag.arrows>0)){prompt(`Out of arrows! Switch to your other weapon, or buy arrows from a merchant.`);return;}if(!await gunReady(u,w))return;
     if(!canAttack()){prompt(`No attacks left this turn. ${m.name}: ${m.hp}/${m.maxHp} HP${acKnown(m)?", AC "+m.ac:""}.${loreBrief(m)}`);return;}
     if(!inReachW(u,m,w)){prompt(`The ${m.name} is ${cheb(u,m)} squares away: out of reach for your ${w.name} (${w.melee?"must stand next to it; the coloured squares show where everyone really stands":"range "+w.range+", needs a clear line"}). ${m.hp}/${m.maxHp} HP, AC ${m.ac}.`);return;}
     if(C.sel!==m){C.sel=m;const md=attackMods(u,m,w);prompt(`${w.name} vs ${m.name}: ${pctTxt(md,m)} to hit, ${dmgPreview(u,w,m)} damage${modsText(md)}. Tap again to attack.`);return;}
@@ -242,7 +242,7 @@ function actionButtons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;
     if(c.ok){delete u.st.restrained;await say(`Free! (${c.txt})`,800);}else await say(`Still stuck. (${c.txt})`,800);afterAction();}});
   for(const a of G.party)if(a!==u&&a.down&&!a.dead&&!a.stable&&cheb(a,u)<=1)B.push({t:`STABILIZE ${a.name.toUpperCase()}`,sub:"Action · Medicine DC 10 · stops death saves",dis:!act,f:async()=>{busy=true;C.actions--;const c=await check(u,"medicine",10);
     if(c.ok){a.stable=true;a.ds={s:0,f:0};await say(`The ${u.name} stops the bleeding. The ${a.name} is stable. (${c.txt})`,1000);}else await say(`The ${u.name} can't stop the bleeding. (${c.txt})`,900);hud();afterAction();}});
-  B.push(...snuffButtons(u),...classCombatButtons(u),...rules2Buttons(u),...shieldButtons(u),...armourButtons(u),...stompButtons(u));
+  B.push(...snuffButtons(u),...classCombatButtons(u),...rules2Buttons(u),...shieldButtons(u),...armourButtons(u),...stompButtons(u),...gunButtons(u));
   {const fast=u.id==="rogue";const ok=fast?C.bonus:hasAction()&&C.attacksLeft===0;const spend=()=>{if(fast)C.bonus=false;else C.actions--;};const cost=fast?"Bonus action (rogue)":"Action";
     if((G.bag.poisonvial||0)>0&&!u.coat&&!u.wild)B.push({t:"POISON YOUR WEAPON",sub:`${cost} · next attack +2d4 poison, CON save or poisoned`,dis:!ok,f:async()=>{busy=true;spend();takeItem("poisonvial");u.coat={name:"poison",type:"poison",dice:"2d4"};await say(`The ${u.name} smears poison along the weapon.`,800);afterAction();}});
     const acid=[[0,0]].concat(DIRS8).some(([dx,dy])=>gnd(u.x+dx,u.y+dy)===GROUND.acid);
@@ -283,6 +283,7 @@ async function monsterTurn(m){const T=m.tr;await wait(200);
     if(!near.length||Math.random()<.5){const c=saveRoll(m,"str",m.st.restrained.dc);if(c.ok){const by=m.st.restrained.by;delete m.st.restrained;await say(`The ${m.name} tears free of the ${by==="web"?"webbing":"vines"}!`,750);}
       else{await say(`The ${m.name} struggles against the ${m.st.restrained.by==="web"?"webbing":"vines"}.`,700);return;}}
     move=m.st.restrained?0:move;}
+  if(m.st.slowed){move=Math.max(1,Math.floor(move/2));m.st.slowed--;if(m.st.slowed<=0)delete m.st.slowed;}
   if(m.boss&&m.phase===1&&m.hp<=m.maxHp/2){m.phase=2;await bossPhase(m);}
   if(T.healer){if(m.healReady){const ally=friendsOf(m).filter(a=>a.hp<a.maxHp*.5&&cheb(a,m)<=6&&los(m.x,m.y,a.x,a.y)).sort((a,b)=>a.hp-b.hp)[0];
       if(ally){m.healReady=false;const n=roll("2d4+2").total;ally.hp=Math.min(ally.maxHp,ally.hp+n);float(ally,"+"+n,"#8aff7a");fx.push({type:"heal",u:ally,t:now()});await say(`The ${m.name} chants and heals the ${ally.name} for ${n}!`,900);}}else m.healReady=true;}

@@ -163,7 +163,7 @@ function rollItem(rich){const pool=Object.entries(ITEMS).filter(([k,v])=>v.floor
 function rollLoot(rich){const items=[];const n=rich?2:ri(1,2);for(let i=0;i<n;i++)items.push(rollItem(rich));
   if(rich&&!items.some(k=>ITEMS[k].kind==="gear")){const g=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&ITEMS[k].floor<=G.floor);items[0]=pick(g);}
   return {gold:ri(8,20)*G.floor*(rich?2:1),items};}
-function shopStock(){const s=["potion","potion","oil","oil","torch","firewood","firewood","arrows","arrows","flashpowder","antitoxin","scroll_cure","scroll_mm","shield"];if(!(G.lore&&G.lore.forage)&&Math.random()<.5)s.push("almanac");if(G.floor>=3)s.push("gpotion","scroll_fb");
+function shopStock(){const s=["potion","potion","oil","oil","torch","firewood","firewood","arrows","arrows","flashpowder","antitoxin","scroll_cure","scroll_mm","shield"];if(G.party.some(h=>h.sub==="gunslinger"))s.push("bullets","bullets");if(!(G.lore&&G.lore.forage)&&Math.random()<.5)s.push("almanac");if(G.floor>=3)s.push("gpotion","scroll_fb");
   const gear=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&ITEMS[k].floor<=G.floor);shuffle(gear);return s.concat(gear.slice(0,2));}
 
 // ---------- light & sight ----------

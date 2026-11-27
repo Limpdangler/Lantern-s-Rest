@@ -116,6 +116,8 @@ function drawChar2Inner(key,dir,frame,race){const L=LOOKS[key]||LOOKS.fighter;co
   if(L.circlet&&!back){for(let x=5;x<12;x++)if(P.px[7][x])put2(P,x,7,L.circlet,3,P.z+1);if(!side)px2(P,8,7,"#7ad8ff");}
   if(L.leaves){for(const [x,y] of (side?[[5,4],[7,3],[9,4],[6,3]]:[[4,5],[5,4],[7,3],[9,3],[11,4],[12,5],[8,3]]))put2(P,x,y,L.leaves,3,P.z+1);px2(P,side?8:8,4,"#e8d070");}
   if(L.hood)hood2(P,L,dir,H);
+  if(L.cowboy){const hc=L.cowboy;ell2(P,side?8:hx,hy-1,side?7.2:7.6,1.5,hc,{bias:-.15});cyl2(P,side?5:Math.round(hx-3.5),hy-5,side?6:7,4,hc,{taper:.2});
+    for(let x=0;x<16;x++)if(P.px[hy-2]&&P.px[hy-2][x]&&P.px[hy-2][x].c===hc)put2(P,x,hy-2,"#3a2414",3,P.z+1);}
   if(L.hat){const hc=L.hat;ell2(P,side?8:hx,hy-2.5,side?5.6:6.2,1.7,hc,{bias:-.1});
     for(let y=-3;y<5;y++){const w=Math.max(1,Math.round((y+3)*.55)+1);const cx=(side?7:hx)+(y<0?-1-(y+3)*.5:0);cyl2(P,Math.round(cx-w/2),hy-3-(5-y)+1,w,1,hc,{flat:1});}
     for(let x=4;x<13;x++)if(P.px[hy-3]&&P.px[hy-3][x]&&P.px[hy-3][x].c===hc)put2(P,x,hy-3,L.trim||"#e0b848",3,P.z+1);}

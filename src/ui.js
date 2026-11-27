@@ -39,7 +39,7 @@ function hud(){if(!G||G.demo)return;if(mode==="explore"&&!C&&!choosing){$("contr
   for(let i=0;i<Math.max(S.dungeon.party,G.party.length);i++){const h=G.party[i];const d=document.createElement("div");
     if(!h){d.className="pc empty";d.textContent="empty";box.appendChild(d);continue;}
     d.className="pc"+(C&&C.cur===h?" cur":"")+(h.down?" down":"");
-    const c=document.createElement("canvas");c.width=16;c.height=CH_H;const cx=c.getContext("2d");if(h.wild)cx.drawImage(wildSpr(h),0,10);else cx.drawImage(heroSpr(h.id,"f",0,h.race),0,0);d.appendChild(c);
+    const c=document.createElement("canvas");c.width=16;c.height=CH_H;const cx=c.getContext("2d");if(h.wild)cx.drawImage(wildSpr(h),0,10);else cx.drawImage(heroSpr(h.look||h.id,"f",0,h.race),0,0);d.appendChild(c);
     const hp=h.wild?h.wild.hp:h.hp,mx=h.wild?h.wild.max:h.maxHp;const p=Math.max(0,hp/mx);
     const tag=h.dead?"DEAD":h.down?(h.stable?"STABLE":S.rules.deathSaves?`DOWN ${h.ds.s}✓${h.ds.f}✗`:"DOWN"):`${hp}/${mx}${h.wild?" 🐺":""}`;
     const cond=[h.insp?"INSPIRED":"",h.luck?"LUCK "+h.luck:"",h.coat?h.coat.name.toUpperCase()+" BLADE":"",h.ward?"WARD "+h.ward:"",h.thp?"TEMP "+h.thp:"",h.st.giant?"GIANT":"",h.st.raging?"RAGE":"",h.st.poisoned?"PSN":"",h.st.restrained?"STUCK":"",h.st.prone?"PRONE":"",h.st.blessed?"BLESS":"",h.st.frightened?"FEAR":"",h.st.hidden?"HID":"",h.conc?"CONC":""].filter(Boolean).join(" ");
@@ -71,7 +71,8 @@ const flashing=(u,t)=>fx.some(f=>f.type==="flash"&&f.u===u&&t-f.t<420&&Math.floo
 function lungeOff(u,t){for(const f of fx)if(f.type==="lunge"&&f.u===u){const p=(t-f.t)/220;if(p<1)return [f.dx*Math.sin(p*Math.PI)*5,f.dy*Math.sin(p*Math.PI)*5];}return [0,0];}
 function draw(t,dt){const sp=dt*TS/115;
   for(const u of G.party.concat(G.mons)){const k=(G.sneak&&u.side==="h"&&mode==="explore"?.6:1)*sp;u.dx=approach(u.dx,u.x*TS,k*(Math.abs(u.dx-u.x*TS)>48?6:1));u.dy=approach(u.dy,u.y*TS,k*(Math.abs(u.dy-u.y*TS)>48?6:1));}
-  const focus=G.demo?null:(camFocus&&mode==="combat"?camFocus:C&&C.cur?C.cur:G.party[0]);
+  if(G.scout){const s=G.scout;s.dx=s.dx===undefined?s.x*TS:approach(s.dx,s.x*TS,3);s.dy=s.dy===undefined?s.y*TS:approach(s.dy,s.y*TS,3);}
+  const focus=G.demo?null:(G.scout&&mode==="explore"?G.scout:camFocus&&mode==="combat"?camFocus:C&&C.cur?C.cur:G.party[0]);
   {const L=G.party&&G.party[0];let gx=0,gy=0;if(G.look&&mode==="explore"&&L&&!G.demo){if(L.face==="s")gx=L.flip?-1:1;else gy=L.face==="b"?-1:1;}if(mode!=="explore")G.look=false;
     lookX+=(gx*TS*6-lookX)*.15;lookY+=(gy*TS*4-lookY)*.15;if(Math.abs(lookX)<.5&&!gx)lookX=0;if(Math.abs(lookY)<.5&&!gy)lookY=0;}
   if(focus){const tx=Math.max(0,Math.min(G.W*TS-SW,focus.dx-SW/2+8+(mode==="explore"?lookX:0))),ty=Math.max(0,Math.min(G.H*TS-SH,focus.dy-SH/2+8+(mode==="combat"?14:0)+(mode==="explore"?lookY:0)));
@@ -101,7 +102,7 @@ function draw(t,dt){const sp=dt*TS/115;
   for(const m of G.mons)if(vis(m.x,m.y)&&(G.demo||!isHiddenMon(m)))ents.push({y:m.dy,f:()=>drawMon(m,camX,camY,t)});
   if(!G.demo)for(const h of G.party)ents.push({y:h.dy+(h.down?-4:0),f:()=>drawHero(h,camX,camY,t)});
   ents.sort((a,b)=>a.y-b.y).forEach(e=>e.f());
-  if(!G.demo){drawHoles(camX,camY);drawSmoke(camX,camY,t);}drawCombatMarkers(t,camX,camY);drawFx(t,camX,camY);}
+  if(!G.demo){drawPowder(camX,camY);drawHoles(camX,camY);drawSmoke(camX,camY,t);}drawCombatMarkers(t,camX,camY);drawFx(t,camX,camY);}
 function drawFire(sx,sy,t,k){const fl=["#ff4a20","#ff9a30","#ffe070"];for(let i=0;i<4;i++){const h=6+Math.abs(Math.sin(t/120+i*1.7+k))*7;const x=sx+2+i*3.5;
   ctx.fillStyle=fl[0];ctx.fillRect(Math.round(x),Math.round(sy+15-h),3,Math.round(h));ctx.fillStyle=fl[1];ctx.fillRect(Math.round(x)+1,Math.round(sy+15-h*.7),2,Math.round(h*.7));ctx.fillStyle=fl[2];ctx.fillRect(Math.round(x)+1,Math.round(sy+15-h*.35),1,Math.round(h*.35));}}
 function drawFlames(sx,sy,t){const X=Math.round(sx),Y=Math.round(sy),fl=Math.floor(t/90)%2;ctx.fillStyle="#ff6a1a";ctx.fillRect(X+3,Y+4+fl,4,6);ctx.fillRect(X+9,Y+3-fl,4,7);ctx.fillStyle="#ffc040";ctx.fillRect(X+4,Y+6+fl,2,3);ctx.fillRect(X+10,Y+5-fl,2,3);ctx.fillStyle="rgba(60,50,50,.4)";ctx.fillRect(X+5,Y-3-fl,6,3);}
@@ -147,13 +148,13 @@ function drawObj(o,sx,sy,t){
   if(o.type==="merchant"){shadow(sx,sy);drawImg(heroSpr("merchant","f"),sx,sy-12);if(mode==="explore"){ctx.fillStyle="#f0c040";ctx.font="600 8px 'Pixelify Sans', sans-serif";ctx.textAlign="center";outlined("$",sx+8,sy-12-Math.floor(t/400)%2,"#f0c040");}}}
 function drawIcon(id,sx,sy){ctx.save();ctx.translate(Math.round(sx),Math.round(sy));drawIconBase(ctx,id);ctx.restore();}
 function drawHero(h,camX,camY,t){const [ox,oy]=lungeOff(h,t);const e=elevAt(h.x,h.y)*3;const sx=h.dx-camX+ox,sy=h.dy-camY+oy-e;const isCur=C&&C.cur===h&&mode==="combat";
-  if(h.down){ctx.save();ctx.globalAlpha=h.dead?.45:.75;ctx.translate(Math.round(sx)+8,Math.round(sy)+10);ctx.rotate(-Math.PI/2);ctx.drawImage(heroSpr(h.id,"f",0,h.race),-14,-8);ctx.restore();
+  if(h.down){ctx.save();ctx.globalAlpha=h.dead?.45:.75;ctx.translate(Math.round(sx)+8,Math.round(sy)+10);ctx.rotate(-Math.PI/2);ctx.drawImage(heroSpr(h.look||h.id,"f",0,h.race),-14,-8);ctx.restore();
     if(h.dead){ctx.fillStyle="#d8d0e0";ctx.fillRect(Math.round(sx)+7,Math.round(sy)-2,2,8);ctx.fillRect(Math.round(sx)+5,Math.round(sy),6,2);}return;}
   if(isCur){ctx.fillStyle="rgba(255,220,80,.55)";ctx.fillRect(Math.round(sx)+2,Math.round(sy)+12,12,4);}
   const moving=h.dx!==h.x*TS||h.dy!==h.y*TS;shadow(sx,sy);
   if(h.st.hidden)ctx.globalAlpha=.5;
-  if(!flashing(h,t)){if(h.wild)drawImg(wildSpr(h),sx,sy-(moving&&Math.floor(t/120)%2?1:0),h.flip);else if(h.st.prone){ctx.save();ctx.translate(Math.round(sx)+8,Math.round(sy)+10);ctx.rotate(-Math.PI/2);ctx.drawImage(heroSpr(h.id,"f",0,h.race),-14,-8);ctx.restore();}
-    else drawImg(heroSpr(h.id,h.face,walkFrame(h),h.race),sx,sy-12,h.face==="s"&&h.flip);}
+  if(!flashing(h,t)){if(h.wild)drawImg(wildSpr(h),sx,sy-(moving&&Math.floor(t/120)%2?1:0),h.flip);else if(h.st.prone){ctx.save();ctx.translate(Math.round(sx)+8,Math.round(sy)+10);ctx.rotate(-Math.PI/2);ctx.drawImage(heroSpr(h.look||h.id,"f",0,h.race),-14,-8);ctx.restore();}
+    else drawImg(heroSpr(h.look||h.id,h.face,walkFrame(h),h.race),sx,sy-12,h.face==="s"&&h.flip);}
   ctx.globalAlpha=1;
   if(h.st.raging){ctx.fillStyle=`rgba(255,60,30,${.18+.12*Math.sin(t/80)})`;ctx.fillRect(Math.round(sx)+2,Math.round(sy)-12,12,27);}
   statusIcons(h,sx,sy-(h.wild?0:12),t);
@@ -314,7 +315,7 @@ function renderShop(){const el=$("shopBody");el.innerHTML=`<p>"Lamp oil, rope, b
     d.insertAdjacentHTML("beforeend",`<div><b>${esc(label.startsWith("BUY")?it.name:itemName(id))}</b><br><span class="sm">${esc(label.startsWith("BUY")?it.desc:itemDesc(id))}</span></div>`);const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=`${label} ${price}g`;b.disabled=!!dis;b.addEventListener("click",f);d.appendChild(b);el.appendChild(d);};
   if(shopObj.haggleMsg)el.insertAdjacentHTML("beforeend",`<p class="help">${esc(shopObj.haggleMsg)}</p>`);
   else{const hb=document.createElement("button");hb.type="button";hb.className="chip";hb.textContent=`HAGGLE · ${oddsTag(bestAt("persuasion"),"persuasion",13)}`;hb.addEventListener("click",()=>haggle());el.appendChild(hb);}
-  shopObj.stock.forEach((id,i)=>{const pr=shopPrice(id);row(id,pr,id==="arrows"?"BUY 10":"BUY",()=>{G.gold-=pr;addItem(id,id==="arrows"?10:1);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<pr||(id==="shield"&&(G.bag.shield||0)>=1));});
+  shopObj.stock.forEach((id,i)=>{const pr=shopPrice(id);row(id,pr,id==="arrows"||id==="bullets"?"BUY 10":"BUY",()=>{G.gold-=pr;addItem(id,id==="arrows"||id==="bullets"?10:1);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<pr||(id==="shield"&&(G.bag.shield||0)>=1));});
   el.insertAdjacentHTML("beforeend","<h3>SELL</h3>");const ids=Object.keys(G.bag).filter(id=>ITEMS[id].price>0);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Nothing to sell.</p>");
   for(const id of ids){const p=Math.floor(ITEMS[id].price/2);row(id,p,`SELL (${G.bag[id]})`,()=>{takeItem(id);G.gold+=p;shopObj.stock.push(id);renderShop();hud();});
     if(!isKnown(id))row(id,20,"IDENTIFY",()=>{G.gold-=20;G.known.add(id);renderShop();hud();},G.gold<20);}}

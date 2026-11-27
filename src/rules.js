@@ -247,7 +247,7 @@ async function breakBarrel(o,fire,dx,dy){o.gone=true;const tiles=[[o.x,o.y]];
 async function walk(u,path,o){o=o||{};
   for(const k of path){const x=k%G.W,y=(k/G.W)|0;
     if(C&&!o.noOA){const dis=(C.cur===u&&C.disengaged)||u.disengaged;
-      if(!dis){const threats=foesOf(u).filter(e=>cheb(e,u)===1&&cheb(e,{x,y})>1&&canReact(e)&&canMelee(e)&&!e.fleeing&&!e.st.prone&&!(e.side==="h"&&e.down));// prone creatures can't make opportunity attacks
+      if(!dis){const threats=foesOf(u).filter(e=>cheb(e,u)===1&&cheb(e,{x,y})>1&&canReact(e)&&canMelee(e)&&!e.fleeing&&!e.st.prone&&!(e.side==="h"&&e.down)&&!(u.tr&&u.tr.flyby));// prone creatures can't make opportunity attacks
         for(const e of threats){if(e.side==="h"&&!await askReact(e,`The ${u.name} is moving away from the ${e.name}. Take an opportunity attack?`))continue;e.reaction=false;await say(`The ${e.name} lashes out as the ${u.name} moves away!`,650);const r=await attack(e,u,meleeWeapon(e),{});if(u.hp<=0&&u.side==="m"||u.down||u.dead)return false;
           if(r&&r.hit&&(hasFeat(e,"sentinel")||(e.side==="h"&&e.id==="fighter"))){await say(`The ${e.name} holds the line: the ${u.name} is stopped in its tracks!`,850);return false;}}}}
     const d=doorAt(x,y);if(d&&!d.open){d.open=true;computeLight();}
