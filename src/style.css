@@ -5,7 +5,7 @@
   --shell:#2c5b5e; --shell-dark:#1f4245; --bezel:#191b22; --cream:#efe6cf; --muted:#a9c2bf;
   --btn:#b8324a; --btn-dark:#7d1f33; --pad:#17191f; --good:#7fd35a; --warn:#f2c14e; --bad:#ff6b5b; --gold:#f2c14e; --magic:#9fb4ff;
   --box:#f8f6ec; --box-ink:#30303c; --box-edge:#4d6378; --box-edge2:#8fb0c8;
-  --pixel:"Press Start 2P", ui-monospace, monospace; --body:"Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  --pixel:"Press Start 2P", ui-monospace, monospace; --body:"Nunito", ui-rounded, system-ui, sans-serif;
   color-scheme:dark;
 }
 html,body{height:100%}
@@ -275,3 +275,10 @@ input.err{border-color:var(--bad);background:#4a1f26}
 .app.wide #colL>.strip{position:absolute;top:2px;left:50%;transform:translateX(-50%)}
 .app.wide #colL .cbtns.list{max-height:172px}
 .app.wide #chPanel{min-height:0}
+
+body{font-variant-ligatures:none;font-feature-settings:"liga" 0,"lnum" 1}
+.hud b,.cstat,.pc{font-variant-numeric:lining-nums}
+
+.lookbtn{position:absolute;top:2.5%;right:2%;font-family:var(--pixel);font-size:2.6cqw;padding:.6em .8em;border-radius:999px;border:2px solid #143032;background:rgba(10,24,26,.75);color:var(--cream);cursor:pointer;z-index:2}
+.lookbtn.on{background:var(--gold);color:#1b1420;border-color:#7a5a10}
+.app.wide .lookbtn{font-size:min(2.6cqw,12px)}

@@ -6,7 +6,7 @@ body=open("src/body.html").read()
 head='''<meta charset="utf-8">\n<title>Lantern Crawl</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@500;700;800&display=swap">
 '''
 out=head+"<style>\n"+css+"\n</style>\n\n"+body+"\n<script>\n(function(){\n\"use strict\";\n"+js+"\n})();\n</script>\n"
 open("dist/lantern-crawl.html","w").write(out)

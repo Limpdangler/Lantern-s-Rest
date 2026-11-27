@@ -247,7 +247,7 @@ async function walkUpTo(x,y){const L=G.party[0];if(cheb(L,{x,y})<=1)return true;
 function aKind(x,y){if(!inB(x,y))return null;const m=monAt(x,y);if(m&&seen(x,y)&&!isHiddenMon(m))return "bump";
   if(G.npc&&G.npc.x===x&&G.npc.y===y)return "bump";const d=doorAt(x,y);if(d&&!d.open)return "bump";if(d&&d.open&&!d.burnt&&!unitAt(x,y))return "tap";
   if((G.holes||[]).some(q=>q.x===x&&q.y===y))return "bump";if(needsReach(x,y))return "tap";const o=objAt(x,y);if(o&&BLOCKERS[o.type])return "bump";const t=trapAt(x,y);if(t&&t.found&&!t.done&&!t.disarmed)return "bump";return null;}
-async function pressA(){if(sayState){sayState.skip();return;}if(mode!=="explore"||busy||choosing||!G||G.over||G.demo)return;const L=G.party[0];
+async function pressA(){if(sayState){sayState.skip();return;}if(G&&G.look){toggleLook(false);return;}if(mode!=="explore"||busy||choosing||!G||G.over||G.demo)return;const L=G.party[0];
   if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){busy=true;try{await stairsPrompt();}finally{if(mode==="explore")busy=false;}return;}
   const fd=L.face==="b"?[0,-1]:L.face==="f"?[0,1]:[L.flip?-1:1,0];
   const dirs=[fd].concat(DIRS8.filter(d=>d[0]!==fd[0]||d[1]!==fd[1]));

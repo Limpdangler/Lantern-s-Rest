@@ -120,7 +120,7 @@ async function jumpOver(dx,dy){const L=G.party[0];const hx=L.x+dx,hy=L.y+dy,tx=L
   for(const h of G.party){if(h.dead)continue;const sure=perkOf(h,"surefooted")||(h.wild&&["wolf","spider","cat"].includes(h.wild.form));const adv=perkOf(h,"springheel");
     const r=sure?{ok:true,txt:"surefooted"}:await check(h,"athletics",10,{quiet:true,adv});const [px,py]=h===L?[tx,ty]:(near[k++]||[tx,ty]);
     if(r.ok){h.x=px;h.y=py;}else{h.x=hx;h.y=hy;lines.push(`The ${h.name} comes up short and lands in it! (${r.txt})`);}
-    h.dx=h.x*TS;h.dy=h.y*TS;}
+    hop(h,2);await wait(420);}
   fov();computeLight();hud();
   for(const h of G.party){if(h.dead||h.x!==hx||h.y!==hy)continue;
     if(hazardTrap&&!hazardTrap.done){await triggerTrap(hazardTrap,h);}else if(gnd(hx,hy)===GROUND.acid){await dealDamage(h,roll("1d6").total,"acid",{});}
@@ -135,6 +135,7 @@ async function fireOnTile(x,y,by){let what=[];
   const t=G.torches.find(q=>q.x===x&&q.y===y);if(t&&t.out){t.out=false;what.push("the wall torch flares back to life");}
   return what;}
 async function aimAt(x,y){const a=G.aim;G.aim=null;const h=a.by;const range=a.kind==="torch"?6:12;
+  if(a.kind==="oil"){if(cheb(h,{x,y})>6||(!litTorchAt(x,y)&&!los(h.x,h.y,x,y))){toast("You can't throw that far.");return;}busy=true;try{takeItem("oil");await throwOil(x,y,h);}finally{busy=false;}$("tBox").hidden=true;hud();return;}
   if(cheb(h,{x,y})>range||!los(h.x,h.y,x,y)){toast("You can't hit that from here.");return;}
   if(monAt(x,y)&&!monAt(x,y).peace){toast("To attack a creature, tap it to start a fight.");return;}
   busy=true;try{if(a.kind==="torch"){takeItem("torch");fx.push({type:"shot",from:{x:h.x,y:h.y},to:{x,y},t:now(),col:"#ffb040"});await wait(250);G.dropLights.push({x,y});
@@ -143,6 +144,7 @@ async function aimAt(x,y){const a=G.aim;G.aim=null;const h=a.by;const range=a.ki
       await say(what.length?`Fire Bolt! ${cap(what.join(", "))}.`:"The Fire Bolt splashes harmlessly against the stone.",1100,true);}
   }finally{busy=false;}$("tBox").hidden=true;computeLight();fov();hud();}
 function aimButtons(h){const A=[];if(G.party[0]!==h)return A;
+  if((G.bag.oil||0)>0)A.push({t:"THROW AN OIL FLASK",sub:`A 2×2 puddle up to 6 squares away, or hit a lit wall torch to set the floor below ablaze · ${G.bag.oil} left`,f:()=>{G.aim={kind:"oil",by:h};closeMenu();toast("Tap where to throw the oil (a square, or a lit torch on a wall).");}});
   if((G.bag.torch||0)>0)A.push({t:"THROW A TORCH",sub:`Light up a spot up to 6 squares away; sets oil, wood and webs alight · ${G.bag.torch} left`,f:()=>{G.aim={kind:"torch",by:h};closeMenu();toast("Tap where to throw the torch (up to 6 squares).");}});
   return A;}
 function wizardFire(h){if(h.id!=="wizard"||h.wild)return [];return [{t:"FIRE BOLT",sub:"Cantrip: set fire to a door, barrel, web or oil, or relight a torch, up to 12 squares away",f:()=>{G.aim={kind:"firebolt",by:h};closeMenu();toast("Tap what to set alight (up to 12 squares).");}}];}
@@ -161,3 +163,24 @@ async function scorchMimics(){for(const o of G.objs){if(o.type!=="chest"||!o.mim
 {const base=scorch;scorch=async()=>{await base();await scorchMimics();};}
 
 function saveOdds(u,a,dc){const need=dc-saveBonus(u,a);const p=Math.max(5,Math.min(95,(21-need)*5));return `${p}% chance`;}
+
+// ---------- throwing an oil flask ----------
+const litTorchAt=(x,y)=>G.torches.some(t=>t.x===x&&t.y===y&&!t.out);
+async function throwOil(x,y,from){const floorOK=(a,b)=>inB(a,b)&&!isWall(a,b)&&!blocksObj(a,b)&&gnd(a,b)!==GROUND.water&&gnd(a,b)!==GROUND.deep;
+  fx.push({type:"shot",from:{x:from.x,y:from.y},to:{x,y},t:now(),col:"#c8a050"});await wait(220);
+  if(isWall(x,y)&&litTorchAt(x,y)){// splashes the burning torch: half runs down the wall, the rest lands on the floor in front and goes up at once
+    const fronts=DIRS4.map(([a,b])=>[x+a,y+b]).filter(([a,b])=>floorOK(a,b)).sort((p,q)=>cheb({x:p[0],y:p[1]},from)-cheb({x:q[0],y:q[1]},from));
+    if(!fronts.length){await say("The flask smashes against the wall. The oil runs down the stone and fizzles out.",1000,true);return;}
+    const [fx0,fy0]=fronts[0];const along=[[fx0+(fy0!==y?1:0),fy0+(fx0!==x?1:0)],[fx0-(fy0!==y?1:0),fy0-(fx0!==x?1:0)],[fx0+(fx0-x),fy0+(fy0-y)]].filter(([a,b])=>floorOK(a,b));
+    const tiles=[[fx0,fy0]].concat(along.slice(0,1));spill(fx0,fy0,tiles);igniteAt(fx0,fy0);computeLight();
+    await say("The flask shatters against the burning torch: oil sprays down the wall and the floor below bursts into flame!",1200,true);await scorch();$("tBox").hidden=true;return;}
+  const dx=Math.sign(x-from.x)||1,dy=Math.sign(y-from.y)||1;const tiles=[[x,y],[x+dx,y],[x,y+dy],[x+dx,y+dy]];spill(x,y,tiles);
+  const hot=tiles.some(([a,b])=>fireAt(a,b)||DIRS8.some(([p,q])=>fireAt(a+p,b+q))||litTorchAt(a,b));
+  await say(hot?"The flask shatters right by the flames. FWOOSH!":"The flask shatters. Slick oil spreads across the floor.",900,true);
+  if(hot){igniteAt(x,y);await scorch();}$("tBox").hidden=true;computeLight();fov();}
+// ---------- a little hop when someone jumps ----------
+{const base=lungeOff;lungeOff=(u,t)=>{const r=base(u,t);if(u.hop){const p=(t-u.hop.t0)/u.hop.dur;if(p>=1)delete u.hop;else return [r[0],r[1]-Math.sin(Math.PI*p)*u.hop.h];}return r;};}
+function hop(u,squares){u.hop={t0:now(),dur:260+90*(squares||1),h:6+3*(squares||1)};}
+// ---------- looking ahead: the view slides further in the direction you face ----------
+let lookX=0,lookY=0;
+function toggleLook(on){if(!G||G.demo)return;G.look=on===undefined?!G.look:on;const b=$("lookBtn");if(b)b.classList.toggle("on",!!G.look);if(G.look)toast("Looking ahead. Turn with the D-pad to look another way; press LOOK again (or A) to stop.");}

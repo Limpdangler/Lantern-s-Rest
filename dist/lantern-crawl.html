@@ -2,7 +2,7 @@
 <title>Lantern Crawl</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@500;700;800&display=swap">
 <style>
 
 /* Layout: one-screen handheld. 240x160 screen on top (exploration and grid battles happen on the same map),
@@ -11,7 +11,7 @@
   --shell:#2c5b5e; --shell-dark:#1f4245; --bezel:#191b22; --cream:#efe6cf; --muted:#a9c2bf;
   --btn:#b8324a; --btn-dark:#7d1f33; --pad:#17191f; --good:#7fd35a; --warn:#f2c14e; --bad:#ff6b5b; --gold:#f2c14e; --magic:#9fb4ff;
   --box:#f8f6ec; --box-ink:#30303c; --box-edge:#4d6378; --box-edge2:#8fb0c8;
-  --pixel:"Press Start 2P", ui-monospace, monospace; --body:"Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  --pixel:"Press Start 2P", ui-monospace, monospace; --body:"Nunito", ui-rounded, system-ui, sans-serif;
   color-scheme:dark;
 }
 html,body{height:100%}
@@ -282,6 +282,13 @@ input.err{border-color:var(--bad);background:#4a1f26}
 .app.wide #colL .cbtns.list{max-height:172px}
 .app.wide #chPanel{min-height:0}
 
+body{font-variant-ligatures:none;font-feature-settings:"liga" 0,"lnum" 1}
+.hud b,.cstat,.pc{font-variant-numeric:lining-nums}
+
+.lookbtn{position:absolute;top:2.5%;right:2%;font-family:var(--pixel);font-size:2.6cqw;padding:.6em .8em;border-radius:999px;border:2px solid #143032;background:rgba(10,24,26,.75);color:var(--cream);cursor:pointer;z-index:2}
+.lookbtn.on{background:var(--gold);color:#1b1420;border-color:#7a5a10}
+.app.wide .lookbtn{font-size:min(2.6cqw,12px)}
+
 </style>
 
 <div class="app" id="app">
@@ -297,6 +304,7 @@ input.err{border-color:var(--bad);background:#4a1f26}
   <div class="bezel">
     <div class="screen" id="screenWrap">
       <canvas id="screen" width="240" height="160" aria-label="Game screen"></canvas>
+      <button class="lookbtn" id="lookBtn" type="button" aria-label="Look ahead">LOOK</button>
       <div class="tbox" id="tBox" hidden><span id="tText"></span><i id="tMore" hidden>▼</i></div>
     </div>
   </div>
@@ -1550,7 +1558,7 @@ async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?
   return false;}
 function alarm(x,y){for(const m of G.mons)if(m.hp>0&&!m.peace&&Math.abs(m.x-x)+Math.abs(m.y-y)<=20&&m.state!=="combat"){m.state="hunt";m.bubble=now()+900;}}
 function igniteAt(x,y){if(!inB(x,y))return;const k=y*G.W+x;if(gnd(x,y)===GROUND.oil){const q=[k],sn=new Set([k]);while(q.length){const c=q.shift();G.fire.set(c,3);const cx=c%G.W,cy=(c/G.W)|0;
-      for(const [dx,dy] of DIRS4){const nx=cx+dx,ny=cy+dy,nk=ny*G.W+nx;if(inB(nx,ny)&&!sn.has(nk)&&gnd(nx,ny)===GROUND.oil){sn.add(nk);q.push(nk);}}}
+      for(const [dx,dy] of DIRS8){const nx=cx+dx,ny=cy+dy,nk=ny*G.W+nx;if(inB(nx,ny)&&!sn.has(nk)&&gnd(nx,ny)===GROUND.oil){sn.add(nk);q.push(nk);}}}
     fx.push({type:"boom",x,y,t:now()});computeLight();if(G.vis)fov();}
   const o=G.objs.find(q=>q.x===x&&q.y===y&&!q.gone&&isWooden(q));if(o)setAlight(o);}
 const isWooden=o=>!o.burnt&&!o.gone&&((o.type==="door"&&!o.iron&&!o.open)||(o.type==="chest"&&!o.mimic)||o.type==="wood"||o.type==="furniture"||o.type==="web");
@@ -1562,12 +1570,11 @@ function burnObjects(){for(const o of G.objs){if(!o.burn||o.gone)continue;o.burn
   // flames jump to wooden things next to a fire
   for(const k of [...G.fire.keys()]){const x=k%G.W,y=(k/G.W)|0;for(const o of G.objs)if(isWooden(o)&&!o.burn&&cheb(o,{x,y})<=1&&(o.x!==x||o.y!==y)&&Math.random()<(o.type==="web"?.9:.3))setAlight(o);}}
 async function scorch(){for(const u of G.party.concat(G.mons.slice())){if(u.dead||u.hp<=0&&u.side==="m")continue;if(fireAt(u.x,u.y)&&u._scorch!==(C?C.round:-1)){u._scorch=C?C.round:-1;await dealDamage(u,roll("2d4").total,"fire",{});}}}
-function tickFire(){burnObjects();tickSmoke();for(const o of G.objs)if(o.burn&&!o.gone)addSmoke(o.x,o.y,3);let burnt=false;for(const [k,v] of [...G.fire]){if(v<=1){G.fire.delete(k);const x=k%G.W,y=(k/G.W)|0;if(gnd(x,y)===GROUND.oil){G.ground[y][x]=0;burnt=true;}}else G.fire.set(k,v-1);}
+function tickFire(){burnObjects();{const lit=[];for(const k of G.fire.keys()){const x=k%G.W,y=(k/G.W)|0;for(const [a,b] of DIRS8){const nx=x+a,ny=y+b;if(inB(nx,ny)&&gnd(nx,ny)===GROUND.oil&&!G.fire.has(ny*G.W+nx))lit.push([nx,ny]);}}for(const [x,y] of lit)igniteAt(x,y);}tickSmoke();for(const o of G.objs)if(o.burn&&!o.gone)addSmoke(o.x,o.y,3);let burnt=false;for(const [k,v] of [...G.fire]){if(v<=1){G.fire.delete(k);const x=k%G.W,y=(k/G.W)|0;if(gnd(x,y)===GROUND.oil){G.ground[y][x]=0;burnt=true;}}else G.fire.set(k,v-1);}
   if(burnt)buildTerrain();computeLight();}
 function spill(cx,cy,tiles){for(const [x,y] of tiles){if(!inB(x,y)||isWall(x,y)||gnd(x,y)===GROUND.water||blocksObj(x,y)&&!(x===cx&&y===cy))continue;if(gnd(x,y)===0||gnd(x,y)===GROUND.rubble)G.ground[y][x]=GROUND.oil;}buildTerrain();}
 async function breakBarrel(o,fire,dx,dy){o.gone=true;const tiles=[[o.x,o.y]];
-  if(dx||dy){for(let i=1;i<=2;i++)tiles.push([o.x+dx*i,o.y+dy*i]);tiles.push([o.x+dx+(dy?1:0),o.y+dy+(dx?1:0)],[o.x+dx-(dy?1:0),o.y+dy-(dx?1:0)]);}
-  else for(const [ax,ay] of DIRS8)tiles.push([o.x+ax,o.y+ay]);
+  for(const [ax,ay] of DIRS8)tiles.push([o.x+ax,o.y+ay]);// always a 3x3 puddle
   spill(o.x,o.y,tiles);await say(fire?"The barrel bursts and the oil goes up in flames!":"The barrel splits open. Oil floods the floor!",900);
   if(fire){igniteAt(o.x,o.y);await scorch();}}
 
@@ -1610,7 +1617,7 @@ function addItem(id,n){G.bag[id]=(G.bag[id]||0)+(n||1);}
 function takeItem(id,n){if(!G.bag[id])return false;G.bag[id]-=Math.min(G.bag[id],n||1);if(!G.bag[id])delete G.bag[id];return true;}
 
 // ================= combat engine =================
-function showCombatUI(on){$("controls").hidden=on;$("tglRow").hidden=on;$("cPanel").hidden=!on;$("strip").hidden=!on;if(!on){$("tBox").hidden=true;}}
+function showCombatUI(on){$("controls").hidden=on;if($("lookBtn"))$("lookBtn").hidden=on;$("tglRow").hidden=on;$("cPanel").hidden=!on;$("strip").hidden=!on;if(!on){$("tBox").hidden=true;}}
 async function startCombat(o){o=o||{};if(mode==="combat"||mode==="combatEnd"||!G||G.over)return;busy=true;mode="combat";clearTimeout(toastT);
   const parts=new Set();if(o.bumped)parts.add(o.bumped);for(const m of o.extra||[])parts.add(m);
   for(const m of G.mons){if(m.peace||m.hp<=0)continue;if(m.state==="hunt")parts.add(m);
@@ -1737,7 +1744,7 @@ function validTarget(spec,x,y){const u=C.cur;if(!inB(x,y))return false;const d=c
   if(spec.kind==="enemy"){const m=monAt(x,y);return !!(m&&m.inCombat&&(seen(x,y))&&(d<=1||los(u.x,u.y,x,y)));}
   if(spec.kind==="ally"){const h=heroAt(x,y);return !!(h&&!h.dead&&(d<=1||los(u.x,u.y,x,y)));}
   if(spec.kind==="adjfoe"){const m=monAt(x,y);if(m&&m.inCombat)return d<=1;const o=objAt(x,y);return !!(spec.barrel&&o&&o.type==="barrel"&&d<=1);}
-  if(spec.kind==="tile"){if(isWall(x,y))return false;if(spec.empty&&(unitAt(x,y)||blocksObj(x,y)))return false;return d<=1||los(u.x,u.y,x,y);}
+  if(spec.kind==="tile"){if(isWall(x,y))return !!(spec.torchOK&&litTorchAt(x,y));if(spec.empty&&(unitAt(x,y)||blocksObj(x,y)))return false;return d<=1||los(u.x,u.y,x,y);}
   return false;}
 async function onTarget(x,y){const spec=C.tgt;const u=C.cur;
   if(!validTarget(spec,x,y)){prompt(spec.bad||spec.label);return;}
@@ -1870,8 +1877,7 @@ function itemButtons(u){const B=[];const n=id=>G.bag[id]||0;const fh=u.sub==="th
     B.push({t:`DRINK ${nm} FULLY`,icon:"heal",sub:`Action · the full ${potionMax(dice)} HP · ${n(id)} left`,cost:"action",dis:!hasAction()||C.attacksLeft>0||u.hp>=u.maxHp,f:async()=>{busy=true;C.actions--;takeItem(id);const h=potionMax(dice);heal(u,h);await say(`The ${u.name} takes a moment to drink the whole potion: +${h} HP.`,850);afterAction();}});
     B.push({t:`GIVE ${id==="potion"?"POTION":"GREATER"}`,sub:`${AC} · adjacent ally (revives the downed)`,dis:!act,f:()=>targetMode({kind:"ally",range:1,label:"Tap an ally next to you.",onPick:async(x,y,t)=>{spend();takeItem(id);const was=t.down;const h=potionHeal(dice,false,u);heal(t,h);await say(was?`The ${u.name} pours a potion down the ${t.name}'s throat. They're back up!`:`The ${t.name} drinks: +${h} HP.`,900);}})});}
   if(n("antitoxin"))B.push({t:"ANTITOXIN",sub:`${AC} · cures poison`,dis:!act||!u.st.poisoned,f:async()=>{busy=true;spend();takeItem("antitoxin");delete u.st.poisoned;await say("The poison fades.",700);afterAction();}});
-  if(n("oil"))B.push({t:"THROW OIL",sub:`${AC} · range 4 · ${n("oil")} left`,dis:!act,f:()=>targetMode({kind:"tile",range:4,label:"Throw the oil flask: tap a square within 4.",onPick:async(x,y)=>{spend();takeItem("oil");
-    spill(x,y,[[x,y],[x+1,y],[x-1,y],[x,y+1],[x,y-1]]);await say("The flask shatters. Slick oil spreads across the floor!",850);if(fireAt(x,y)||[[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>fireAt(x+a,y+b))){igniteAt(x,y);await scorch();}}})});
+  if(n("oil"))B.push({t:"THROW OIL",sub:`${AC} · range 5 · 2×2 puddle, or hit a wall torch to set it ablaze · ${n("oil")} left`,dis:!act,f:()=>targetMode({kind:"tile",range:5,torchOK:true,label:"Throw the oil flask: tap a square (or a lit wall torch) within 5.",onPick:async(x,y)=>{spend();takeItem("oil");await throwOil(x,y,u);}})});
   if(n("torch")){B.push({t:"PLACE TORCH",sub:"Free · lights an adjacent square",dis:C.objUsed,f:()=>targetMode({kind:"tile",range:1,empty:false,label:"Place a torch: tap a square next to you.",onPick:async(x,y)=>{C.objUsed=true;takeItem("torch");if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH! (The torch is lost in the flames.)",800);await scorch();}else G.dropLights.push({x,y});fov();}})});
     B.push({t:"THROW TORCH",sub:`${AC} · range 4 · lights & ignites oil`,dis:!act,f:()=>targetMode({kind:"tile",range:4,label:"Throw a torch: tap a square within 4.",onPick:async(x,y)=>{spend();takeItem("torch");
       if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH! (The torch is lost in the flames.)",800);await scorch();}else{const what=await fireOnTile(x,y,u);if(!what.length)G.dropLights.push({x,y});await say(what.length?`The torch lands: ${what.join(", ")}. It burns away with them.`:"The torch lights up the area.",700);}fov();joinNew();}})});}
@@ -2207,7 +2213,7 @@ async function walkUpTo(x,y){const L=G.party[0];if(cheb(L,{x,y})<=1)return true;
 function aKind(x,y){if(!inB(x,y))return null;const m=monAt(x,y);if(m&&seen(x,y)&&!isHiddenMon(m))return "bump";
   if(G.npc&&G.npc.x===x&&G.npc.y===y)return "bump";const d=doorAt(x,y);if(d&&!d.open)return "bump";if(d&&d.open&&!d.burnt&&!unitAt(x,y))return "tap";
   if((G.holes||[]).some(q=>q.x===x&&q.y===y))return "bump";if(needsReach(x,y))return "tap";const o=objAt(x,y);if(o&&BLOCKERS[o.type])return "bump";const t=trapAt(x,y);if(t&&t.found&&!t.done&&!t.disarmed)return "bump";return null;}
-async function pressA(){if(sayState){sayState.skip();return;}if(mode!=="explore"||busy||choosing||!G||G.over||G.demo)return;const L=G.party[0];
+async function pressA(){if(sayState){sayState.skip();return;}if(G&&G.look){toggleLook(false);return;}if(mode!=="explore"||busy||choosing||!G||G.over||G.demo)return;const L=G.party[0];
   if(G.stairs&&G.stairs.x===L.x&&G.stairs.y===L.y){busy=true;try{await stairsPrompt();}finally{if(mode==="explore")busy=false;}return;}
   const fd=L.face==="b"?[0,-1]:L.face==="f"?[0,1]:[L.flip?-1:1,0];
   const dirs=[fd].concat(DIRS8.filter(d=>d[0]!==fd[0]||d[1]!==fd[1]));
@@ -3128,7 +3134,7 @@ function rules2Buttons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;if
   const jd=Math.max(1,Math.floor(score(u,"str")/5));B.push({t:"JUMP",sub:`Uses movement · leap up to ${jd} squares in a straight line, over pits, puddles and fire`,dis:C.moveLeft<2,f:()=>targetMode({kind:"tile",range:Math.min(jd,C.moveLeft),label:`Jump: tap a free square in a straight line, up to ${Math.min(jd,C.moveLeft)} away.`,onPick:async(x,y)=>{
       const dx=x-u.x,dy=y-u.y;if(!(dx===0||dy===0||Math.abs(dx)===Math.abs(dy))||isWall(x,y)||unitAt(x,y)||blocksObj(x,y)){prompt("You can only jump in a straight line to a free square.");return;}
       for(let i=1;i<cheb(u,{x,y});i++)if(isWall(u.x+Math.sign(dx)*i,u.y+Math.sign(dy)*i)){prompt("There's a wall in the way.");return;}
-      busy=true;C.moveLeft-=cheb(u,{x,y});await say(`The ${u.name} takes a running leap!`,600);await walk(u,[y*G.W+x],{});refreshReach();afterAction();}})});
+      busy=true;C.moveLeft-=cheb(u,{x,y});hop(u,cheb(u,{x,y}));await say(`The ${u.name} takes a running leap!`,600);await walk(u,[y*G.W+x],{});refreshReach();afterAction();}})});
   B.push({t:"GRAPPLE",sub:"Action · Athletics contest: the enemy can't move until it breaks free",dis:!act,f:()=>targetMode({kind:"enemy",range:1,label:"Grapple which enemy?",onPick:async(x,y,t)=>{if(t.tr&&t.tr.large){prompt("It's far too big to grapple.");return;}
       busy=true;C.actions--;const a=await check(u,"athletics",0,{quiet:true});const d=rnd(20)+Math.max(skillBonus(t,"athletics"),skillBonus(t,"acrobatics"));
       if(a.total>=d){t.st.grappled={by:u};float(t,"GRAPPLED","#ffffff");await say(`The ${u.name} grabs the ${t.name} and holds on! (${a.total} vs ${d})`,900);}else await say(`The ${t.name} slips out of reach. (${a.total} vs ${d})`,800);afterAction();}})});
@@ -3504,7 +3510,7 @@ async function jumpOver(dx,dy){const L=G.party[0];const hx=L.x+dx,hy=L.y+dy,tx=L
   for(const h of G.party){if(h.dead)continue;const sure=perkOf(h,"surefooted")||(h.wild&&["wolf","spider","cat"].includes(h.wild.form));const adv=perkOf(h,"springheel");
     const r=sure?{ok:true,txt:"surefooted"}:await check(h,"athletics",10,{quiet:true,adv});const [px,py]=h===L?[tx,ty]:(near[k++]||[tx,ty]);
     if(r.ok){h.x=px;h.y=py;}else{h.x=hx;h.y=hy;lines.push(`The ${h.name} comes up short and lands in it! (${r.txt})`);}
-    h.dx=h.x*TS;h.dy=h.y*TS;}
+    hop(h,2);await wait(420);}
   fov();computeLight();hud();
   for(const h of G.party){if(h.dead||h.x!==hx||h.y!==hy)continue;
     if(hazardTrap&&!hazardTrap.done){await triggerTrap(hazardTrap,h);}else if(gnd(hx,hy)===GROUND.acid){await dealDamage(h,roll("1d6").total,"acid",{});}
@@ -3519,6 +3525,7 @@ async function fireOnTile(x,y,by){let what=[];
   const t=G.torches.find(q=>q.x===x&&q.y===y);if(t&&t.out){t.out=false;what.push("the wall torch flares back to life");}
   return what;}
 async function aimAt(x,y){const a=G.aim;G.aim=null;const h=a.by;const range=a.kind==="torch"?6:12;
+  if(a.kind==="oil"){if(cheb(h,{x,y})>6||(!litTorchAt(x,y)&&!los(h.x,h.y,x,y))){toast("You can't throw that far.");return;}busy=true;try{takeItem("oil");await throwOil(x,y,h);}finally{busy=false;}$("tBox").hidden=true;hud();return;}
   if(cheb(h,{x,y})>range||!los(h.x,h.y,x,y)){toast("You can't hit that from here.");return;}
   if(monAt(x,y)&&!monAt(x,y).peace){toast("To attack a creature, tap it to start a fight.");return;}
   busy=true;try{if(a.kind==="torch"){takeItem("torch");fx.push({type:"shot",from:{x:h.x,y:h.y},to:{x,y},t:now(),col:"#ffb040"});await wait(250);G.dropLights.push({x,y});
@@ -3527,6 +3534,7 @@ async function aimAt(x,y){const a=G.aim;G.aim=null;const h=a.by;const range=a.ki
       await say(what.length?`Fire Bolt! ${cap(what.join(", "))}.`:"The Fire Bolt splashes harmlessly against the stone.",1100,true);}
   }finally{busy=false;}$("tBox").hidden=true;computeLight();fov();hud();}
 function aimButtons(h){const A=[];if(G.party[0]!==h)return A;
+  if((G.bag.oil||0)>0)A.push({t:"THROW AN OIL FLASK",sub:`A 2×2 puddle up to 6 squares away, or hit a lit wall torch to set the floor below ablaze · ${G.bag.oil} left`,f:()=>{G.aim={kind:"oil",by:h};closeMenu();toast("Tap where to throw the oil (a square, or a lit torch on a wall).");}});
   if((G.bag.torch||0)>0)A.push({t:"THROW A TORCH",sub:`Light up a spot up to 6 squares away; sets oil, wood and webs alight · ${G.bag.torch} left`,f:()=>{G.aim={kind:"torch",by:h};closeMenu();toast("Tap where to throw the torch (up to 6 squares).");}});
   return A;}
 function wizardFire(h){if(h.id!=="wizard"||h.wild)return [];return [{t:"FIRE BOLT",sub:"Cantrip: set fire to a door, barrel, web or oil, or relight a torch, up to 12 squares away",f:()=>{G.aim={kind:"firebolt",by:h};closeMenu();toast("Tap what to set alight (up to 12 squares).");}}];}
@@ -3545,6 +3553,27 @@ async function scorchMimics(){for(const o of G.objs){if(o.type!=="chest"||!o.mim
 {const base=scorch;scorch=async()=>{await base();await scorchMimics();};}
 
 function saveOdds(u,a,dc){const need=dc-saveBonus(u,a);const p=Math.max(5,Math.min(95,(21-need)*5));return `${p}% chance`;}
+
+// ---------- throwing an oil flask ----------
+const litTorchAt=(x,y)=>G.torches.some(t=>t.x===x&&t.y===y&&!t.out);
+async function throwOil(x,y,from){const floorOK=(a,b)=>inB(a,b)&&!isWall(a,b)&&!blocksObj(a,b)&&gnd(a,b)!==GROUND.water&&gnd(a,b)!==GROUND.deep;
+  fx.push({type:"shot",from:{x:from.x,y:from.y},to:{x,y},t:now(),col:"#c8a050"});await wait(220);
+  if(isWall(x,y)&&litTorchAt(x,y)){// splashes the burning torch: half runs down the wall, the rest lands on the floor in front and goes up at once
+    const fronts=DIRS4.map(([a,b])=>[x+a,y+b]).filter(([a,b])=>floorOK(a,b)).sort((p,q)=>cheb({x:p[0],y:p[1]},from)-cheb({x:q[0],y:q[1]},from));
+    if(!fronts.length){await say("The flask smashes against the wall. The oil runs down the stone and fizzles out.",1000,true);return;}
+    const [fx0,fy0]=fronts[0];const along=[[fx0+(fy0!==y?1:0),fy0+(fx0!==x?1:0)],[fx0-(fy0!==y?1:0),fy0-(fx0!==x?1:0)],[fx0+(fx0-x),fy0+(fy0-y)]].filter(([a,b])=>floorOK(a,b));
+    const tiles=[[fx0,fy0]].concat(along.slice(0,1));spill(fx0,fy0,tiles);igniteAt(fx0,fy0);computeLight();
+    await say("The flask shatters against the burning torch: oil sprays down the wall and the floor below bursts into flame!",1200,true);await scorch();$("tBox").hidden=true;return;}
+  const dx=Math.sign(x-from.x)||1,dy=Math.sign(y-from.y)||1;const tiles=[[x,y],[x+dx,y],[x,y+dy],[x+dx,y+dy]];spill(x,y,tiles);
+  const hot=tiles.some(([a,b])=>fireAt(a,b)||DIRS8.some(([p,q])=>fireAt(a+p,b+q))||litTorchAt(a,b));
+  await say(hot?"The flask shatters right by the flames. FWOOSH!":"The flask shatters. Slick oil spreads across the floor.",900,true);
+  if(hot){igniteAt(x,y);await scorch();}$("tBox").hidden=true;computeLight();fov();}
+// ---------- a little hop when someone jumps ----------
+{const base=lungeOff;lungeOff=(u,t)=>{const r=base(u,t);if(u.hop){const p=(t-u.hop.t0)/u.hop.dur;if(p>=1)delete u.hop;else return [r[0],r[1]-Math.sin(Math.PI*p)*u.hop.h];}return r;};}
+function hop(u,squares){u.hop={t0:now(),dur:260+90*(squares||1),h:6+3*(squares||1)};}
+// ---------- looking ahead: the view slides further in the direction you face ----------
+let lookX=0,lookY=0;
+function toggleLook(on){if(!G||G.demo)return;G.look=on===undefined?!G.look:on;const b=$("lookBtn");if(b)b.classList.toggle("on",!!G.look);if(G.look)toast("Looking ahead. Turn with the D-pad to look another way; press LOOK again (or A) to stop.");}
 
 // ================= magic gear: one item per body slot, up to 3 attuned, and attuning takes a rest =================
 const GEAR_SLOTS={weapon:"Weapon",armour:"Armour",head:"Head",neck:"Neck",cloak:"Cloak",hands:"Hands",wrists:"Wrists",ring:"Ring",feet:"Feet",held:"Held"};
@@ -3658,7 +3687,9 @@ function lungeOff(u,t){for(const f of fx)if(f.type==="lunge"&&f.u===u){const p=(
 function draw(t,dt){const sp=dt*TS/115;
   for(const u of G.party.concat(G.mons)){const k=(G.sneak&&u.side==="h"&&mode==="explore"?.6:1)*sp;u.dx=approach(u.dx,u.x*TS,k*(Math.abs(u.dx-u.x*TS)>48?6:1));u.dy=approach(u.dy,u.y*TS,k*(Math.abs(u.dy-u.y*TS)>48?6:1));}
   const focus=G.demo?null:(camFocus&&mode==="combat"?camFocus:C&&C.cur?C.cur:G.party[0]);
-  if(focus){const tx=Math.max(0,Math.min(G.W*TS-SW,focus.dx-SW/2+8)),ty=Math.max(0,Math.min(G.H*TS-SH,focus.dy-SH/2+8+(mode==="combat"?14:0)));
+  {const L=G.party&&G.party[0];let gx=0,gy=0;if(G.look&&mode==="explore"&&L&&!G.demo){if(L.face==="s")gx=L.flip?-1:1;else gy=L.face==="b"?-1:1;}if(mode!=="explore")G.look=false;
+    lookX+=(gx*TS*6-lookX)*.15;lookY+=(gy*TS*4-lookY)*.15;if(Math.abs(lookX)<.5&&!gx)lookX=0;if(Math.abs(lookY)<.5&&!gy)lookY=0;}
+  if(focus){const tx=Math.max(0,Math.min(G.W*TS-SW,focus.dx-SW/2+8+(mode==="explore"?lookX:0))),ty=Math.max(0,Math.min(G.H*TS-SH,focus.dy-SH/2+8+(mode==="combat"?14:0)+(mode==="explore"?lookY:0)));
     if(mode==="explore"){cam.x=tx;cam.y=ty;}else{cam.x+=(tx-cam.x)*.12;cam.y+=(ty-cam.y)*.12;}}
   let camX=Math.round(cam.x),camY=Math.round(cam.y);if(t-cam.shake<260){camX+=ri(-2,2);camY+=ri(-2,2);}
   ctx.fillStyle="#080706";ctx.fillRect(0,0,SW,SH);ctx.drawImage(G.terr,camX,camY,SW,SH,0,0,SW,SH);
@@ -4136,7 +4167,7 @@ let S=loadSettings();
 let held=null;
 function facingDir(L,dx,dy){if(dx)return L.face==="s"&&!!L.flip===(dx<0);return dy<0?L.face==="b":L.face==="f";}
 // returns true if this press should only turn the leader (they weren't facing that way yet)
-function turnFirst(dx,dy,fn){const L=G&&!G.demo&&G.party&&G.party[0];fn.wait=0;if(!L||mode!=="explore"||busy||choosing||sayState||facingDir(L,dx,dy))return false;
+function turnFirst(dx,dy,fn){const L=G&&!G.demo&&G.party&&G.party[0];fn.wait=0;if(L&&G.look&&mode==="explore"){faceToward(L,dx,dy);fn.wait=1e15;return true;}if(!L||mode!=="explore"||busy||choosing||sayState||facingDir(L,dx,dy))return false;
   faceToward(L,dx,dy);fn.wait=performance.now()+160;return true;}
 function hold(el,fn,dir){const stop=()=>{if(held===fn)held=null;el.classList.remove("on");};
   el.addEventListener("pointerdown",e=>{e.preventDefault();el.classList.add("on");if(G)G.walkTo=null;const cleared=clearInterruptions();held=fn;if(cleared){fn.wait=0;return;}if(dir&&turnFirst(dir[0],dir[1],fn))return;fn();});
@@ -4149,7 +4180,7 @@ window.addEventListener("blur",()=>{held=null;});
 const tap=(el,fn)=>{el.addEventListener("click",e=>{if(fn!==pressA&&(sayState||(choosing&&mode==="explore"))){if(clearInterruptions()){whenFree(()=>fn(e));return;}}fn(e);});el.addEventListener("contextmenu",e=>e.preventDefault());};
 async function waitStep(){if(mode!=="explore"||busy||!G||G.over)return;busy=true;G.steps++;await huntStep();if(G.fire.size)tickFire();fov();busy=false;await checkAwareness();}
 hold($("kU"),()=>tryMove(0,-1),[0,-1]);hold($("kD"),()=>tryMove(0,1),[0,1]);hold($("kL"),()=>tryMove(-1,0),[-1,0]);hold($("kR"),()=>tryMove(1,0),[1,0]);
-tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("tgSkills"),quickAbilities);tap($("btnMap"),openMap);tap($("mapClose"),()=>show(null));tap($("mapCv"),()=>show(null));tap($("kB"),()=>openMenu());
+tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("tgSkills"),quickAbilities);tap($("lookBtn"),()=>toggleLook());tap($("btnMap"),openMap);tap($("mapClose"),()=>show(null));tap($("mapCv"),()=>show(null));tap($("kB"),()=>openMenu());
 function tileFromEvent(e){const r=cv.getBoundingClientRect();const sx=(e.clientX-r.left)/r.width*SW,sy=(e.clientY-r.top)/r.height*SH;const wx=sx+cam.x,wy=sy+cam.y;
   for(const u of G.party.concat(G.mons)){if(u.dead)continue;const e2=elevAt(u.x,u.y)*3;if(wx>=u.x*TS&&wx<u.x*TS+TS&&wy>=u.y*TS-(u.side==="h"||HUMAN[u.sprite]?12:0)-e2&&wy<u.y*TS+TS-e2)return {x:u.x,y:u.y};}
   return {x:Math.floor(wx/TS),y:Math.floor(wy/TS)};}
@@ -4163,7 +4194,7 @@ document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;con
   if(mode==="combat"){if(k==="e")endHeroTurn();if(k==="escape")cancelTarget();const n=k==="0"?10:parseInt(k,10);if(n>=1&&n<=10){const tiles=[...document.querySelectorAll("#cBtns .hot")];const t=tiles[n-1];if(t)t.click();}return;}
   const map={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
   if(map[k]&&(sayState||(choosing&&mode==="explore"))){if(clearInterruptions()){e.preventDefault();const f=()=>tryMove(...map[k]);f._k=k;f.wait=0;held=f;}return;}
-  if(map[k]){e.preventDefault();if(e.shiftKey){if(G&&!G.demo&&mode==="explore")faceToward(G.party[0],...map[k]);return;}if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;if(!turnFirst(...map[k],f))f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="f")search();else if(k==="m")openMap();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="b"||k==="i"||k==="tab"){e.preventDefault();openMenu("party");}else if(k===".")waitStep();});
+  if(map[k]){e.preventDefault();if(e.shiftKey){if(G&&!G.demo&&mode==="explore")faceToward(G.party[0],...map[k]);return;}if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;if(!turnFirst(...map[k],f))f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="v")toggleLook();else if(k==="f")search();else if(k==="m")openMap();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="b"||k==="i"||k==="tab"){e.preventDefault();openMenu("party");}else if(k===".")waitStep();});
 $("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)autoSave(true);showTown(G&&!G.over&&!G.demo&&peekRun()?"Your run is saved. Continue it any time.":"");});
 $("btnContinue").addEventListener("click",()=>{if(!resumeRun())showTown("That saved run couldn't be loaded, sorry.");});
 $("btnSetOut").addEventListener("click",()=>{buildClassCards();show("ovClass");});$("btnTownSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});

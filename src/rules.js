@@ -223,7 +223,7 @@ async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?
   return false;}
 function alarm(x,y){for(const m of G.mons)if(m.hp>0&&!m.peace&&Math.abs(m.x-x)+Math.abs(m.y-y)<=20&&m.state!=="combat"){m.state="hunt";m.bubble=now()+900;}}
 function igniteAt(x,y){if(!inB(x,y))return;const k=y*G.W+x;if(gnd(x,y)===GROUND.oil){const q=[k],sn=new Set([k]);while(q.length){const c=q.shift();G.fire.set(c,3);const cx=c%G.W,cy=(c/G.W)|0;
-      for(const [dx,dy] of DIRS4){const nx=cx+dx,ny=cy+dy,nk=ny*G.W+nx;if(inB(nx,ny)&&!sn.has(nk)&&gnd(nx,ny)===GROUND.oil){sn.add(nk);q.push(nk);}}}
+      for(const [dx,dy] of DIRS8){const nx=cx+dx,ny=cy+dy,nk=ny*G.W+nx;if(inB(nx,ny)&&!sn.has(nk)&&gnd(nx,ny)===GROUND.oil){sn.add(nk);q.push(nk);}}}
     fx.push({type:"boom",x,y,t:now()});computeLight();if(G.vis)fov();}
   const o=G.objs.find(q=>q.x===x&&q.y===y&&!q.gone&&isWooden(q));if(o)setAlight(o);}
 const isWooden=o=>!o.burnt&&!o.gone&&((o.type==="door"&&!o.iron&&!o.open)||(o.type==="chest"&&!o.mimic)||o.type==="wood"||o.type==="furniture"||o.type==="web");
@@ -235,12 +235,11 @@ function burnObjects(){for(const o of G.objs){if(!o.burn||o.gone)continue;o.burn
   // flames jump to wooden things next to a fire
   for(const k of [...G.fire.keys()]){const x=k%G.W,y=(k/G.W)|0;for(const o of G.objs)if(isWooden(o)&&!o.burn&&cheb(o,{x,y})<=1&&(o.x!==x||o.y!==y)&&Math.random()<(o.type==="web"?.9:.3))setAlight(o);}}
 async function scorch(){for(const u of G.party.concat(G.mons.slice())){if(u.dead||u.hp<=0&&u.side==="m")continue;if(fireAt(u.x,u.y)&&u._scorch!==(C?C.round:-1)){u._scorch=C?C.round:-1;await dealDamage(u,roll("2d4").total,"fire",{});}}}
-function tickFire(){burnObjects();tickSmoke();for(const o of G.objs)if(o.burn&&!o.gone)addSmoke(o.x,o.y,3);let burnt=false;for(const [k,v] of [...G.fire]){if(v<=1){G.fire.delete(k);const x=k%G.W,y=(k/G.W)|0;if(gnd(x,y)===GROUND.oil){G.ground[y][x]=0;burnt=true;}}else G.fire.set(k,v-1);}
+function tickFire(){burnObjects();{const lit=[];for(const k of G.fire.keys()){const x=k%G.W,y=(k/G.W)|0;for(const [a,b] of DIRS8){const nx=x+a,ny=y+b;if(inB(nx,ny)&&gnd(nx,ny)===GROUND.oil&&!G.fire.has(ny*G.W+nx))lit.push([nx,ny]);}}for(const [x,y] of lit)igniteAt(x,y);}tickSmoke();for(const o of G.objs)if(o.burn&&!o.gone)addSmoke(o.x,o.y,3);let burnt=false;for(const [k,v] of [...G.fire]){if(v<=1){G.fire.delete(k);const x=k%G.W,y=(k/G.W)|0;if(gnd(x,y)===GROUND.oil){G.ground[y][x]=0;burnt=true;}}else G.fire.set(k,v-1);}
   if(burnt)buildTerrain();computeLight();}
 function spill(cx,cy,tiles){for(const [x,y] of tiles){if(!inB(x,y)||isWall(x,y)||gnd(x,y)===GROUND.water||blocksObj(x,y)&&!(x===cx&&y===cy))continue;if(gnd(x,y)===0||gnd(x,y)===GROUND.rubble)G.ground[y][x]=GROUND.oil;}buildTerrain();}
 async function breakBarrel(o,fire,dx,dy){o.gone=true;const tiles=[[o.x,o.y]];
-  if(dx||dy){for(let i=1;i<=2;i++)tiles.push([o.x+dx*i,o.y+dy*i]);tiles.push([o.x+dx+(dy?1:0),o.y+dy+(dx?1:0)],[o.x+dx-(dy?1:0),o.y+dy-(dx?1:0)]);}
-  else for(const [ax,ay] of DIRS8)tiles.push([o.x+ax,o.y+ay]);
+  for(const [ax,ay] of DIRS8)tiles.push([o.x+ax,o.y+ay]);// always a 3x3 puddle
   spill(o.x,o.y,tiles);await say(fire?"The barrel bursts and the oil goes up in flames!":"The barrel splits open. Oil floods the floor!",900);
   if(fire){igniteAt(o.x,o.y);await scorch();}}
 

@@ -10,7 +10,7 @@ let S=loadSettings();
 let held=null;
 function facingDir(L,dx,dy){if(dx)return L.face==="s"&&!!L.flip===(dx<0);return dy<0?L.face==="b":L.face==="f";}
 // returns true if this press should only turn the leader (they weren't facing that way yet)
-function turnFirst(dx,dy,fn){const L=G&&!G.demo&&G.party&&G.party[0];fn.wait=0;if(!L||mode!=="explore"||busy||choosing||sayState||facingDir(L,dx,dy))return false;
+function turnFirst(dx,dy,fn){const L=G&&!G.demo&&G.party&&G.party[0];fn.wait=0;if(L&&G.look&&mode==="explore"){faceToward(L,dx,dy);fn.wait=1e15;return true;}if(!L||mode!=="explore"||busy||choosing||sayState||facingDir(L,dx,dy))return false;
   faceToward(L,dx,dy);fn.wait=performance.now()+160;return true;}
 function hold(el,fn,dir){const stop=()=>{if(held===fn)held=null;el.classList.remove("on");};
   el.addEventListener("pointerdown",e=>{e.preventDefault();el.classList.add("on");if(G)G.walkTo=null;const cleared=clearInterruptions();held=fn;if(cleared){fn.wait=0;return;}if(dir&&turnFirst(dir[0],dir[1],fn))return;fn();});
@@ -23,7 +23,7 @@ window.addEventListener("blur",()=>{held=null;});
 const tap=(el,fn)=>{el.addEventListener("click",e=>{if(fn!==pressA&&(sayState||(choosing&&mode==="explore"))){if(clearInterruptions()){whenFree(()=>fn(e));return;}}fn(e);});el.addEventListener("contextmenu",e=>e.preventDefault());};
 async function waitStep(){if(mode!=="explore"||busy||!G||G.over)return;busy=true;G.steps++;await huntStep();if(G.fire.size)tickFire();fov();busy=false;await checkAwareness();}
 hold($("kU"),()=>tryMove(0,-1),[0,-1]);hold($("kD"),()=>tryMove(0,1),[0,1]);hold($("kL"),()=>tryMove(-1,0),[-1,0]);hold($("kR"),()=>tryMove(1,0),[1,0]);
-tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("tgSkills"),quickAbilities);tap($("btnMap"),openMap);tap($("mapClose"),()=>show(null));tap($("mapCv"),()=>show(null));tap($("kB"),()=>openMenu());
+tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("tgSkills"),quickAbilities);tap($("lookBtn"),()=>toggleLook());tap($("btnMap"),openMap);tap($("mapClose"),()=>show(null));tap($("mapCv"),()=>show(null));tap($("kB"),()=>openMenu());
 function tileFromEvent(e){const r=cv.getBoundingClientRect();const sx=(e.clientX-r.left)/r.width*SW,sy=(e.clientY-r.top)/r.height*SH;const wx=sx+cam.x,wy=sy+cam.y;
   for(const u of G.party.concat(G.mons)){if(u.dead)continue;const e2=elevAt(u.x,u.y)*3;if(wx>=u.x*TS&&wx<u.x*TS+TS&&wy>=u.y*TS-(u.side==="h"||HUMAN[u.sprite]?12:0)-e2&&wy<u.y*TS+TS-e2)return {x:u.x,y:u.y};}
   return {x:Math.floor(wx/TS),y:Math.floor(wy/TS)};}
@@ -37,7 +37,7 @@ document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;con
   if(mode==="combat"){if(k==="e")endHeroTurn();if(k==="escape")cancelTarget();const n=k==="0"?10:parseInt(k,10);if(n>=1&&n<=10){const tiles=[...document.querySelectorAll("#cBtns .hot")];const t=tiles[n-1];if(t)t.click();}return;}
   const map={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
   if(map[k]&&(sayState||(choosing&&mode==="explore"))){if(clearInterruptions()){e.preventDefault();const f=()=>tryMove(...map[k]);f._k=k;f.wait=0;held=f;}return;}
-  if(map[k]){e.preventDefault();if(e.shiftKey){if(G&&!G.demo&&mode==="explore")faceToward(G.party[0],...map[k]);return;}if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;if(!turnFirst(...map[k],f))f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="f")search();else if(k==="m")openMap();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="b"||k==="i"||k==="tab"){e.preventDefault();openMenu("party");}else if(k===".")waitStep();});
+  if(map[k]){e.preventDefault();if(e.shiftKey){if(G&&!G.demo&&mode==="explore")faceToward(G.party[0],...map[k]);return;}if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;if(!turnFirst(...map[k],f))f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="v")toggleLook();else if(k==="f")search();else if(k==="m")openMap();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="b"||k==="i"||k==="tab"){e.preventDefault();openMenu("party");}else if(k===".")waitStep();});
 $("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)autoSave(true);showTown(G&&!G.over&&!G.demo&&peekRun()?"Your run is saved. Continue it any time.":"");});
 $("btnContinue").addEventListener("click",()=>{if(!resumeRun())showTown("That saved run couldn't be loaded, sorry.");});
 $("btnSetOut").addEventListener("click",()=>{buildClassCards();show("ovClass");});$("btnTownSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});

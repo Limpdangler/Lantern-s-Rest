@@ -1,5 +1,5 @@
 // ================= combat engine =================
-function showCombatUI(on){$("controls").hidden=on;$("tglRow").hidden=on;$("cPanel").hidden=!on;$("strip").hidden=!on;if(!on){$("tBox").hidden=true;}}
+function showCombatUI(on){$("controls").hidden=on;if($("lookBtn"))$("lookBtn").hidden=on;$("tglRow").hidden=on;$("cPanel").hidden=!on;$("strip").hidden=!on;if(!on){$("tBox").hidden=true;}}
 async function startCombat(o){o=o||{};if(mode==="combat"||mode==="combatEnd"||!G||G.over)return;busy=true;mode="combat";clearTimeout(toastT);
   const parts=new Set();if(o.bumped)parts.add(o.bumped);for(const m of o.extra||[])parts.add(m);
   for(const m of G.mons){if(m.peace||m.hp<=0)continue;if(m.state==="hunt")parts.add(m);
@@ -126,7 +126,7 @@ function validTarget(spec,x,y){const u=C.cur;if(!inB(x,y))return false;const d=c
   if(spec.kind==="enemy"){const m=monAt(x,y);return !!(m&&m.inCombat&&(seen(x,y))&&(d<=1||los(u.x,u.y,x,y)));}
   if(spec.kind==="ally"){const h=heroAt(x,y);return !!(h&&!h.dead&&(d<=1||los(u.x,u.y,x,y)));}
   if(spec.kind==="adjfoe"){const m=monAt(x,y);if(m&&m.inCombat)return d<=1;const o=objAt(x,y);return !!(spec.barrel&&o&&o.type==="barrel"&&d<=1);}
-  if(spec.kind==="tile"){if(isWall(x,y))return false;if(spec.empty&&(unitAt(x,y)||blocksObj(x,y)))return false;return d<=1||los(u.x,u.y,x,y);}
+  if(spec.kind==="tile"){if(isWall(x,y))return !!(spec.torchOK&&litTorchAt(x,y));if(spec.empty&&(unitAt(x,y)||blocksObj(x,y)))return false;return d<=1||los(u.x,u.y,x,y);}
   return false;}
 async function onTarget(x,y){const spec=C.tgt;const u=C.cur;
   if(!validTarget(spec,x,y)){prompt(spec.bad||spec.label);return;}
@@ -259,8 +259,7 @@ function itemButtons(u){const B=[];const n=id=>G.bag[id]||0;const fh=u.sub==="th
     B.push({t:`DRINK ${nm} FULLY`,icon:"heal",sub:`Action · the full ${potionMax(dice)} HP · ${n(id)} left`,cost:"action",dis:!hasAction()||C.attacksLeft>0||u.hp>=u.maxHp,f:async()=>{busy=true;C.actions--;takeItem(id);const h=potionMax(dice);heal(u,h);await say(`The ${u.name} takes a moment to drink the whole potion: +${h} HP.`,850);afterAction();}});
     B.push({t:`GIVE ${id==="potion"?"POTION":"GREATER"}`,sub:`${AC} · adjacent ally (revives the downed)`,dis:!act,f:()=>targetMode({kind:"ally",range:1,label:"Tap an ally next to you.",onPick:async(x,y,t)=>{spend();takeItem(id);const was=t.down;const h=potionHeal(dice,false,u);heal(t,h);await say(was?`The ${u.name} pours a potion down the ${t.name}'s throat. They're back up!`:`The ${t.name} drinks: +${h} HP.`,900);}})});}
   if(n("antitoxin"))B.push({t:"ANTITOXIN",sub:`${AC} · cures poison`,dis:!act||!u.st.poisoned,f:async()=>{busy=true;spend();takeItem("antitoxin");delete u.st.poisoned;await say("The poison fades.",700);afterAction();}});
-  if(n("oil"))B.push({t:"THROW OIL",sub:`${AC} · range 4 · ${n("oil")} left`,dis:!act,f:()=>targetMode({kind:"tile",range:4,label:"Throw the oil flask: tap a square within 4.",onPick:async(x,y)=>{spend();takeItem("oil");
-    spill(x,y,[[x,y],[x+1,y],[x-1,y],[x,y+1],[x,y-1]]);await say("The flask shatters. Slick oil spreads across the floor!",850);if(fireAt(x,y)||[[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>fireAt(x+a,y+b))){igniteAt(x,y);await scorch();}}})});
+  if(n("oil"))B.push({t:"THROW OIL",sub:`${AC} · range 5 · 2×2 puddle, or hit a wall torch to set it ablaze · ${n("oil")} left`,dis:!act,f:()=>targetMode({kind:"tile",range:5,torchOK:true,label:"Throw the oil flask: tap a square (or a lit wall torch) within 5.",onPick:async(x,y)=>{spend();takeItem("oil");await throwOil(x,y,u);}})});
   if(n("torch")){B.push({t:"PLACE TORCH",sub:"Free · lights an adjacent square",dis:C.objUsed,f:()=>targetMode({kind:"tile",range:1,empty:false,label:"Place a torch: tap a square next to you.",onPick:async(x,y)=>{C.objUsed=true;takeItem("torch");if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH! (The torch is lost in the flames.)",800);await scorch();}else G.dropLights.push({x,y});fov();}})});
     B.push({t:"THROW TORCH",sub:`${AC} · range 4 · lights & ignites oil`,dis:!act,f:()=>targetMode({kind:"tile",range:4,label:"Throw a torch: tap a square within 4.",onPick:async(x,y)=>{spend();takeItem("torch");
       if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH! (The torch is lost in the flames.)",800);await scorch();}else{const what=await fireOnTile(x,y,u);if(!what.length)G.dropLights.push({x,y});await say(what.length?`The torch lands: ${what.join(", ")}. It burns away with them.`:"The torch lights up the area.",700);}fov();joinNew();}})});}

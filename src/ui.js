@@ -72,7 +72,9 @@ function lungeOff(u,t){for(const f of fx)if(f.type==="lunge"&&f.u===u){const p=(
 function draw(t,dt){const sp=dt*TS/115;
   for(const u of G.party.concat(G.mons)){const k=(G.sneak&&u.side==="h"&&mode==="explore"?.6:1)*sp;u.dx=approach(u.dx,u.x*TS,k*(Math.abs(u.dx-u.x*TS)>48?6:1));u.dy=approach(u.dy,u.y*TS,k*(Math.abs(u.dy-u.y*TS)>48?6:1));}
   const focus=G.demo?null:(camFocus&&mode==="combat"?camFocus:C&&C.cur?C.cur:G.party[0]);
-  if(focus){const tx=Math.max(0,Math.min(G.W*TS-SW,focus.dx-SW/2+8)),ty=Math.max(0,Math.min(G.H*TS-SH,focus.dy-SH/2+8+(mode==="combat"?14:0)));
+  {const L=G.party&&G.party[0];let gx=0,gy=0;if(G.look&&mode==="explore"&&L&&!G.demo){if(L.face==="s")gx=L.flip?-1:1;else gy=L.face==="b"?-1:1;}if(mode!=="explore")G.look=false;
+    lookX+=(gx*TS*6-lookX)*.15;lookY+=(gy*TS*4-lookY)*.15;if(Math.abs(lookX)<.5&&!gx)lookX=0;if(Math.abs(lookY)<.5&&!gy)lookY=0;}
+  if(focus){const tx=Math.max(0,Math.min(G.W*TS-SW,focus.dx-SW/2+8+(mode==="explore"?lookX:0))),ty=Math.max(0,Math.min(G.H*TS-SH,focus.dy-SH/2+8+(mode==="combat"?14:0)+(mode==="explore"?lookY:0)));
     if(mode==="explore"){cam.x=tx;cam.y=ty;}else{cam.x+=(tx-cam.x)*.12;cam.y+=(ty-cam.y)*.12;}}
   let camX=Math.round(cam.x),camY=Math.round(cam.y);if(t-cam.shake<260){camX+=ri(-2,2);camY+=ri(-2,2);}
   ctx.fillStyle="#080706";ctx.fillRect(0,0,SW,SH);ctx.drawImage(G.terr,camX,camY,SW,SH,0,0,SW,SH);
