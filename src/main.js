@@ -72,6 +72,8 @@ setInterval(()=>{if(!busy||!G||G.demo){busySince=0;return;}if(!busySince){busySi
 const WIDE_TOP=46,WIDE_BOTTOM=232;// PC layout: space kept above the screen (turn order) and below it (choices, action bar)
 (function(){const LOG_MIN=44;let queued=false;
   function fitScreen(){queued=false;const app=$("app"),bz=document.querySelector(".bezel");if(!app||!bz)return;
+    if(app.classList.contains("land")){const col=$("colC");const bs=getComputedStyle(bz);const padX=parseFloat(bs.paddingLeft)+parseFloat(bs.paddingRight),padY=parseFloat(bs.paddingTop)+parseFloat(bs.paddingBottom);
+      const sc=Math.min((col.clientWidth-padX)/240,(col.clientHeight-padY)/160);bz.style.minWidth="0";bz.style.width=Math.max(120,Math.floor(240*sc+padX))+"px";return;}
     if(app.classList.contains("wide")){const col=$("colL");const bs=getComputedStyle(bz);const padX=parseFloat(bs.paddingLeft)+parseFloat(bs.paddingRight),padY=parseFloat(bs.paddingTop)+parseFloat(bs.paddingBottom);
       const sh=WIDE_TOP+WIDE_BOTTOM;const w=col.clientWidth-padX,h=col.clientHeight-sh-padY;let sc=Math.min(w/240,h/160);if(sc>=3)sc=Math.floor(sc);
       bz.style.minWidth="0";bz.style.width=Math.max(150,Math.floor(240*sc+padX))+"px";return;}
@@ -94,19 +96,33 @@ Object.assign(GLYPHS,{
   book:["............",".nnnnnnnnn..",".nmmmmmmmn..",".nmkkkkkmn..",".nmmmmmmmn..",".nmkkkkmmn..",".nmmmmmmmn..",".nmkkkkkmn..",".nnnnnnnnn..","............","............","............"],
   people:["............","...ss..ss...","..ssss.ss...","...ss..ss...",".bbbbbbbbb..",".bbbbbbbbb..",".bbbbbbbbb..",".bb.bb.bb...","............","............","............","............"],
   camp:[".....r......","....ror.....","....ror.....","...roor.....","...ryyr.....","..nnnnnnn...",".n.n.n.n.n..","............","............","............","............","............"]});
-(function(){const app=$("app");if(!app)return;const order=[...app.children];
-  const rail=document.createElement("nav");rail.id="rail";const L=document.createElement("div");L.id="colL";const R=document.createElement("div");R.id="colR";
-  const RAIL=[["people","PARTY",()=>openMenu("party")],["bag","BAG",()=>openMenu("bag")],["map","MAP",()=>openMap()],["book","NOTES",()=>openMenu("notes")],["camp","REST",()=>openMenu("rest")]];
-  for(const [g,label,f] of RAIL){const b=document.createElement("button");b.type="button";b.className="railbtn";b.title=label;const c=document.createElement("canvas");c.width=c.height=12;c.getContext("2d").drawImage(glyphCanvas(g),0,0);b.appendChild(c);b.insertAdjacentHTML("beforeend",`<span>${label}</span>`);b.addEventListener("click",()=>{if(mode!=="explore")return;if(sayState||choosing){clearInterruptions();whenFree(f);return;}if(!busy)f();});rail.appendChild(b);}
-  const keys=document.createElement("p");keys.className="keyhelp";keys.innerHTML="<b>Keys:</b> arrows/WASD move · E/Space use · B menu · F search · Q sneak · L light · M map · <b>in fights</b> 1–9 actions, E end turn, Esc cancel";
-  const centre=["strip","fxRow","tglRow","cPanel","chPanel"];
-  function setLayout(){const wide=innerWidth>=900&&innerWidth/innerHeight>=1.15;if(wide===app.classList.contains("wide"))return;const bz=document.querySelector(".bezel");
-    if(wide){const firstOv=app.querySelector(".ov");app.insertBefore(rail,firstOv);app.insertBefore(L,firstOv);app.insertBefore(R,firstOv);
-      L.appendChild($("strip"));L.appendChild(bz);for(const id of centre.slice(1))L.appendChild($(id));
-      for(const el of order)if(!el.classList.contains("top")&&!el.classList.contains("ov")&&el!==bz&&!centre.includes(el.id))R.appendChild(el);R.appendChild(keys);app.classList.add("wide");}
-    else{const firstOv=app.querySelector(".ov");for(const el of order)if(!el.classList.contains("ov")&&!el.classList.contains("top"))app.insertBefore(el,firstOv);rail.remove();L.remove();R.remove();keys.remove();app.classList.remove("wide");bz.style.width="";}
-    $("btnFull").hidden=!wide||!document.documentElement.requestFullscreen;window.dispatchEvent(new Event("resize"));}
-  addEventListener("resize",setLayout);setLayout();
+(function(){const app=$("app");if(!app)return;
+  const el={top:document.querySelector(".top"),bezel:document.querySelector(".bezel"),strip:$("strip"),party:$("party"),hud:document.querySelector(".hud"),fxRow:$("fxRow"),tglRow:$("tglRow"),log:$("log"),controls:$("controls"),cPanel:$("cPanel"),chPanel:$("chPanel")};
+  const mk=(id,tag)=>{const d=document.createElement(tag||"div");d.id=id;return d;};
+  const rail=mk("rail","nav"),colL=mk("colL"),colR=mk("colR"),colA=mk("colA"),colB=mk("colB"),colC=mk("colC");
+  const toggleLog=()=>{app.classList.toggle("showlog");const b=$("railLog");if(b)b.classList.toggle("on",app.classList.contains("showlog"));const lg=$("log");if(lg)lg.scrollTop=lg.scrollHeight;};
+  const RAIL=[["people","PARTY",()=>openMenu("party")],["bag","BAG",()=>openMenu("bag")],["map","MAP",()=>openMap()],["scroll","LOG",toggleLog,"railLog"],["book","NOTES",()=>openMenu("notes")],["camp","REST",()=>openMenu("rest")]];
+  for(const [g,label,f,id] of RAIL){const b=document.createElement("button");b.type="button";b.className="railbtn";if(id)b.id=id;b.title=label;const c=document.createElement("canvas");c.width=c.height=12;c.getContext("2d").drawImage(glyphCanvas(g),0,0);b.appendChild(c);b.insertAdjacentHTML("beforeend",`<span>${label}</span>`);
+    b.addEventListener("click",()=>{if(f===toggleLog){f();return;}if(mode!=="explore")return;if(sayState||choosing){clearInterruptions();whenFree(f);return;}if(!busy)f();});rail.appendChild(b);}
+  // tapping the log (when it's floating over the game) closes it
+  el.log.addEventListener("click",()=>{if(app.classList.contains("showlog"))toggleLog();});
+  const keys=document.createElement("p");keys.className="keyhelp";keys.innerHTML="<b>Keys:</b> arrows/WASD move · E/Space use · B menu · F search · Q sneak · L light · M map · V look · <b>in fights</b> 1–9 actions, E end turn, Esc cancel";
+  const LAYOUTS={// which element goes where, in order
+    pc:[[rail,[]],[colL,["strip","bezel","fxRow","tglRow","cPanel","chPanel"]],[colR,["party","hud","log","controls"]]],
+    land:[[colA,["party","hud","fxRow"]],[colC,["strip","bezel"]],[colB,[]],[null,["tglRow","controls","cPanel","chPanel","log"]]],
+    port:[[null,["bezel","strip","party","hud","fxRow","tglRow"]],[null,[]],[null,["log","controls","cPanel","chPanel"]]]};
+  function pickLayout(){const w=innerWidth,h=innerHeight;const touch=matchMedia("(pointer:coarse)").matches;
+    if(w>h*1.15&&h<620)return "land";if(w>=900&&w/h>=1.15&&!(touch&&h<620))return "pc";return "port";}
+  let cur=null;
+  function setLayout(){const L=pickLayout();if(L===cur)return;cur=L;const firstOv=app.querySelector(".ov");
+    for(const c of [rail,colL,colR,colA,colB,colC,keys])c.remove();for(const k in el)if(k!=="top")el[k].remove();
+    app.classList.remove("wide","land","port");app.classList.add(L==="pc"?"wide":L);
+    const put=(parent,names)=>{for(const n of names){if(parent)parent.appendChild(el[n]);else app.insertBefore(el[n],firstOv);}};
+    if(L==="pc"){app.insertBefore(rail,firstOv);app.insertBefore(colL,firstOv);app.insertBefore(colR,firstOv);put(colL,LAYOUTS.pc[1][1]);put(colR,LAYOUTS.pc[2][1]);colR.appendChild(keys);}
+    else if(L==="land"){for(const c of [colA,colC,colB])app.insertBefore(c,firstOv);put(colA,LAYOUTS.land[0][1]);put(colC,LAYOUTS.land[1][1]);colB.appendChild(rail);put(null,LAYOUTS.land[3][1]);}
+    else{put(null,["bezel","strip","party","hud","fxRow","tglRow"]);app.insertBefore(rail,firstOv);put(null,["log","controls","cPanel","chPanel"]);}
+    el.bezel.style.width="";$("btnFull").hidden=L!=="pc"||!document.documentElement.requestFullscreen;window.dispatchEvent(new Event("resize"));}
+  addEventListener("resize",setLayout);addEventListener("orientationchange",()=>setTimeout(setLayout,200));setLayout();
   $("btnFull").addEventListener("click",()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen().catch(()=>toast("Full screen isn't allowed here: try F11."));}catch(e){toast("Full screen isn't allowed here: try F11.");}});
   document.addEventListener("fullscreenchange",()=>{$("btnFull").textContent=document.fullscreenElement?"EXIT FULL":"FULL SCREEN";});
-  if(window.ResizeObserver){const ro=new ResizeObserver(()=>window.dispatchEvent(new Event("resize")));ro.observe(L);for(const id of centre)ro.observe($(id));}})();
+  if(window.ResizeObserver){const ro=new ResizeObserver(()=>window.dispatchEvent(new Event("resize")));for(const c of [colL,colC])ro.observe(c);for(const id of ["strip","fxRow","tglRow","cPanel","chPanel"])ro.observe($(id));}})();

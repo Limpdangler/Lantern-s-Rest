@@ -282,3 +282,42 @@ body{font-variant-ligatures:none;font-feature-settings:"liga" 0,"lnum" 1}
 .lookbtn{position:absolute;top:2.5%;right:2%;font-family:var(--pixel);font-size:2.6cqw;padding:.6em .8em;border-radius:999px;border:2px solid #143032;background:rgba(10,24,26,.75);color:var(--cream);cursor:pointer;z-index:2}
 .lookbtn.on{background:var(--gold);color:#1b1420;border-color:#7a5a10}
 .app.wide .lookbtn{font-size:min(2.6cqw,12px)}
+
+/* ---------- phone layouts ---------- */
+/* the log floats over the game only when you ask for it (LOG button) */
+.app.port #log,.app.land #log{position:absolute;z-index:6;left:12px;right:12px;bottom:12px;max-height:46%;min-height:0;box-shadow:0 6px 24px rgba(0,0,0,.5);border:2px solid #2a4a4c}
+.app.port:not(.showlog) #log,.app.land:not(.showlog) #log{display:none}
+.app.wide #railLog{display:none}
+.railbtn.on{border-color:var(--gold);background:#2a4a4c}
+/* portrait phone: icons in a row under the toggles */
+.app.port #rail{display:flex;flex-direction:row;gap:5px;flex:none}
+.app.port .railbtn{flex:1;padding:5px 0 4px;border-radius:8px;gap:2px}
+.app.port .railbtn canvas{width:22px;height:22px}
+.app.port .railbtn span{font-size:6px}
+.app.port .controls{margin-top:auto}
+/* landscape phone: game in the middle, party and stats left, icons right, D-pad and A/B in the bottom corners */
+.app.land{max-width:none;display:grid;grid-template-columns:minmax(150px,1fr) minmax(0,2.3fr) minmax(150px,1fr);grid-template-rows:auto minmax(0,1fr) auto;gap:4px 10px;padding:4px max(10px,env(safe-area-inset-right,0px)) 4px max(10px,env(safe-area-inset-left,0px));overflow:hidden}
+.app.land>.top{grid-column:1/-1}
+.app.land .top h1{font-size:9px}
+#colA{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:5px;min-height:0;overflow:hidden}
+#colC{grid-column:2;grid-row:2;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;min-width:0}
+#colB{grid-column:3;grid-row:2;min-height:0}
+.app.land #colC>.strip{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:2}
+.app.land .party{grid-template-columns:repeat(2,minmax(0,1fr))}
+.app.land .hud{font-size:12px}
+.app.land #rail{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.app.land .railbtn{padding:4px 0 3px;border-radius:8px;gap:1px}
+.app.land .railbtn canvas{width:20px;height:20px}
+.app.land .railbtn span{font-size:6px}
+.app.land #tglRow{grid-column:2;grid-row:3;align-self:center;margin:0;z-index:2}
+.app.land #tglRow .chip{font-size:8px;padding:6px 4px}
+.app.land #controls{grid-column:1/-1;grid-row:2/4;align-self:end;pointer-events:none;min-height:0;padding:0;z-index:1}
+.app.land #controls>*{pointer-events:auto}
+.app.land .dpad{grid-template-columns:repeat(3,40px);grid-template-rows:repeat(3,40px)}
+.app.land .round{width:50px;height:50px}
+.app.land #cPanel,.app.land #chPanel{grid-column:3;grid-row:2/4;z-index:3;align-self:stretch;min-height:0;overflow:hidden}
+.app.land .hotgrid{grid-auto-flow:row;grid-template-rows:none;grid-template-columns:repeat(auto-fill,66px);overflow-y:auto;overflow-x:hidden}
+.app.land .cbtns.list{max-height:none;grid-template-columns:1fr}
+.app.land .fxrow{gap:3px}
+.app #btnMap{display:none}
+.app.land .tbox{font-size:clamp(12px,3.4cqw,18px)}
