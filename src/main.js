@@ -29,9 +29,9 @@ $("screenWrap").addEventListener("pointerdown",e=>{if(e.target!==cv&&sayState)sa
 document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;const k=e.key.toLowerCase();
   if(sayState&&(k===" "||k==="enter")){e.preventDefault();sayState.skip();return;}
   if(choosing){const n=parseInt(k,10);if(n>=1&&n<=6){const b=$("ch-"+(n-1));if(b&&!b.disabled)b.click();}if(k==="escape")choosing.cancel();return;}
-  if(mode==="combat"){if(k==="e")endHeroTurn();if(k==="escape")cancelTarget();return;}
+  if(mode==="combat"){if(k==="e")endHeroTurn();if(k==="escape")cancelTarget();const n=k==="0"?10:parseInt(k,10);if(n>=1&&n<=10){const tiles=[...document.querySelectorAll("#cBtns .hot")];const t=tiles[n-1];if(t)t.click();}return;}
   const map={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
-  if(map[k]){e.preventDefault();if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="f")search();else if(k==="m")openMap();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="m")openMenu();else if(k===".")waitStep();});
+  if(map[k]){e.preventDefault();if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="f")search();else if(k==="m")openMap();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="b"||k==="i"||k==="tab"){e.preventDefault();openMenu("party");}else if(k===".")waitStep();});
 $("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)autoSave(true);showTown(G&&!G.over&&!G.demo&&peekRun()?"Your run is saved. Continue it any time.":"");});
 $("btnContinue").addEventListener("click",()=>{if(!resumeRun())showTown("That saved run couldn't be loaded, sorry.");});
 $("btnSetOut").addEventListener("click",()=>{buildClassCards();show("ovClass");});$("btnTownSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});
@@ -65,6 +65,9 @@ setInterval(()=>{if(!busy||!G||G.demo){busySince=0;return;}if(!busySince){busySi
 // The game screen shrinks or grows so the buttons, menus and choices underneath always fit without scrolling.
 (function(){const LOG_MIN=44;let queued=false;
   function fitScreen(){queued=false;const app=$("app"),bz=document.querySelector(".bezel");if(!app||!bz)return;
+    if(app.classList.contains("wide")){const col=$("colL");const bs=getComputedStyle(bz);const padX=parseFloat(bs.paddingLeft)+parseFloat(bs.paddingRight),padY=parseFloat(bs.paddingTop)+parseFloat(bs.paddingBottom);
+      const strip=$("strip");const sh=strip&&!strip.hidden?strip.offsetHeight+8:0;const w=col.clientWidth-padX,h=col.clientHeight-sh-padY;let sc=Math.min(w/240,h/160);if(sc>=3)sc=Math.floor(sc);
+      bz.style.minWidth="0";bz.style.width=Math.max(150,Math.floor(240*sc+padX))+"px";return;}
     const cs=getComputedStyle(app);const gap=parseFloat(cs.rowGap)||0;let used=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom),n=0;
     for(const el of app.children){if(el===bz||el.hidden)continue;const st=getComputedStyle(el);if(st.display==="none"||st.position==="absolute"||st.position==="fixed")continue;
       n++;used+=(el.classList.contains("log")?LOG_MIN:el.offsetHeight)+parseFloat(st.marginTop)+parseFloat(st.marginBottom);}
@@ -76,3 +79,17 @@ setInterval(()=>{if(!busy||!G||G.demo){busySince=0;return;}if(!busySince){busySi
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(queue);
   if(window.ResizeObserver){const ro=new ResizeObserver(queue);const app=$("app");if(app){ro.observe(app);for(const el of app.children)if(!el.classList.contains("bezel")&&!el.classList.contains("log"))ro.observe(el);}}
   queue();})();
+
+// ---------- PC layout: on a wide screen the game fills the window, with the party, log and actions down the right ----------
+(function(){const app=$("app");if(!app)return;const order=[...app.children];const L=document.createElement("div");L.id="colL";const R=document.createElement("div");R.id="colR";
+  const leftIds=["strip"],rightSel=el=>!el.classList.contains("top")&&!el.classList.contains("ov")&&!el.classList.contains("bezel")&&el.id!=="strip";
+  const keys=document.createElement("p");keys.className="keyhelp";keys.innerHTML="<b>Keys:</b> arrows/WASD move · E/Space use · B menu · F search · Q sneak · L light · M map · <b>in fights</b> 1–9 actions, E end turn, Esc cancel";
+  function setLayout(){const wide=innerWidth>=900&&innerWidth/innerHeight>=1.15;if(wide===app.classList.contains("wide"))return;
+    if(wide){const firstOv=app.querySelector(".ov");app.insertBefore(L,firstOv);app.insertBefore(R,firstOv);
+      L.appendChild($("strip"));L.appendChild(document.querySelector(".bezel"));for(const el of order)if(rightSel(el))R.appendChild(el);R.appendChild(keys);app.classList.add("wide");}
+    else{const firstOv=app.querySelector(".ov");for(const el of order)if(!el.classList.contains("ov")&&!el.classList.contains("top"))app.insertBefore(el,firstOv);L.remove();R.remove();keys.remove();app.classList.remove("wide");document.querySelector(".bezel").style.width="";}
+    $("btnFull").hidden=!wide||!document.documentElement.requestFullscreen;window.dispatchEvent(new Event("resize"));}
+  addEventListener("resize",setLayout);setLayout();
+  $("btnFull").addEventListener("click",()=>{try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen().catch(()=>toast("Full screen isn't allowed here: try F11."));}catch(e){toast("Full screen isn't allowed here: try F11.");}});
+  document.addEventListener("fullscreenchange",()=>{$("btnFull").textContent=document.fullscreenElement?"EXIT FULL":"FULL SCREEN";});
+  if(window.ResizeObserver){const ro=new ResizeObserver(()=>window.dispatchEvent(new Event("resize")));ro.observe(L);}})();
