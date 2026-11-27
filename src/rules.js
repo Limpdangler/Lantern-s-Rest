@@ -67,7 +67,10 @@ function atkBonus(u,w){if(u.side==="m")return u.hit;let b=prof()+abm(u,wAbil(u,w
 function dmgBonus(u,w){if(u.side==="m"||w.cantrip)return 0;let b=abm(u,wAbil(u,w))+(gearFx(u).dmg||0);if(!w.melee&&!w.spell)b+=gearFx(u).rdmg||0;if(u.st.raging&&w.melee&&!w.spell)b+=2;return b;}
 function lineBlocked(x0,y0,x1,y1,a,t){const steps=Math.ceil(Math.hypot(x1-x0,y1-y0)*4);
   for(let i=1;i<steps;i++){const px=x0+(x1-x0)*i/steps,py=y0+(y1-y0)*i/steps;const tx=Math.floor(px),ty=Math.floor(py);
-    if((tx===a.x&&ty===a.y)||(tx===t.x&&ty===t.y))continue;if(blocksSight(tx,ty))return true;const o=objAt(tx,ty);if(o&&(o.type==="boulder"||o.type==="barrel"||o.type==="shrine"||o.type==="runes"))return true;}return false;}
+    if((tx===a.x&&ty===a.y)||(tx===t.x&&ty===t.y))continue;if(blocksSight(tx,ty))return true;const o=objAt(tx,ty);if(o&&givesCover(o))return true;}return false;}
+// things you can duck behind (more are added by the room furniture); a table only counts once it has been flipped on its side
+const COVER={boulder:1,barrel:1,shrine:1,runes:1};
+const givesCover=o=>!!COVER[o.type]&&(o.type!=="table"||!!o.flipped);
 function coverOf(a,t){if(cheb(a,t)<=1)return 0;const cs=[[.05,.05],[.95,.05],[.05,.95],[.95,.95]];let best=4;
   for(const [ax,ay] of cs){let n=0;for(const [bx,by] of cs)if(lineBlocked(a.x+ax,a.y+ay,t.x+bx,t.y+by,a,t))n++;best=Math.min(best,n);if(!best)break;}
   let creature=false;const st=Math.max(Math.abs(t.x-a.x),Math.abs(t.y-a.y));for(let i=1;i<st;i++){const x=Math.round(a.x+(t.x-a.x)*i/st),y=Math.round(a.y+(t.y-a.y)*i/st);const o=unitAt(x,y);if(o&&o!==a&&o!==t&&o.side!=="n"&&o.side!==a.side&&!(o.side==="h"&&o.down)){creature=true;break;}}
@@ -226,7 +229,8 @@ function igniteAt(x,y){if(!inB(x,y))return;const k=y*G.W+x;if(gnd(x,y)===GROUND.
       for(const [dx,dy] of DIRS8){const nx=cx+dx,ny=cy+dy,nk=ny*G.W+nx;if(inB(nx,ny)&&!sn.has(nk)&&gnd(nx,ny)===GROUND.oil){sn.add(nk);q.push(nk);}}}
     fx.push({type:"boom",x,y,t:now()});computeLight();if(G.vis)fov();}
   const o=G.objs.find(q=>q.x===x&&q.y===y&&!q.gone&&isWooden(q));if(o)setAlight(o);}
-const isWooden=o=>!o.burnt&&!o.gone&&((o.type==="door"&&!o.iron&&!o.open)||(o.type==="chest"&&!o.mimic)||o.type==="wood"||o.type==="furniture"||o.type==="web");
+const WOODEN={wood:1,furniture:1,web:1};// more are added by the room furniture
+const isWooden=o=>!o.burnt&&!o.gone&&((o.type==="door"&&!o.iron&&!o.open)||(o.type==="chest"&&!o.mimic)||!!WOODEN[o.type]);
 function setAlight(o){if(o.burn||!isWooden(o))return;o.burn=o.type==="web"?1:o.type==="door"?6:4;G.fire.set(o.y*G.W+o.x,o.burn+1);makeNoise(o.x,o.y,8);
   log(`${o.type==="door"?"The door":o.type==="chest"?"A chest":o.type==="web"?"A web":"The wood"} catches fire! Smoke and light spread through the dark.`,"hurt");computeLight();}
 function burnObjects(){for(const o of G.objs){if(!o.burn||o.gone)continue;o.burn--;G.fire.set(o.y*G.W+o.x,Math.max(2,o.burn+1));

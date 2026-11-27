@@ -5,7 +5,7 @@ BOT=r"""
 window.__step=async function(){const t=__t;const G=t.G;if(!G||G.demo)return 'nogame';
  if(!document.getElementById('ovEnd').hidden)return 'end';
  if(t.choosing){const bs=[...document.querySelectorAll('#chBtns button')].filter(b=>!b.disabled);const q=document.getElementById('tText').textContent;
-   let pick=bs[0];if(/Ambush/.test(q))pick=bs[0];if(/ladder/.test(q))pick=bs[0];if(/Halt|path|Which beast/.test(q))pick=bs[Math.floor(Math.random()*bs.length)];if(/Fallen rock/.test(q)){const dg=bs.find(b=>/DIG/.test(b.textContent));if(dg)pick=dg;}if(/Thunderwave/.test(q))pick=bs[0];
+   let pick=bs[0];if(/Ambush/.test(q))pick=bs[0];if(/ladder/.test(q))pick=bs[0];if(/Halt|path|Which beast/.test(q))pick=bs[Math.floor(Math.random()*bs.length)];if(/Fallen rock/.test(q)){const dg=bs.find(b=>/DIG/.test(b.textContent));if(dg)pick=dg;}if(/Thunderwave/.test(q))pick=bs[0];if(/crate|table|cask|bookshelf|flasks|pillar|cage|cauldron|altar|old bed|weapon rack/i.test(q)&&Math.random()<.6)pick=bs[bs.length-1];
    if(pick)pick.click();return 'choice';}
  if(t.busy)return 'busy';
  if(t.mode==='combat'){const C=t.C;if(!C||!C.cur||C.cur.side!=='h')return 'wait';const u=C.cur;

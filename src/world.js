@@ -28,7 +28,7 @@ function blocksObj(x,y){const o=objAt(x,y);return !!(o&&BLOCKERS[o.type]);}
 function genMap(W,H,n){
   for(let attempt=0;attempt<40;attempt++){
     const t=Array.from({length:H},()=>Array(W).fill(1));const rooms=[];
-    for(let k=0;k<600&&rooms.length<n;k++){const w=ri(5,9),h=ri(4,7),x=ri(2,W-w-3),y=ri(3,H-h-3);
+    for(let k=0;k<600&&rooms.length<n;k++){const sz=Math.random(),big=sz<.13&&rooms.length>1,small=sz>.8;const w=big?ri(10,13):small?ri(4,5):ri(5,9),h=big?ri(7,9):small?3:ri(4,7),x=ri(2,W-w-3),y=ri(3,H-h-3);
       if(rooms.some(r=>x<=r.x+r.w+2&&x+w+2>=r.x&&y<=r.y+r.h+2&&y+h+2>=r.y))continue;
       rooms.push({x,y,w,h,cx:x+(w>>1),cy:y+(h>>1)});for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)t[yy][xx]=0;}
     if(rooms.length<4)continue;rooms.sort((a,b)=>a.cx-b.cx);

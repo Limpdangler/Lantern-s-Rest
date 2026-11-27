@@ -298,7 +298,7 @@ async function monsterTurn(m){const T=m.tr;await wait(200);
   const w=weaponOf(m);
   if(w.melee){let adj=targets.filter(h=>cheb(h,m)===1);
     if(!adj.length&&move>0){const dist=dijkstra(m,80);let best=null,bs=1e9;
-      for(const [k,v] of dist){const x=k%G.W,y=(k/G.W)|0;const occ=unitAt(x,y);if(occ&&occ!==m)continue;for(const h of targets){if(Math.max(Math.abs(h.x-x),Math.abs(h.y-y))!==1)continue;const sc=v.w+threatScore(m,h,w)*2;if(sc<bs){bs=sc;best=k;}}}
+      for(const [k,v] of dist){const x=k%G.W,y=(k/G.W)|0;const occ=unitAt(x,y);if(occ&&occ!==m)continue;for(const h of targets){if(Math.max(Math.abs(h.x-x),Math.abs(h.y-y))!==1)continue;const sc=v.w+threatScore(m,h,w)*2-(flankSpot(m,h,x,y)?2.5:0);if(sc<bs){bs=sc;best=k;}}}
       if(best!==null){const path=truncatePath(dist,pathTo(dist,best),move);if(path.length)await walk(m,path);if(m.hp<=0||!m.inCombat)return;}
       adj=heroesUp().filter(h=>cheb(h,m)===1);}
     if(!adj.length)return;
@@ -311,7 +311,7 @@ async function monsterTurn(m){const T=m.tr;await wait(200);
   const adjAt=(x,y)=>targets.some(h=>Math.max(Math.abs(h.x-x),Math.abs(h.y-y))===1);
   if(!(shoot(m.x,m.y).length&&!adjAt(m.x,m.y))&&move>0){const dist=dijkstra(m,80);let best=null,bs=-1e9;
     for(const [k,v] of dist){const x=k%G.W,y=(k/G.W)|0;const occ=unitAt(x,y);if(occ&&occ!==m)continue;const sh=shoot(x,y);const near=Math.min(...targets.map(h=>Math.max(Math.abs(h.x-x),Math.abs(h.y-y))));
-      let sc=sh.length?20:0;sc+=(adjAt(x,y)?-40:0)+Math.min(near,5)*2-(v.c>move?(v.c-move)*3:0)-v.w*.3+(elevAt(x,y)?3:0);if(!sh.length)sc-=near;if(sc>bs){bs=sc;best=k;}}
+      let sc=sh.length?20:0;sc+=(adjAt(x,y)?-40:0)+Math.min(near,5)*2-(v.c>move?(v.c-move)*3:0)-v.w*.3+(elevAt(x,y)?3:0)+(sh.length?coverScore(x,y,sh):0);if(!sh.length)sc-=near;if(sc>bs){bs=sc;best=k;}}
     if(best!==null){if(T.nimble&&adjAt(m.x,m.y))m.disengaged=true;const path=truncatePath(dist,pathTo(dist,best),move);if(path.length)await walk(m,path);if(m.hp<=0||!m.inCombat)return;}}
   const inR=heroesUp().filter(h=>inReachW(m,h,w)).sort((a,b)=>threatScore(m,a,w)-threatScore(m,b,w));
   if(inR.length){const n=T.multi||1;for(let i=0;i<n;i++){const t=inR.find(h=>!h.down&&!h.dead);if(!t)break;await attack(m,t,w,{});}}}
@@ -319,7 +319,7 @@ async function fleeTurn(m,move){const dist=dijkstra(m,move);let best=null,bs=-1e
   for(const [k,v] of dist){const x=k%G.W,y=(k/G.W)|0;const occ=unitAt(x,y);if(occ&&occ!==m)continue;const near=Math.min(...heroesUp().map(h=>Math.max(Math.abs(h.x-x),Math.abs(h.y-y))));const sc=near*3-v.w*.2;if(sc>bs){bs=sc;best=k;}}
   if(m.tr.nimble)m.disengaged=true;
   if(best!==null){const path=pathTo(dist,best);if(path.length)await walk(m,path);if(m.hp<=0)return;}
-  if(!heroesUp().some(h=>cheb(h,m)<=7&&los(h.x,h.y,m.x,m.y))){m.inCombat=false;G.mons.splice(G.mons.indexOf(m),1);C.xp+=Math.floor(m.xp/2);await say(`The ${m.name} escapes into the dark!`,800);renderStrip();return;}
+  if(!heroesUp().some(h=>cheb(h,m)<=7&&los(h.x,h.y,m.x,m.y))){noteGrudge(m);m.inCombat=false;G.mons.splice(G.mons.indexOf(m),1);C.xp+=Math.floor(m.xp/2);await say(`The ${m.name} escapes into the dark!`,800);renderStrip();return;}
   if(!m.st.turned){const t=heroesUp().find(h=>cheb(h,m)===1);if(t&&best===null)await attack(m,t,weaponOf(m),{});}}
 async function bossPhase(m){fx.push({type:"wave",u:m,t:now()});await say(`The ${m.name} ROARS with fury!`,1000);
   for(const h of heroesUp().filter(h=>cheb(h,m)<=6)){const s=saveRoll(h,"wis",13,{fear:true});if(!s.ok){h.st.frightened=2;float(h,"FRIGHTENED","#ffffff");}log(`${esc(h.name)}: ${s.txt}.`,"magic");}

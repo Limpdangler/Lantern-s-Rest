@@ -16,6 +16,7 @@ async function doMove(dx,dy,act){// act: true when the player chose to use what 
 if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const [h]=G.party.splice(i,1);G.party.unshift(h);hud();}}const L=G.party[0];L.face=dy<0?"b":dy>0?"f":"s";if(dx)L.flip=dx<0;const nx=L.x+dx,ny=L.y+dy;
   const m=monAt(nx,ny);if(m){
     if(isHiddenMon(m)){m.spotted=true;m.lurk=false;m.ambusher=true;await say(`${cap(aN(m.name))} lunges out of the shadows!`,900,true);busy=false;startCombat({bumped:m,by:[m]});return;}
+    if(m.rival&&m.peace){if(!act){hintA(`${rivalCo(m).name}: rival adventurers.`);return;}await rivalTalk(m);return;}
     if(m.peace){if(!act){hintA(`The ${m.name} lets you pass.`);return;}const c=await choose(`The ${m.name} watches you warily. They agreed to let you pass.`,[{t:"ATTACK THEM",sub:m.fooled?"They think you're friends: they'll be surprised":"They're watching you: no surprise"},{t:"LEAVE THEM BE"}]);
       if(c===0){for(const q of G.mons)if(q.gid===m.gid)q.peace=false;busy=false;startCombat({bumped:m,partyFirst:true});}return;}
     if(isKin(m)){await kinTalk(m);return;}
@@ -126,7 +127,7 @@ async function interact(o){
   if(o.type==="captive"){await captiveInteract(o);return;}
   if(o.type==="relic"){await relicInteract(o);return;}
   if(o.type==="coffer"){await cofferInteract(o);return;}
-  if(o.type==="chest"){if(o.opened){toast("An empty chest.");return;}
+  if(o.type==="chest"){if(o.opened){toast(o.robbed?"Empty. Fresh boot prints in the dust: someone got here first.":"An empty chest.");return;}
     if((!o.mimic||!o.suspicious)&&!(o.trap&&o.trapFound&&!o.mimic)){const c0=await choose("A closed chest.",[{t:"OPEN IT"},{t:"ATTACK IT",sub:"Hit it first, just in case it's a mimic"},{t:"LEAVE IT"}]);$("tBox").hidden=true;if(c0===2||c0<0)return;
       if(c0===1){if(o.mimic){await mimicAmbushed(o);return;}makeNoise(o.x,o.y,6);G.steps+=1;await say("You give the chest a good whack. It's just a chest. (That made some noise.)",1100,true);$("tBox").hidden=true;return;}}
     if(o.trap&&o.trapFound&&!o.mimic){const th=bestAt("thieves");const c=await choose("This chest's lock hides a poison needle.",[{t:"DISARM IT",sub:o.trapFail?"You already tried":`${oddsTag(th,"thieves",o.trap.dc)}${toolNote(th)}`},{t:"OPEN IT ANYWAY",sub:heroesUp().some(h=>h.sub==="trickster")?"With Mage Hand: from a safe distance":"Take the risk"},{t:"LEAVE IT"}]);
