@@ -123,6 +123,7 @@ const ITEMS={
   scroll_mm:{unk:"Unread Scroll",name:"Scroll of Magic Missile",kind:"use",price:60,floor:1,w:4,desc:"Anyone can read it: 3 darts of 1d4+1 that never miss."},
   scroll_cure:{unk:"Unread Scroll",name:"Scroll of Cure Wounds",kind:"use",price:60,floor:1,w:4,desc:"Anyone can read it: heal an adjacent ally 2d8+3."},
   scroll_fb:{unk:"Unread Scroll",name:"Scroll of Fireball",kind:"use",price:250,floor:3,w:2,desc:"Anyone can read it: 8d6 fire in a 5×5 area (DC 15)."},
+  bottle:{name:"Empty Bottle",kind:"supply",price:2,floor:1,w:0,desc:"What's left after drinking a potion. Weighs nothing. Fill it with oil at a barrel to make an oil flask."},
   rope:{name:"Rope",kind:"supply",price:10,floor:1,w:0,desc:"Fifty feet of hemp rope. Hauls anyone out of a pit, every time (but it's tiring work)."},
   ration:{name:"Rations",kind:"supply",price:5,floor:1,w:0,desc:"A day's food for the whole party. Eaten at every long rest; sleeping hungry causes exhaustion."},
   firewood:{name:"Firewood",kind:"supply",price:5,floor:1,w:8,desc:"Enough for one camp fire. A fire camp gives a full long rest."},

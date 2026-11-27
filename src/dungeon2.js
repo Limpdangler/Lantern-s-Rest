@@ -141,7 +141,7 @@ const D2_ACT={
   async cask(o){const [dx,dy]=leadDir(o);const c=await choose("A big wooden cask"+(o.tapped?", tapped dry.":". Something sloshes inside."),[{t:"TAP IT",sub:o.tapped?"Nothing left":"Have a taste...",dis:!!o.tapped},{t:"ROLL IT",sub:"Push it one square away from you",dis:!canShove(o,dx,dy)},{t:"LEAVE IT"}]);
     if(c===0){o.tapped=true;const q=Math.random();
       if(q<.5){for(const h of heroesUp())h.thp=Math.max(h.thp||0,ri(2,4));await say("Old wine, and surprisingly good. Everyone takes a swig and feels braver (a few temporary HP each, until the next fight ends).",1600,true);}
-      else if(q<.75){addItem("oil");await say("It's lamp oil! You fill a flask.",1100,true);}else await say("Vinegar. Everyone splutters.",900,true);}
+      else if(q<.75){if((G.bag.bottle||0)>0){takeItem("bottle");addItem("oil");await say("It's lamp oil! You fill an empty bottle with it.",1100,true);}else{o.tapped=false;await say("It's lamp oil, but you've no empty bottle to carry it in. Drink a potion and come back.",1500,true);}}else await say("Vinegar. Everyone splutters.",900,true);}
     else if(c===1){$("tBox").hidden=true;if(slideObj(o,dx,dy))await tryStepInto(o.x-dx,o.y-dy);}},
   async shelf(o){const h=bestAt("investigation");const c=await choose("A tall bookshelf, sagging with mouldy books and scrolls. Dry paper: it would burn fast.",[{t:"SEARCH THE SHELVES",sub:o.searched?"Already searched":`Investigation DC 12 · ${oddsTag(h,"investigation",12)}`,dis:!!o.searched},{t:"LEAVE IT"}]);
     if(c!==0)return;o.searched=true;G.steps+=4;const r=await check(h,"investigation",12);

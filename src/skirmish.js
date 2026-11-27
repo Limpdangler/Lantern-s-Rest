@@ -93,7 +93,7 @@ async function skAftermath(sk,arrived){const side=sk.sides.find(s=>s.team===sk.w
     approve("spare");skCalm(us);await say("You wave them off. They limp away gratefully.",1100,true);return;}
   // adventurers: they claim the spoils, or beg for help
   if(hurt&&(G.bag.potion||0)>0){const pay=ri(15,25)*G.floor;const c=await choose(`${scene} ${looks} "Please, you wouldn't have any healing on you? We'll pay ${pay} gold."`,[{t:"GIVE THEM A POTION",sub:`+${pay} gold`},{t:"REFUSE"},{t:"ATTACK THEM",sub:"They're in no shape to fight"}]);$("tBox").hidden=true;
-    if(c===0){takeItem("potion");G.gold+=pay;hud();approve("spare");skCalm(us);sk.friendly=true;await say(`They gulp it down and pay up. "We owe you. The bodies are yours if you want them."`,1500,true);return;}
+    if(c===0){noBottle=true;takeItem("potion");noBottle=false;G.gold+=pay;hud();approve("spare");skCalm(us);sk.friendly=true;await say(`They gulp it down and pay up. "We owe you. The bodies are yours if you want them."`,1500,true);return;}
     if(c===2){approve("finish");await skFight(sk,side,true);return;}}
   const c=await choose(`${scene} ${looks} "Back off, these spoils are ours."`,[{t:"LEAVE THEM BE"},{t:"OFFER TO SPLIT THE LOOT",sub:`${oddsTag(bestAt("persuasion"),"persuasion",12)}`},{t:"INTIMIDATE THEM",sub:`${oddsTag(bestAt("intimidation"),"intimidation",14)} · make them leave it`},{t:"ATTACK THEM"}]);$("tBox").hidden=true;
   if(c===1){const r=await check(bestAt("persuasion"),"persuasion",12);if(r.ok){sk.friendly=true;skCalm(us);await say(`"Fair enough. Take what you like from that lot." (${r.txt})`,1200,true);return;}await say(`"No chance." (${r.txt})`,900,true);}

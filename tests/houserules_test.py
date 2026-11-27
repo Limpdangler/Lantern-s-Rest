@@ -38,7 +38,7 @@ async def main():
       // rests can't be stacked
       G.lastRestStep=G.steps;out.restSoon=t.restTooSoon(false)>0;G.lastRestStep=G.steps-100;out.restLater=t.restTooSoon(false)===0;
       // barrels: fill a flask
-      const bar={type:'barrel',x:L.x+1,y:L.y};G.objs.push(bar);const oil0=G.bag.oil||0;window.__want='FILL';await t.pushMenu(bar,1,0);out.fill=(G.bag.oil||0)===oil0+1&&bar.fills===2;
+      const bar={type:'barrel',x:L.x+1,y:L.y};G.objs.push(bar);G.bag.bottle=1;const oil0=G.bag.oil||0;window.__want='FILL';await t.pushMenu(bar,1,0);out.fill=(G.bag.oil||0)===oil0+1&&bar.fills===2;
       // foraging: a lone fighter can't, until someone reads the almanac
       out.forageBefore=!t.forageLeader();t.addItem('almanac');t.readAlmanac();out.forageAfter=t.forageLeader()===L&&t.classActions(L).some(a=>a.t==='FORAGE');
       // mouse holes: generated, and a druid can sneak into a vault through one

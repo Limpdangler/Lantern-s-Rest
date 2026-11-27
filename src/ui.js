@@ -293,7 +293,7 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
     mk("SHORT REST",`${maxShort()-G.shortRests} left · ${cl?"floor cleared: safe":"ambush risk "+Math.round(campRisk("short")*100)+"%"+(doorSafety().why?" ("+doorSafety().why+")":"")}`,()=>doRest(false),G.shortRests>=maxShort()||restTooSoon(false)>0);
     mk("MAKE CAMP (LONG REST)",`${S.rules.fatigue&&G.fatigue<3?"Only when Tired":cl?"Floor cleared: safe":"Fire "+Math.round(campRisk("fire")*100)+"% / cold "+Math.round(campRisk("cold")*100)+"% ambush risk"}`,()=>doRest(true),S.rules.fatigue&&G.fatigue<3||restTooSoon(true)>0);}}
 function alertMenu(t){const el=$("menuBody");el.querySelectorAll(".msg").forEach(m=>m.remove());el.insertAdjacentHTML("afterbegin",`<p class="msg">${esc(t)}</p>`);}
-function drawIconTo(canvas,id){const c2=canvas.getContext("2d");if(id==="potion"||id==="gpotion"){c2.drawImage(monSpr("potion",id==="gpotion"?{r:"#4a7ae0",R:"#2a4aa0"}:null),0,0);return;}drawIconBase(c2,id);}
+function drawIconTo(canvas,id){const c2=canvas.getContext("2d");if(id==="bottle"){c2.globalAlpha=.55;c2.drawImage(monSpr("potion",{r:"#c8d4dc",R:"#8a98a4"}),0,0);c2.globalAlpha=1;return;}if(id==="potion"||id==="gpotion"){c2.drawImage(monSpr("potion",id==="gpotion"?{r:"#4a7ae0",R:"#2a4aa0"}:null),0,0);return;}drawIconBase(c2,id);}
 function drawIconBase(c,id){const sx=0,sy=0;const it=ITEMS[id]||{};
   if(id==="key"){c.fillStyle="#d8b040";c.fillRect(3,6,4,4);c.fillRect(7,7,7,2);c.fillRect(11,9,1,2);c.fillRect(13,9,1,2);c.fillStyle="#3c3446";c.fillRect(4,7,2,2);return;}
   if(id==="torch"){c.fillStyle="#7a4e2a";c.fillRect(7,6,2,8);c.fillStyle="#ff8a30";c.fillRect(6,2,4,5);c.fillStyle="#ffe070";c.fillRect(7,4,2,2);return;}
@@ -317,7 +317,7 @@ function renderShop(){const el=$("shopBody");el.innerHTML=`<p>"Lamp oil, rope, b
   else{const hb=document.createElement("button");hb.type="button";hb.className="chip";hb.textContent=`HAGGLE · ${oddsTag(bestAt("persuasion"),"persuasion",13)}`;hb.addEventListener("click",()=>haggle());el.appendChild(hb);}
   shopObj.stock.forEach((id,i)=>{const pr=shopPrice(id);row(id,pr,id==="arrows"||id==="bullets"?"BUY 10":"BUY",()=>{G.gold-=pr;addItem(id,id==="arrows"||id==="bullets"?10:1);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<pr||(id==="shield"&&(G.bag.shield||0)>=1));});
   el.insertAdjacentHTML("beforeend","<h3>SELL</h3>");const ids=Object.keys(G.bag).filter(id=>ITEMS[id].price>0);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Nothing to sell.</p>");
-  for(const id of ids){const p=Math.floor(ITEMS[id].price/2);row(id,p,`SELL (${G.bag[id]})`,()=>{takeItem(id);G.gold+=p;shopObj.stock.push(id);renderShop();hud();});
+  for(const id of ids){const p=Math.floor(ITEMS[id].price/2);row(id,p,`SELL (${G.bag[id]})`,()=>{noBottle=true;takeItem(id);noBottle=false;G.gold+=p;shopObj.stock.push(id);renderShop();hud();});
     if(!isKnown(id))row(id,20,"IDENTIFY",()=>{G.gold-=20;G.known.add(id);renderShop();hud();},G.gold<20);}}
 // ---------- settings ----------
 const DFIELDS=[["width","Map width",34,80],["height","Map height",26,60],["rooms","Rooms per floor",4,20],["monsters","Monsters on floor 1",0,30],["monstersPerFloor","Extra monsters each floor",0,10],

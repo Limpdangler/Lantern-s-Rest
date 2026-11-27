@@ -608,6 +608,7 @@ const ITEMS={
   scroll_mm:{unk:"Unread Scroll",name:"Scroll of Magic Missile",kind:"use",price:60,floor:1,w:4,desc:"Anyone can read it: 3 darts of 1d4+1 that never miss."},
   scroll_cure:{unk:"Unread Scroll",name:"Scroll of Cure Wounds",kind:"use",price:60,floor:1,w:4,desc:"Anyone can read it: heal an adjacent ally 2d8+3."},
   scroll_fb:{unk:"Unread Scroll",name:"Scroll of Fireball",kind:"use",price:250,floor:3,w:2,desc:"Anyone can read it: 8d6 fire in a 5×5 area (DC 15)."},
+  bottle:{name:"Empty Bottle",kind:"supply",price:2,floor:1,w:0,desc:"What's left after drinking a potion. Weighs nothing. Fill it with oil at a barrel to make an oil flask."},
   rope:{name:"Rope",kind:"supply",price:10,floor:1,w:0,desc:"Fifty feet of hemp rope. Hauls anyone out of a pit, every time (but it's tiring work)."},
   ration:{name:"Rations",kind:"supply",price:5,floor:1,w:0,desc:"A day's food for the whole party. Eaten at every long rest; sleeping hungry causes exhaustion."},
   firewood:{name:"Firewood",kind:"supply",price:5,floor:1,w:8,desc:"Enough for one camp fire. A fire camp gives a full long rest."},
@@ -1190,7 +1191,7 @@ function rollItem(rich){const pool=Object.entries(ITEMS).filter(([k,v])=>v.floor
 function rollLoot(rich){const items=[];const n=rich?2:ri(1,2);for(let i=0;i<n;i++)items.push(rollItem(rich));
   if(rich&&!items.some(k=>ITEMS[k].kind==="gear")){const g=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&ITEMS[k].floor<=G.floor);items[0]=pick(g);}
   return {gold:ri(8,20)*G.floor*(rich?2:1),items};}
-function shopStock(){const s=["potion","potion","oil","oil","torch","rope","firewood","firewood","arrows","arrows","flashpowder","antitoxin","scroll_cure","scroll_mm","shield"];if(G.party.some(h=>h.sub==="gunslinger"))s.push("bullets","bullets");if(!(G.lore&&G.lore.forage)&&Math.random()<.5)s.push("almanac");if(G.floor>=3)s.push("gpotion","scroll_fb");
+function shopStock(){const s=["potion","potion","oil","oil","torch","rope","bottle","bottle","firewood","firewood","arrows","arrows","flashpowder","antitoxin","scroll_cure","scroll_mm","shield"];if(G.party.some(h=>h.sub==="gunslinger"))s.push("bullets","bullets");if(!(G.lore&&G.lore.forage)&&Math.random()<.5)s.push("almanac");if(G.floor>=3)s.push("gpotion","scroll_fb");
   const gear=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&ITEMS[k].floor<=G.floor);shuffle(gear);return s.concat(gear.slice(0,2));}
 
 // ---------- light & sight ----------
@@ -1677,7 +1678,8 @@ async function shove(a,t,choice){
 async function collectItems(h){for(const it of G.items.filter(i=>i.x===h.x&&i.y===h.y)){G.items.splice(G.items.indexOf(it),1);
   if(it.gold){G.gold+=it.gold;toast(`Found ${it.gold} gold!`);log(`Found ${it.gold} gold.`,"gold");}else{addItem(it.item,it.n||1);toast(`Found ${it.n>1?it.n+" ":""}${itemName(it.item)}!`);log(`Found ${esc(itemName(it.item))}.`,"gold");}}hud();}
 function addItem(id,n){G.bag[id]=(G.bag[id]||0)+(n||1);}
-function takeItem(id,n){if(!G.bag[id])return false;G.bag[id]-=Math.min(G.bag[id],n||1);if(!G.bag[id])delete G.bag[id];return true;}
+let noBottle=false;// selling or handing a potion to a stranger leaves no empty bottle behind
+function takeItem(id,n){if(!G.bag[id])return false;if((id==="potion"||id==="gpotion")&&!noBottle)G.bag.bottle=(G.bag.bottle||0)+Math.min(G.bag[id],n||1);G.bag[id]-=Math.min(G.bag[id],n||1);if(!G.bag[id])delete G.bag[id];return true;}
 
 // ================= combat engine =================
 function showCombatUI(on){$("controls").hidden=on;if($("lookBtn"))$("lookBtn").hidden=on;$("tglRow").hidden=on;$("cPanel").hidden=!on;$("strip").hidden=!on;if(!on){$("tBox").hidden=true;}}
@@ -2307,10 +2309,10 @@ function stirSleepers(){if(G.sneak)return;const up=heroesUp();const done=new Set
 // barrels and boulders: push them, and fill flasks from oil barrels
 async function pushMenu(o,dx,dy){if(dx&&dy){dx=0;}if(!dx&&!dy)return;const barrel=o.type==="barrel";o.fills=o.fills===undefined?3:o.fills;
   const strong=G.party.filter(h=>!h.dead&&!h.down).sort((a,b)=>skillBonus(b,"athletics")-skillBonus(a,"athletics"))[0];
-  const opts=barrel?[{t:"PUSH IT",sub:"Roll it one square away from you"},{t:"FILL A FLASK",sub:o.fills>0?`Take an oil flask (${o.fills} left in it)`:"It's run dry",dis:o.fills<=0},{t:"SMASH IT",sub:"Spill the oil on the floor"},{t:"LEAVE IT",sub:"It could be useful in a fight"}]
+  const opts=barrel?[{t:"PUSH IT",sub:"Roll it one square away from you"},{t:"FILL A BOTTLE",sub:o.fills<=0?"It's run dry":(G.bag.bottle||0)<1?"You need an empty bottle (drink a potion first, or buy one)":`Makes an oil flask · ${G.bag.bottle} empty bottle${G.bag.bottle>1?"s":""} · ${o.fills} fill${o.fills>1?"s":""} left`,dis:o.fills<=0||(G.bag.bottle||0)<1},{t:"SMASH IT",sub:"Spill the oil on the floor"},{t:"LEAVE IT",sub:"It could be useful in a fight"}]
     :[{t:"PUSH IT",sub:`Athletics DC 13 · ${oddsTag(strong,"athletics",13)} · noisy`},{t:"LEAVE IT",sub:"Good cover from arrows"}];
   const c=await choose(barrel?"An old barrel, sloshing with lamp oil.":"A heavy boulder.",opts);$("tBox").hidden=true;
-  if(c===0)await pushObj(o,dx,dy);else if(barrel&&c===1){o.fills--;addItem("oil");toast(`You fill a flask with lamp oil. (${o.fills} more in the barrel)`);hud();}else if(barrel&&c===2)await breakBarrel(o,false,0,0);}
+  if(c===0)await pushObj(o,dx,dy);else if(barrel&&c===1){if((G.bag.bottle||0)<1)return;o.fills--;takeItem("bottle");addItem("oil");toast(`You fill an empty bottle with lamp oil. (${o.fills} more in the barrel)`);hud();}else if(barrel&&c===2)await breakBarrel(o,false,0,0);}
 
 // you struck a chest first and it turns out to be a mimic: it's surprised and you get the first round
 async function mimicAmbushed(o){o.gone=true;const mm=mkMon(MIMIC,o.x,o.y);mm.gid=999;mm.state="combat";mm.fooled=true;G.mons.push(mm);fx.push({type:"flash",u:mm,t:now()});
@@ -3275,7 +3277,7 @@ async function listenAtDoor(d){const h=bestAt("perception");const dc=d.iron?15:1
     msg=`You hear ${r.total>=dc+5?`about ${n} creature${n>1?"s":""}`:"something"}: ${facs.map(f=>SOUNDS[f]||SOUNDS.none).join("; ")}${asleep?" ...and snoring":""}.`;}
   d.heard=msg;G.steps+=2;await say(`${msg} (${r.txt})`,1700,true);$("tBox").hidden=true;}
 // ---------- carrying capacity ----------
-const WEIGHT={firewood:2,ration:1,oil:1,torch:1,relic:2,key:0,arrows:.05};
+const WEIGHT={bottle:0,firewood:2,ration:1,oil:1,torch:1,relic:2,key:0,arrows:.05};
 const itemWeight=id=>WEIGHT[id]!==undefined?WEIGHT[id]:ITEMS[id]&&ITEMS[id].kind==="gear"?1:.5;
 function packLoad(){let w=0;for(const id in G.bag)w+=itemWeight(id)*(G.bag[id]||0);return Math.round(w*10)/10;}
 function packCap(){return 12+heroesUp().filter(h=>h.id!=="beast").reduce((a,h)=>a+Math.max(4,Math.floor(score(h,"str")/2)+Math.max(0,abm(h,"con"))*2),0);}// 12 + each hero: half their STR + 2 per CON bonus
@@ -4132,7 +4134,7 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
     mk("SHORT REST",`${maxShort()-G.shortRests} left · ${cl?"floor cleared: safe":"ambush risk "+Math.round(campRisk("short")*100)+"%"+(doorSafety().why?" ("+doorSafety().why+")":"")}`,()=>doRest(false),G.shortRests>=maxShort()||restTooSoon(false)>0);
     mk("MAKE CAMP (LONG REST)",`${S.rules.fatigue&&G.fatigue<3?"Only when Tired":cl?"Floor cleared: safe":"Fire "+Math.round(campRisk("fire")*100)+"% / cold "+Math.round(campRisk("cold")*100)+"% ambush risk"}`,()=>doRest(true),S.rules.fatigue&&G.fatigue<3||restTooSoon(true)>0);}}
 function alertMenu(t){const el=$("menuBody");el.querySelectorAll(".msg").forEach(m=>m.remove());el.insertAdjacentHTML("afterbegin",`<p class="msg">${esc(t)}</p>`);}
-function drawIconTo(canvas,id){const c2=canvas.getContext("2d");if(id==="potion"||id==="gpotion"){c2.drawImage(monSpr("potion",id==="gpotion"?{r:"#4a7ae0",R:"#2a4aa0"}:null),0,0);return;}drawIconBase(c2,id);}
+function drawIconTo(canvas,id){const c2=canvas.getContext("2d");if(id==="bottle"){c2.globalAlpha=.55;c2.drawImage(monSpr("potion",{r:"#c8d4dc",R:"#8a98a4"}),0,0);c2.globalAlpha=1;return;}if(id==="potion"||id==="gpotion"){c2.drawImage(monSpr("potion",id==="gpotion"?{r:"#4a7ae0",R:"#2a4aa0"}:null),0,0);return;}drawIconBase(c2,id);}
 function drawIconBase(c,id){const sx=0,sy=0;const it=ITEMS[id]||{};
   if(id==="key"){c.fillStyle="#d8b040";c.fillRect(3,6,4,4);c.fillRect(7,7,7,2);c.fillRect(11,9,1,2);c.fillRect(13,9,1,2);c.fillStyle="#3c3446";c.fillRect(4,7,2,2);return;}
   if(id==="torch"){c.fillStyle="#7a4e2a";c.fillRect(7,6,2,8);c.fillStyle="#ff8a30";c.fillRect(6,2,4,5);c.fillStyle="#ffe070";c.fillRect(7,4,2,2);return;}
@@ -4156,7 +4158,7 @@ function renderShop(){const el=$("shopBody");el.innerHTML=`<p>"Lamp oil, rope, b
   else{const hb=document.createElement("button");hb.type="button";hb.className="chip";hb.textContent=`HAGGLE · ${oddsTag(bestAt("persuasion"),"persuasion",13)}`;hb.addEventListener("click",()=>haggle());el.appendChild(hb);}
   shopObj.stock.forEach((id,i)=>{const pr=shopPrice(id);row(id,pr,id==="arrows"||id==="bullets"?"BUY 10":"BUY",()=>{G.gold-=pr;addItem(id,id==="arrows"||id==="bullets"?10:1);G.known.add(id);shopObj.stock.splice(i,1);renderShop();hud();},G.gold<pr||(id==="shield"&&(G.bag.shield||0)>=1));});
   el.insertAdjacentHTML("beforeend","<h3>SELL</h3>");const ids=Object.keys(G.bag).filter(id=>ITEMS[id].price>0);if(!ids.length)el.insertAdjacentHTML("beforeend","<p class='help'>Nothing to sell.</p>");
-  for(const id of ids){const p=Math.floor(ITEMS[id].price/2);row(id,p,`SELL (${G.bag[id]})`,()=>{takeItem(id);G.gold+=p;shopObj.stock.push(id);renderShop();hud();});
+  for(const id of ids){const p=Math.floor(ITEMS[id].price/2);row(id,p,`SELL (${G.bag[id]})`,()=>{noBottle=true;takeItem(id);noBottle=false;G.gold+=p;shopObj.stock.push(id);renderShop();hud();});
     if(!isKnown(id))row(id,20,"IDENTIFY",()=>{G.gold-=20;G.known.add(id);renderShop();hud();},G.gold<20);}}
 // ---------- settings ----------
 const DFIELDS=[["width","Map width",34,80],["height","Map height",26,60],["rooms","Rooms per floor",4,20],["monsters","Monsters on floor 1",0,30],["monstersPerFloor","Extra monsters each floor",0,10],
@@ -4523,7 +4525,7 @@ const D2_ACT={
   async cask(o){const [dx,dy]=leadDir(o);const c=await choose("A big wooden cask"+(o.tapped?", tapped dry.":". Something sloshes inside."),[{t:"TAP IT",sub:o.tapped?"Nothing left":"Have a taste...",dis:!!o.tapped},{t:"ROLL IT",sub:"Push it one square away from you",dis:!canShove(o,dx,dy)},{t:"LEAVE IT"}]);
     if(c===0){o.tapped=true;const q=Math.random();
       if(q<.5){for(const h of heroesUp())h.thp=Math.max(h.thp||0,ri(2,4));await say("Old wine, and surprisingly good. Everyone takes a swig and feels braver (a few temporary HP each, until the next fight ends).",1600,true);}
-      else if(q<.75){addItem("oil");await say("It's lamp oil! You fill a flask.",1100,true);}else await say("Vinegar. Everyone splutters.",900,true);}
+      else if(q<.75){if((G.bag.bottle||0)>0){takeItem("bottle");addItem("oil");await say("It's lamp oil! You fill an empty bottle with it.",1100,true);}else{o.tapped=false;await say("It's lamp oil, but you've no empty bottle to carry it in. Drink a potion and come back.",1500,true);}}else await say("Vinegar. Everyone splutters.",900,true);}
     else if(c===1){$("tBox").hidden=true;if(slideObj(o,dx,dy))await tryStepInto(o.x-dx,o.y-dy);}},
   async shelf(o){const h=bestAt("investigation");const c=await choose("A tall bookshelf, sagging with mouldy books and scrolls. Dry paper: it would burn fast.",[{t:"SEARCH THE SHELVES",sub:o.searched?"Already searched":`Investigation DC 12 · ${oddsTag(h,"investigation",12)}`,dis:!!o.searched},{t:"LEAVE IT"}]);
     if(c!==0)return;o.searched=true;G.steps+=4;const r=await check(h,"investigation",12);
@@ -5191,7 +5193,7 @@ async function skAftermath(sk,arrived){const side=sk.sides.find(s=>s.team===sk.w
     approve("spare");skCalm(us);await say("You wave them off. They limp away gratefully.",1100,true);return;}
   // adventurers: they claim the spoils, or beg for help
   if(hurt&&(G.bag.potion||0)>0){const pay=ri(15,25)*G.floor;const c=await choose(`${scene} ${looks} "Please, you wouldn't have any healing on you? We'll pay ${pay} gold."`,[{t:"GIVE THEM A POTION",sub:`+${pay} gold`},{t:"REFUSE"},{t:"ATTACK THEM",sub:"They're in no shape to fight"}]);$("tBox").hidden=true;
-    if(c===0){takeItem("potion");G.gold+=pay;hud();approve("spare");skCalm(us);sk.friendly=true;await say(`They gulp it down and pay up. "We owe you. The bodies are yours if you want them."`,1500,true);return;}
+    if(c===0){noBottle=true;takeItem("potion");noBottle=false;G.gold+=pay;hud();approve("spare");skCalm(us);sk.friendly=true;await say(`They gulp it down and pay up. "We owe you. The bodies are yours if you want them."`,1500,true);return;}
     if(c===2){approve("finish");await skFight(sk,side,true);return;}}
   const c=await choose(`${scene} ${looks} "Back off, these spoils are ours."`,[{t:"LEAVE THEM BE"},{t:"OFFER TO SPLIT THE LOOT",sub:`${oddsTag(bestAt("persuasion"),"persuasion",12)}`},{t:"INTIMIDATE THEM",sub:`${oddsTag(bestAt("intimidation"),"intimidation",14)} · make them leave it`},{t:"ATTACK THEM"}]);$("tBox").hidden=true;
   if(c===1){const r=await check(bestAt("persuasion"),"persuasion",12);if(r.ok){sk.friendly=true;skCalm(us);await say(`"Fair enough. Take what you like from that lot." (${r.txt})`,1200,true);return;}await say(`"No chance." (${r.txt})`,900,true);}

@@ -277,10 +277,10 @@ function stirSleepers(){if(G.sneak)return;const up=heroesUp();const done=new Set
 // barrels and boulders: push them, and fill flasks from oil barrels
 async function pushMenu(o,dx,dy){if(dx&&dy){dx=0;}if(!dx&&!dy)return;const barrel=o.type==="barrel";o.fills=o.fills===undefined?3:o.fills;
   const strong=G.party.filter(h=>!h.dead&&!h.down).sort((a,b)=>skillBonus(b,"athletics")-skillBonus(a,"athletics"))[0];
-  const opts=barrel?[{t:"PUSH IT",sub:"Roll it one square away from you"},{t:"FILL A FLASK",sub:o.fills>0?`Take an oil flask (${o.fills} left in it)`:"It's run dry",dis:o.fills<=0},{t:"SMASH IT",sub:"Spill the oil on the floor"},{t:"LEAVE IT",sub:"It could be useful in a fight"}]
+  const opts=barrel?[{t:"PUSH IT",sub:"Roll it one square away from you"},{t:"FILL A BOTTLE",sub:o.fills<=0?"It's run dry":(G.bag.bottle||0)<1?"You need an empty bottle (drink a potion first, or buy one)":`Makes an oil flask · ${G.bag.bottle} empty bottle${G.bag.bottle>1?"s":""} · ${o.fills} fill${o.fills>1?"s":""} left`,dis:o.fills<=0||(G.bag.bottle||0)<1},{t:"SMASH IT",sub:"Spill the oil on the floor"},{t:"LEAVE IT",sub:"It could be useful in a fight"}]
     :[{t:"PUSH IT",sub:`Athletics DC 13 · ${oddsTag(strong,"athletics",13)} · noisy`},{t:"LEAVE IT",sub:"Good cover from arrows"}];
   const c=await choose(barrel?"An old barrel, sloshing with lamp oil.":"A heavy boulder.",opts);$("tBox").hidden=true;
-  if(c===0)await pushObj(o,dx,dy);else if(barrel&&c===1){o.fills--;addItem("oil");toast(`You fill a flask with lamp oil. (${o.fills} more in the barrel)`);hud();}else if(barrel&&c===2)await breakBarrel(o,false,0,0);}
+  if(c===0)await pushObj(o,dx,dy);else if(barrel&&c===1){if((G.bag.bottle||0)<1)return;o.fills--;takeItem("bottle");addItem("oil");toast(`You fill an empty bottle with lamp oil. (${o.fills} more in the barrel)`);hud();}else if(barrel&&c===2)await breakBarrel(o,false,0,0);}
 
 // you struck a chest first and it turns out to be a mimic: it's surprised and you get the first round
 async function mimicAmbushed(o){o.gone=true;const mm=mkMon(MIMIC,o.x,o.y);mm.gid=999;mm.state="combat";mm.fooled=true;G.mons.push(mm);fx.push({type:"flash",u:mm,t:now()});

@@ -283,4 +283,5 @@ async function shove(a,t,choice){
 async function collectItems(h){for(const it of G.items.filter(i=>i.x===h.x&&i.y===h.y)){G.items.splice(G.items.indexOf(it),1);
   if(it.gold){G.gold+=it.gold;toast(`Found ${it.gold} gold!`);log(`Found ${it.gold} gold.`,"gold");}else{addItem(it.item,it.n||1);toast(`Found ${it.n>1?it.n+" ":""}${itemName(it.item)}!`);log(`Found ${esc(itemName(it.item))}.`,"gold");}}hud();}
 function addItem(id,n){G.bag[id]=(G.bag[id]||0)+(n||1);}
-function takeItem(id,n){if(!G.bag[id])return false;G.bag[id]-=Math.min(G.bag[id],n||1);if(!G.bag[id])delete G.bag[id];return true;}
+let noBottle=false;// selling or handing a potion to a stranger leaves no empty bottle behind
+function takeItem(id,n){if(!G.bag[id])return false;if((id==="potion"||id==="gpotion")&&!noBottle)G.bag.bottle=(G.bag.bottle||0)+Math.min(G.bag[id],n||1);G.bag[id]-=Math.min(G.bag[id],n||1);if(!G.bag[id])delete G.bag[id];return true;}
