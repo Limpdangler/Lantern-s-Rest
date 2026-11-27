@@ -2303,6 +2303,8 @@ async function pressA(){if(sayState){sayState.skip();return;}if(G&&G.scout){reca
   const dirs=[fd].concat(DIRS8.filter(d=>d[0]!==fd[0]||d[1]!==fd[1]));
   for(const [dx,dy] of dirs){const x=L.x+dx,y=L.y+dy;const k=aKind(x,y);if(!k)continue;if(k==="bump"&&dx&&dy){if(monAt(x,y)){await exploreTap(x,y);return;}continue;}
     if(k==="bump")await tryMove(dx,dy,true);else{faceToward(L,dx,dy);await exploreTap(x,y);}return;}
+  // a message is already up: A just clears it
+  if(!$("tBox").hidden){clearTimeout(toastT);$("tBox").hidden=true;return;}
   toast("Nothing to use here. Face a door, chest, torch, body or creature and press A. (SEARCH looks for hidden things.)");}
 
 // sleeping monsters can be woken by a party that isn't sneaking: the closer and noisier you are, the likelier
