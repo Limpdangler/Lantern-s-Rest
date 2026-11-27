@@ -122,12 +122,14 @@ async function interact(o){
   if(o.type==="relic"){await relicInteract(o);return;}
   if(o.type==="coffer"){await cofferInteract(o);return;}
   if(o.type==="chest"){if(o.opened){toast("An empty chest.");return;}
+    if((!o.mimic||!o.suspicious)&&!(o.trap&&o.trapFound&&!o.mimic)){const c0=await choose("A closed chest.",[{t:"OPEN IT"},{t:"ATTACK IT",sub:"Hit it first, just in case it's a mimic"},{t:"LEAVE IT"}]);$("tBox").hidden=true;if(c0===2||c0<0)return;
+      if(c0===1){if(o.mimic){await mimicAmbushed(o);return;}makeNoise(o.x,o.y,6);G.steps+=1;await say("You give the chest a good whack. It's just a chest. (That made some noise.)",1100,true);$("tBox").hidden=true;return;}}
     if(o.trap&&o.trapFound&&!o.mimic){const th=bestAt("thieves");const c=await choose("This chest's lock hides a poison needle.",[{t:"DISARM IT",sub:o.trapFail?"You already tried":`${oddsTag(th,"thieves",o.trap.dc)}${toolNote(th)}`},{t:"OPEN IT ANYWAY",sub:heroesUp().some(h=>h.sub==="trickster")?"With Mage Hand: from a safe distance":"Take the risk"},{t:"LEAVE IT"}]);
       if(c===1&&heroesUp().some(h=>h.sub==="trickster")){o.trap=null;await say("A spectral hand flips the lid. The needle stabs empty air.",1100,true);}
       if(c===2||c<0){$("tBox").hidden=true;return;}
       if(c===0&&o.trapFail){toast(o.trapFail);$("tBox").hidden=true;return;}if(c===0){const r=await check(th,"thieves",o.trap.dc);if(r.ok){o.trap=null;await say(`The needle is jammed. (${r.txt})`,900,true);}else if(r.total<=o.trap.dc-5){await say(`Oops. (${r.txt})`,600,true);await chestTrap(o,th);}else{o.trapFail="The mechanism is too fiddly. You can't disarm it.";await say(`Too fiddly. (${r.txt})`,900,true);$("tBox").hidden=true;return;}}}
     if(o.trap&&!o.mimic){await chestTrap(o,G.party[0]);}
-    if(o.mimic){let c=0;if(o.suspicious){c=await choose("Something about this chest seems... alive.",[{t:"OPEN IT ANYWAY"},{t:"POKE IT",sub:"Reveal what it is, ready to fight"},{t:"LEAVE IT"}]);if(c===2)return;}
+    if(o.mimic){let c=0;if(o.suspicious){c=await choose("Something about this chest seems... alive.",[{t:"OPEN IT ANYWAY"},{t:"POKE IT",sub:"Reveal what it is, ready to fight"},{t:"LEAVE IT"},{t:"ATTACK IT",sub:"Strike first: it's caught off guard"}]);if(c===2||c<0)return;if(c===3){await mimicAmbushed(o);return;}}
       o.gone=true;const mm=mkMon(MIMIC,o.x,o.y);mm.gid=999;mm.state="combat";G.mons.push(mm);fx.push({type:"flash",u:mm,t:now()});
       if(c===0){await say("The chest sprouts teeth and lunges! It's a MIMIC!",1200,true);G.party.forEach(h=>{if(!h.dead)h.st.surprised=true;});busy=false;startCombat({extra:[mm]});}
       else{await say("You prod the chest. It snarls and rears up: a MIMIC!",1100,true);busy=false;startCombat({extra:[mm]});}return;}
@@ -264,3 +266,7 @@ async function pushMenu(o,dx,dy){if(dx&&dy){dx=0;}if(!dx&&!dy)return;const barre
     :[{t:"PUSH IT",sub:`Athletics DC 13 · ${oddsTag(strong,"athletics",13)} · noisy`},{t:"LEAVE IT",sub:"Good cover from arrows"}];
   const c=await choose(barrel?"An old barrel, sloshing with lamp oil.":"A heavy boulder.",opts);$("tBox").hidden=true;
   if(c===0)await pushObj(o,dx,dy);else if(barrel&&c===1){o.fills--;addItem("oil");toast(`You fill a flask with lamp oil. (${o.fills} more in the barrel)`);hud();}else if(barrel&&c===2)await breakBarrel(o,false,0,0);}
+
+// you struck a chest first and it turns out to be a mimic: it's surprised and you get the first round
+async function mimicAmbushed(o){o.gone=true;const mm=mkMon(MIMIC,o.x,o.y);mm.gid=999;mm.state="combat";mm.fooled=true;G.mons.push(mm);fx.push({type:"flash",u:mm,t:now()});
+  await say("Your blow lands, and the chest howls and sprouts teeth: a MIMIC! It's caught off guard.",1300,true);busy=false;startCombat({extra:[mm],bumped:mm,partyFirst:true});}

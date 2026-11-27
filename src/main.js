@@ -8,17 +8,21 @@ function saveSettings(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e)
 let S=loadSettings();
 
 let held=null;
-function hold(el,fn){const stop=()=>{if(held===fn)held=null;el.classList.remove("on");};
-  el.addEventListener("pointerdown",e=>{e.preventDefault();el.classList.add("on");if(G)G.walkTo=null;held=fn;fn();});
+function facingDir(L,dx,dy){if(dx)return L.face==="s"&&!!L.flip===(dx<0);return dy<0?L.face==="b":L.face==="f";}
+// returns true if this press should only turn the leader (they weren't facing that way yet)
+function turnFirst(dx,dy,fn){const L=G&&!G.demo&&G.party&&G.party[0];fn.wait=0;if(!L||mode!=="explore"||busy||choosing||sayState||facingDir(L,dx,dy))return false;
+  faceToward(L,dx,dy);fn.wait=performance.now()+160;return true;}
+function hold(el,fn,dir){const stop=()=>{if(held===fn)held=null;el.classList.remove("on");};
+  el.addEventListener("pointerdown",e=>{e.preventDefault();el.classList.add("on");if(G)G.walkTo=null;held=fn;if(dir&&turnFirst(dir[0],dir[1],fn))return;fn();});
   ["pointerup","pointercancel","pointerleave"].forEach(ev=>el.addEventListener(ev,stop));el.addEventListener("contextmenu",e=>e.preventDefault());
   el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();fn();}});}
 // keep walking while a direction is held: take the next step just before the current one finishes, so there is no pause
 (function heldLoop(){requestAnimationFrame(heldLoop);if(!held)return;if(sayState||choosing||!G||G.over||G.demo||mode!=="explore"){if(mode!=="explore"||sayState||choosing)held=null;return;}
-  if(busy)return;const L=G.party[0];if(L.dx===undefined||Math.abs(L.dx-L.x*TS)+Math.abs(L.dy-L.y*TS)<=5)held();})();
+  if(busy||(held.wait&&performance.now()<held.wait))return;const L=G.party[0];if(L.dx===undefined||Math.abs(L.dx-L.x*TS)+Math.abs(L.dy-L.y*TS)<=5)held();})();
 window.addEventListener("blur",()=>{held=null;});
 const tap=(el,fn)=>{el.addEventListener("click",fn);el.addEventListener("contextmenu",e=>e.preventDefault());};
 async function waitStep(){if(mode!=="explore"||busy||!G||G.over)return;busy=true;G.steps++;await huntStep();if(G.fire.size)tickFire();fov();busy=false;await checkAwareness();}
-hold($("kU"),()=>tryMove(0,-1));hold($("kD"),()=>tryMove(0,1));hold($("kL"),()=>tryMove(-1,0));hold($("kR"),()=>tryMove(1,0));
+hold($("kU"),()=>tryMove(0,-1),[0,-1]);hold($("kD"),()=>tryMove(0,1),[0,1]);hold($("kL"),()=>tryMove(-1,0),[-1,0]);hold($("kR"),()=>tryMove(1,0),[1,0]);
 tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("tgSkills"),quickAbilities);tap($("btnMap"),openMap);tap($("mapClose"),()=>show(null));tap($("mapCv"),()=>show(null));tap($("kB"),()=>openMenu());
 function tileFromEvent(e){const r=cv.getBoundingClientRect();const sx=(e.clientX-r.left)/r.width*SW,sy=(e.clientY-r.top)/r.height*SH;const wx=sx+cam.x,wy=sy+cam.y;
   for(const u of G.party.concat(G.mons)){if(u.dead)continue;const e2=elevAt(u.x,u.y)*3;if(wx>=u.x*TS&&wx<u.x*TS+TS&&wy>=u.y*TS-(u.side==="h"||HUMAN[u.sprite]?12:0)-e2&&wy<u.y*TS+TS-e2)return {x:u.x,y:u.y};}
@@ -31,7 +35,7 @@ document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;con
   if(choosing){const n=parseInt(k,10);if(n>=1&&n<=6){const b=$("ch-"+(n-1));if(b&&!b.disabled)b.click();}if(k==="escape")choosing.cancel();return;}
   if(mode==="combat"){if(k==="e")endHeroTurn();if(k==="escape")cancelTarget();const n=k==="0"?10:parseInt(k,10);if(n>=1&&n<=10){const tiles=[...document.querySelectorAll("#cBtns .hot")];const t=tiles[n-1];if(t)t.click();}return;}
   const map={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
-  if(map[k]){e.preventDefault();if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="f")search();else if(k==="m")openMap();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="b"||k==="i"||k==="tab"){e.preventDefault();openMenu("party");}else if(k===".")waitStep();});
+  if(map[k]){e.preventDefault();if(e.shiftKey){if(G&&!G.demo&&mode==="explore")faceToward(G.party[0],...map[k]);return;}if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;if(!turnFirst(...map[k],f))f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="f")search();else if(k==="m")openMap();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="b"||k==="i"||k==="tab"){e.preventDefault();openMenu("party");}else if(k===".")waitStep();});
 $("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)autoSave(true);showTown(G&&!G.over&&!G.demo&&peekRun()?"Your run is saved. Continue it any time.":"");});
 $("btnContinue").addEventListener("click",()=>{if(!resumeRun())showTown("That saved run couldn't be loaded, sorry.");});
 $("btnSetOut").addEventListener("click",()=>{buildClassCards();show("ovClass");});$("btnTownSettings").addEventListener("click",()=>{buildSettings();show("ovSettings");});
@@ -63,10 +67,11 @@ setInterval(()=>{if(!busy||!G||G.demo){busySince=0;return;}if(!busySince){busySi
   if(idle&&mode==="explore"&&Date.now()-busySince>8000){busy=false;busySince=0;console.warn("Watchdog: cleared a stuck 'busy' state");hud();}},1000);
 // ---------- fit everything on one phone screen ----------
 // The game screen shrinks or grows so the buttons, menus and choices underneath always fit without scrolling.
+const WIDE_TOP=46,WIDE_BOTTOM=232;// PC layout: space kept above the screen (turn order) and below it (choices, action bar)
 (function(){const LOG_MIN=44;let queued=false;
   function fitScreen(){queued=false;const app=$("app"),bz=document.querySelector(".bezel");if(!app||!bz)return;
     if(app.classList.contains("wide")){const col=$("colL");const bs=getComputedStyle(bz);const padX=parseFloat(bs.paddingLeft)+parseFloat(bs.paddingRight),padY=parseFloat(bs.paddingTop)+parseFloat(bs.paddingBottom);
-      let sh=0;for(const el of col.children){if(el===bz||el.hidden||getComputedStyle(el).display==="none")continue;sh+=el.offsetHeight+10;}const w=col.clientWidth-padX,h=col.clientHeight-sh-padY;let sc=Math.min(w/240,h/160);if(sc>=3)sc=Math.floor(sc);
+      const sh=WIDE_TOP+WIDE_BOTTOM;const w=col.clientWidth-padX,h=col.clientHeight-sh-padY;let sc=Math.min(w/240,h/160);if(sc>=3)sc=Math.floor(sc);
       bz.style.minWidth="0";bz.style.width=Math.max(150,Math.floor(240*sc+padX))+"px";return;}
     const cs=getComputedStyle(app);const gap=parseFloat(cs.rowGap)||0;let used=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom),n=0;
     for(const el of app.children){if(el===bz||el.hidden)continue;const st=getComputedStyle(el);if(st.display==="none"||st.position==="absolute"||st.position==="fixed")continue;

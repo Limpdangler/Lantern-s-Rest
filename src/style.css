@@ -270,3 +270,8 @@ input.err{border-color:var(--bad);background:#4a1f26}
 .gearbase{margin:2px 0 6px}
 .gearlist .gslot{border-style:solid;border-color:#3a6a6c}
 .gearlist .gslot.pend{border-style:dashed;border-color:#6a8a8c}
+
+.app.wide #colL{justify-content:flex-start;padding-top:46px;position:relative}
+.app.wide #colL>.strip{position:absolute;top:2px;left:50%;transform:translateX(-50%)}
+.app.wide #colL .cbtns.list{max-height:172px}
+.app.wide #chPanel{min-height:0}
