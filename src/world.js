@@ -207,4 +207,4 @@ function dijkstra(u,maxCost,opts){opts=opts||{};const W=G.W,start=u.y*W+u.x;cons
   return best;}
 function pathTo(dist,k){const p=[];while(k!==-1&&dist.has(k)){p.unshift(k);k=dist.get(k).p;}return p.slice(1);}
 
-function setScreenRows(h){h=Math.max(160,Math.min(336,Math.round(h)));if(h===SH)return;SH=h;cv.height=SH;ctx.imageSmoothingEnabled=false;cv.style.aspectRatio=`240/${SH}`;}
+function setScreenRows(h){h=Math.max(160,Math.min(420,Math.round(h)));if(h===SH)return;SH=h;cv.height=SH;ctx.imageSmoothingEnabled=false;cv.style.aspectRatio=`240/${SH}`;}
