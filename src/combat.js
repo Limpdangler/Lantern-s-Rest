@@ -75,7 +75,7 @@ function heroTurn(u){u.readied=null;C.meleeAttacked=false;C.moveLeft=speedOf(u);
   C.extraAtk=0;if(u.sub==="gloom"&&!u.dreadDone){u.dreadDone=true;C.moveLeft+=2;C.extraAtk=1;log(`Dread Ambusher: ${esc(u.name)} gets +2 speed and an extra attack this turn.`,"magic");}
   if(u.st.restrained)C.moveLeft=0;
   refreshReach();busy=false;buildPanel();hud();renderStrip();
-  prompt(`${u.name}'s turn! Tap a blue square to move, or tap an enemy to attack.${u.st.restrained?" You're restrained: use ACTIONS ▸ ESCAPE.":""}`);}
+  prompt(`${u.name}'s turn! Tap a blue square to move, or tap an enemy to attack.${u.st.restrained?" You're stuck: use ESCAPE (a Strength save) to break free.":""}`);}
 function refreshReach(){const u=C.cur;C.reach=dijkstra(u,C.moveLeft);}
 function endHeroTurn(){if(busy||!C||!C.cur||C.cur.side!=="h"||mode!=="combat")return;busy=true;C.reach=null;C.tgt=null;C.sel=null;C.mode="move";nextTurn();}
 function afterAction(){if(mode!=="combat")return;if(checkEnd())return;const u=C.cur;if(u.down||u.dead){busy=true;nextTurn();return;}
@@ -238,11 +238,11 @@ function actionButtons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;
   B.push({t:"SHOVE",sub:"Uses an attack: shove a creature or object next to you",dis:!canAttack(),f:()=>targetMode({kind:"adjfoe",range:1,barrel:true,label:"Shove: who do you shove?",
     onPick:async(x,y,t)=>{useAttack(u);await shove(u,t);}})});
   B.push({t:"HIDE",sub:"Action: Stealth check in darkness or behind cover",dis:!act,f:async()=>{busy=true;C.actions--;await tryHide(u);afterAction();}});
-  if(u.st.restrained)B.push({t:"ESCAPE",sub:`Action: break free (DC ${u.st.restrained.dc})`,dis:!act,f:async()=>{busy=true;C.actions--;const sk=skillBonus(u,"athletics")>=skillBonus(u,"acrobatics")?"athletics":"acrobatics";const c=await check(u,sk,u.st.restrained.dc);
+  if(u.st.restrained)B.push({t:"ESCAPE",sub:`Action: Strength save to break free (DC ${u.st.restrained.dc}) · ${saveOdds(u,"str",u.st.restrained.dc)}`,dis:!act,f:async()=>{busy=true;C.actions--;const c=saveRoll(u,"str",u.st.restrained.dc);
     if(c.ok){delete u.st.restrained;await say(`Free! (${c.txt})`,800);}else await say(`Still stuck. (${c.txt})`,800);afterAction();}});
   for(const a of G.party)if(a!==u&&a.down&&!a.dead&&!a.stable&&cheb(a,u)<=1)B.push({t:`STABILIZE ${a.name.toUpperCase()}`,sub:"Action · Medicine DC 10 · stops death saves",dis:!act,f:async()=>{busy=true;C.actions--;const c=await check(u,"medicine",10);
     if(c.ok){a.stable=true;a.ds={s:0,f:0};await say(`The ${u.name} stops the bleeding. The ${a.name} is stable. (${c.txt})`,1000);}else await say(`The ${u.name} can't stop the bleeding. (${c.txt})`,900);hud();afterAction();}});
-  B.push(...snuffButtons(u),...classCombatButtons(u),...rules2Buttons(u),...shieldButtons(u),...armourButtons(u));
+  B.push(...snuffButtons(u),...classCombatButtons(u),...rules2Buttons(u),...shieldButtons(u),...armourButtons(u),...stompButtons(u));
   {const fast=u.id==="rogue";const ok=fast?C.bonus:hasAction()&&C.attacksLeft===0;const spend=()=>{if(fast)C.bonus=false;else C.actions--;};const cost=fast?"Bonus action (rogue)":"Action";
     if((G.bag.poisonvial||0)>0&&!u.coat&&!u.wild)B.push({t:"POISON YOUR WEAPON",sub:`${cost} · next attack +2d4 poison, CON save or poisoned`,dis:!ok,f:async()=>{busy=true;spend();takeItem("poisonvial");u.coat={name:"poison",type:"poison",dice:"2d4"};await say(`The ${u.name} smears poison along the weapon.`,800);afterAction();}});
     const acid=[[0,0]].concat(DIRS8).some(([dx,dy])=>gnd(u.x+dx,u.y+dy)===GROUND.acid);
@@ -261,9 +261,9 @@ function itemButtons(u){const B=[];const n=id=>G.bag[id]||0;const fh=u.sub==="th
   if(n("antitoxin"))B.push({t:"ANTITOXIN",sub:`${AC} · cures poison`,dis:!act||!u.st.poisoned,f:async()=>{busy=true;spend();takeItem("antitoxin");delete u.st.poisoned;await say("The poison fades.",700);afterAction();}});
   if(n("oil"))B.push({t:"THROW OIL",sub:`${AC} · range 4 · ${n("oil")} left`,dis:!act,f:()=>targetMode({kind:"tile",range:4,label:"Throw the oil flask: tap a square within 4.",onPick:async(x,y)=>{spend();takeItem("oil");
     spill(x,y,[[x,y],[x+1,y],[x-1,y],[x,y+1],[x,y-1]]);await say("The flask shatters. Slick oil spreads across the floor!",850);if(fireAt(x,y)||[[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>fireAt(x+a,y+b))){igniteAt(x,y);await scorch();}}})});
-  if(n("torch")){B.push({t:"PLACE TORCH",sub:"Free · lights an adjacent square",dis:C.objUsed,f:()=>targetMode({kind:"tile",range:1,empty:false,label:"Place a torch: tap a square next to you.",onPick:async(x,y)=>{C.objUsed=true;takeItem("torch");G.dropLights.push({x,y});if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH!",800);await scorch();}fov();}})});
-    B.push({t:"THROW TORCH",sub:`${AC} · range 4 · lights & ignites oil`,dis:!act,f:()=>targetMode({kind:"tile",range:4,label:"Throw a torch: tap a square within 4.",onPick:async(x,y)=>{spend();takeItem("torch");G.dropLights.push({x,y});
-      if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH!",800);await scorch();}else{const what=await fireOnTile(x,y,u);await say(what.length?`The torch lands: ${what.join(", ")}.`:"The torch lights up the area.",700);}fov();joinNew();}})});}
+  if(n("torch")){B.push({t:"PLACE TORCH",sub:"Free · lights an adjacent square",dis:C.objUsed,f:()=>targetMode({kind:"tile",range:1,empty:false,label:"Place a torch: tap a square next to you.",onPick:async(x,y)=>{C.objUsed=true;takeItem("torch");if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH! (The torch is lost in the flames.)",800);await scorch();}else G.dropLights.push({x,y});fov();}})});
+    B.push({t:"THROW TORCH",sub:`${AC} · range 4 · lights & ignites oil`,dis:!act,f:()=>targetMode({kind:"tile",range:4,label:"Throw a torch: tap a square within 4.",onPick:async(x,y)=>{spend();takeItem("torch");
+      if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH! (The torch is lost in the flames.)",800);await scorch();}else{const what=await fireOnTile(x,y,u);if(!what.length)G.dropLights.push({x,y});await say(what.length?`The torch lands: ${what.join(", ")}. It burns away with them.`:"The torch lights up the area.",700);}fov();joinNew();}})});}
   if(["scroll_mm","scroll_cure","scroll_fb"].some(id=>n(id)&&!isKnown(id)))B.push({t:"UNREAD SCROLL",sub:"Identify it in the bag first",dis:true});
   if(n("scroll_mm")&&isKnown("scroll_mm"))B.push({t:"SCROLL: MISSILE",sub:"Action · 3 darts of 1d4+1",dis:!(hasAction()&&C.attacksLeft===0),f:()=>SPELL_RUN.magicmissile(u,{scroll:true})});
   if(n("scroll_cure")&&isKnown("scroll_cure"))B.push({t:"SCROLL: CURE",sub:"Action · touch · 2d8+3",dis:!(hasAction()&&C.attacksLeft===0),f:()=>SPELL_RUN.curewounds(u,{scroll:true})});
@@ -281,7 +281,7 @@ function truncatePath(dist,path,budget){const out=[];for(const k of path){const 
 async function monsterTurn(m){const T=m.tr;await wait(200);
   let move=m.speed;if(m.st.prone){delete m.st.prone;move=Math.floor(move/2);float(m,"STANDS","#ffffff");}if(m.st.grappled||m.st.paralysed)move=0;
   if(m.st.restrained){const w=weaponOf(m);const near=heroesUp().filter(h=>inReachW(m,h,w));
-    if(!near.length||Math.random()<.5){const c=await check(m,"athletics",m.st.restrained.dc,{quiet:true});if(c.ok){const by=m.st.restrained.by;delete m.st.restrained;await say(`The ${m.name} tears free of the ${by==="web"?"webbing":"vines"}!`,750);}
+    if(!near.length||Math.random()<.5){const c=saveRoll(m,"str",m.st.restrained.dc);if(c.ok){const by=m.st.restrained.by;delete m.st.restrained;await say(`The ${m.name} tears free of the ${by==="web"?"webbing":"vines"}!`,750);}
       else{await say(`The ${m.name} struggles against the ${m.st.restrained.by==="web"?"webbing":"vines"}.`,700);return;}}
     move=m.st.restrained?0:move;}
   if(m.boss&&m.phase===1&&m.hp<=m.maxHp/2){m.phase=2;await bossPhase(m);}

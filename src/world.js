@@ -107,7 +107,7 @@ function genFloorInner(){
   const nWood=ri(1,2);for(let i=0;i<nWood&&normal.length;i++)place(pick(normal),{type:"wood"});
   const vault=rooms.find(r=>r.role==="vault");if(vault)place(vault,{type:"chest",loot:rollLoot(true),opened:false,vault:true});
   // recruit
-  if(G.party.filter(h=>h.id!=="beast").length<D.party){const have=G.party.map(h=>h.id);const opts=S.classes.filter(c=>!have.includes(c.id));
+  if(G.party.filter(h=>h.id!=="beast").length<D.party){const opts=S.classes.slice();// any class at all, duplicates included
     const rr=rooms.filter(r=>!r.role);if(opts.length&&rr.length){const p=interiorFree(pick(rr),false);if(p)G.npc={side:"n",def:pick(opts),race:pick(RACE_KEYS),x:p.x,y:p.y};}}
   // monsters in themed groups
   let left=D.monsters+D.monstersPerFloor*(G.floor-1);const mrooms=rooms.filter(r=>r.role!=="start"&&r.role!=="boss");let gid=0;

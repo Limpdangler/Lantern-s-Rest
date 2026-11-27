@@ -13,28 +13,30 @@ function facingDir(L,dx,dy){if(dx)return L.face==="s"&&!!L.flip===(dx<0);return 
 function turnFirst(dx,dy,fn){const L=G&&!G.demo&&G.party&&G.party[0];fn.wait=0;if(!L||mode!=="explore"||busy||choosing||sayState||facingDir(L,dx,dy))return false;
   faceToward(L,dx,dy);fn.wait=performance.now()+160;return true;}
 function hold(el,fn,dir){const stop=()=>{if(held===fn)held=null;el.classList.remove("on");};
-  el.addEventListener("pointerdown",e=>{e.preventDefault();el.classList.add("on");if(G)G.walkTo=null;held=fn;if(dir&&turnFirst(dir[0],dir[1],fn))return;fn();});
+  el.addEventListener("pointerdown",e=>{e.preventDefault();el.classList.add("on");if(G)G.walkTo=null;const cleared=clearInterruptions();held=fn;if(cleared){fn.wait=0;return;}if(dir&&turnFirst(dir[0],dir[1],fn))return;fn();});
   ["pointerup","pointercancel","pointerleave"].forEach(ev=>el.addEventListener(ev,stop));el.addEventListener("contextmenu",e=>e.preventDefault());
   el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();fn();}});}
 // keep walking while a direction is held: take the next step just before the current one finishes, so there is no pause
-(function heldLoop(){requestAnimationFrame(heldLoop);if(!held)return;if(sayState||choosing||!G||G.over||G.demo||mode!=="explore"){if(mode!=="explore"||sayState||choosing)held=null;return;}
+(function heldLoop(){requestAnimationFrame(heldLoop);if(!held)return;if(!G||G.over||G.demo)return;if(sayState&&mode==="explore"){sayState.force();return;}if(choosing||mode!=="explore"){held=null;return;}
   if(busy||(held.wait&&performance.now()<held.wait))return;const L=G.party[0];if(L.dx===undefined||Math.abs(L.dx-L.x*TS)+Math.abs(L.dy-L.y*TS)<=5)held();})();
 window.addEventListener("blur",()=>{held=null;});
-const tap=(el,fn)=>{el.addEventListener("click",fn);el.addEventListener("contextmenu",e=>e.preventDefault());};
+const tap=(el,fn)=>{el.addEventListener("click",e=>{if(fn!==pressA&&(sayState||(choosing&&mode==="explore"))){if(clearInterruptions()){whenFree(()=>fn(e));return;}}fn(e);});el.addEventListener("contextmenu",e=>e.preventDefault());};
 async function waitStep(){if(mode!=="explore"||busy||!G||G.over)return;busy=true;G.steps++;await huntStep();if(G.fire.size)tickFire();fov();busy=false;await checkAwareness();}
 hold($("kU"),()=>tryMove(0,-1),[0,-1]);hold($("kD"),()=>tryMove(0,1),[0,1]);hold($("kL"),()=>tryMove(-1,0),[-1,0]);hold($("kR"),()=>tryMove(1,0),[1,0]);
 tap($("kW"),waitStep);tap($("tgSneak"),()=>toggleSneak());tap($("tgLight"),toggleLight);tap($("kA"),pressA);tap($("tgSearch"),search);tap($("tgSkills"),quickAbilities);tap($("btnMap"),openMap);tap($("mapClose"),()=>show(null));tap($("mapCv"),()=>show(null));tap($("kB"),()=>openMenu());
 function tileFromEvent(e){const r=cv.getBoundingClientRect();const sx=(e.clientX-r.left)/r.width*SW,sy=(e.clientY-r.top)/r.height*SH;const wx=sx+cam.x,wy=sy+cam.y;
   for(const u of G.party.concat(G.mons)){if(u.dead)continue;const e2=elevAt(u.x,u.y)*3;if(wx>=u.x*TS&&wx<u.x*TS+TS&&wy>=u.y*TS-(u.side==="h"||HUMAN[u.sprite]?12:0)-e2&&wy<u.y*TS+TS-e2)return {x:u.x,y:u.y};}
   return {x:Math.floor(wx/TS),y:Math.floor(wy/TS)};}
-cv.addEventListener("pointerdown",e=>{if(!G||G.demo)return;if(sayState){sayState.skip();return;}if(choosing)return;const {x,y}=tileFromEvent(e);
+cv.addEventListener("pointerdown",e=>{if(!G||G.demo)return;if(sayState&&mode!=="explore"){sayState.skip();return;}if(sayState||(choosing&&mode==="explore")){const {x,y}=tileFromEvent(e);if(clearInterruptions())whenFree(()=>exploreTap(x,y));return;}if(choosing)return;const {x,y}=tileFromEvent(e);
   if(mode==="combat"){if(busy||!C||!C.cur||C.cur.side!=="h")return;onTile(x,y);}else if(mode==="explore")exploreTap(x,y);});
 $("screenWrap").addEventListener("pointerdown",e=>{if(e.target!==cv&&sayState)sayState.skip();});
 document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;const k=e.key.toLowerCase();
   if(sayState&&(k===" "||k==="enter")){e.preventDefault();sayState.skip();return;}
+  {const mp={arrowup:1,w:1,arrowdown:1,s:1,arrowleft:1,a:1,arrowright:1,d:1};if(mp[k]&&choosing&&mode==="explore"&&choosing.opts&&choosing.opts.some(o=>WALK_AWAY.test(o.t))){const dir={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]}[k];if(clearInterruptions()){e.preventDefault();const f=()=>tryMove(...dir);f._k=k;f.wait=0;held=f;}return;}}
   if(choosing){const n=parseInt(k,10);if(n>=1&&n<=6){const b=$("ch-"+(n-1));if(b&&!b.disabled)b.click();}if(k==="escape")choosing.cancel();return;}
   if(mode==="combat"){if(k==="e")endHeroTurn();if(k==="escape")cancelTarget();const n=k==="0"?10:parseInt(k,10);if(n>=1&&n<=10){const tiles=[...document.querySelectorAll("#cBtns .hot")];const t=tiles[n-1];if(t)t.click();}return;}
   const map={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
+  if(map[k]&&(sayState||(choosing&&mode==="explore"))){if(clearInterruptions()){e.preventDefault();const f=()=>tryMove(...map[k]);f._k=k;f.wait=0;held=f;}return;}
   if(map[k]){e.preventDefault();if(e.shiftKey){if(G&&!G.demo&&mode==="explore")faceToward(G.party[0],...map[k]);return;}if(!e.repeat){const f=()=>tryMove(...map[k]);f._k=k;held=f;if(!turnFirst(...map[k],f))f();}}else if(k==="e"||k==="enter"||k===" "){e.preventDefault();pressA();}else if(k==="f")search();else if(k==="m")openMap();else if(k==="q")toggleSneak();else if(k==="l")toggleLight();else if(k==="b"||k==="i"||k==="tab"){e.preventDefault();openMenu("party");}else if(k===".")waitStep();});
 $("btnNew").addEventListener("click",()=>{if(G&&!G.over&&!G.demo)autoSave(true);showTown(G&&!G.over&&!G.demo&&peekRun()?"Your run is saved. Continue it any time.":"");});
 $("btnContinue").addEventListener("click",()=>{if(!resumeRun())showTown("That saved run couldn't be loaded, sorry.");});
@@ -95,7 +97,7 @@ Object.assign(GLYPHS,{
 (function(){const app=$("app");if(!app)return;const order=[...app.children];
   const rail=document.createElement("nav");rail.id="rail";const L=document.createElement("div");L.id="colL";const R=document.createElement("div");R.id="colR";
   const RAIL=[["people","PARTY",()=>openMenu("party")],["bag","BAG",()=>openMenu("bag")],["map","MAP",()=>openMap()],["book","NOTES",()=>openMenu("notes")],["camp","REST",()=>openMenu("rest")]];
-  for(const [g,label,f] of RAIL){const b=document.createElement("button");b.type="button";b.className="railbtn";b.title=label;const c=document.createElement("canvas");c.width=c.height=12;c.getContext("2d").drawImage(glyphCanvas(g),0,0);b.appendChild(c);b.insertAdjacentHTML("beforeend",`<span>${label}</span>`);b.addEventListener("click",()=>{if(mode==="explore"&&!busy)f();});rail.appendChild(b);}
+  for(const [g,label,f] of RAIL){const b=document.createElement("button");b.type="button";b.className="railbtn";b.title=label;const c=document.createElement("canvas");c.width=c.height=12;c.getContext("2d").drawImage(glyphCanvas(g),0,0);b.appendChild(c);b.insertAdjacentHTML("beforeend",`<span>${label}</span>`);b.addEventListener("click",()=>{if(mode!=="explore")return;if(sayState||choosing){clearInterruptions();whenFree(f);return;}if(!busy)f();});rail.appendChild(b);}
   const keys=document.createElement("p");keys.className="keyhelp";keys.innerHTML="<b>Keys:</b> arrows/WASD move · E/Space use · B menu · F search · Q sneak · L light · M map · <b>in fights</b> 1–9 actions, E end turn, Esc cancel";
   const centre=["strip","fxRow","tglRow","cPanel","chPanel"];
   function setLayout(){const wide=innerWidth>=900&&innerWidth/innerHeight>=1.15;if(wide===app.classList.contains("wide"))return;const bz=document.querySelector(".bezel");

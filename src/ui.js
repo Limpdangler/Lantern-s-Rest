@@ -21,7 +21,7 @@ function say(text,auto=1000,noLog){if(!noLog)log(esc(text),"say");note(text);con
     const iv=setInterval(()=>{i+=2;el.textContent=text.slice(0,i);if(i>=text.length)finish();},Math.max(1,16*SPEED()));
     function finish(){clearInterval(iv);st.typing=false;st.at=performance.now();el.textContent=text;more.hidden=false;if(!hold)st.timer=setTimeout(adv,auto*SPEED());}
     function adv(){if(st.done)return;st.done=true;clearTimeout(st.timer);more.hidden=true;if(sayState===st)sayState=null;res();}
-    st.skip=()=>{if(st.typing)finish();else if(!hold||performance.now()-st.at>350)adv();};});}
+    st.skip=()=>{if(st.typing)finish();else if(!hold||performance.now()-st.at>350)adv();};st.force=()=>{if(st.typing)finish();adv();};});}
 function prompt(text){sayState=null;$("tBox").hidden=false;$("tText").textContent=text;$("tMore").hidden=true;}
 function toast(text){if(mode==="combat")return;if(!text){$("tBox").hidden=true;return;}prompt(text);clearTimeout(toastT);toastT=setTimeout(()=>{if(mode!=="combat"&&!sayState&&!choosing)$("tBox").hidden=true;},Math.max(3000,text.length*70));if(!/Press A|Nothing to use/.test(text))note(text);}
 let choosing=null;
@@ -32,7 +32,7 @@ function choose(q,opts){return new Promise(res=>{const panel=$("chPanel");if(!$(
       b.addEventListener("pointerdown",()=>{b._armed=true;});b.addEventListener("click",()=>{if(!b._armed&&performance.now()-shownAt<450)return;done(i);});// ignore the "ghost" tap from the finger that was already on the screen when the choices appeared
       box.appendChild(b);});
     function done(i){panel.hidden=true;const fight=mode==="combat"&&!!C;$("cPanel").hidden=!fight;$("controls").hidden=fight;$("tglRow").hidden=fight;choosing=null;res(i);}
-    choosing.cancel=()=>done(-1);});}
+    choosing.cancel=()=>done(-1);choosing.opts=opts;choosing.pick=i=>done(i);});}
 
 // ================= HUD & log =================
 function hud(){if(!G||G.demo)return;if(mode==="explore"&&!C&&!choosing){$("controls").hidden=false;$("tglRow").hidden=false;$("cPanel").hidden=true;$("chPanel").hidden=true;}const box=$("party");box.innerHTML="";
@@ -363,3 +363,10 @@ function openMap(){if(!G||G.demo||mode!=="explore"||busy)return;const cv=$("mapC
   G.party.forEach((h,i)=>{if(!h.dead)dot(h.x,h.y,i===0?"#ffffff":"#f0e080",S2);});
   $("mapTitle").textContent=`MAP · FLOOR ${G.floor}`;$("mapKey").innerHTML='<span style="color:#fff">■</span> leader &nbsp;<span style="color:#f0e080">■</span> party &nbsp;<span style="color:#40d0a0">■</span> ladder down &nbsp;<span style="color:#b07040">■</span> door &nbsp;<span style="color:#f0c040">■</span> chest &nbsp;<span style="color:#ffb040">■</span> torch &nbsp;<span style="color:#ff4040">■</span> trap &nbsp;<span style="color:#ff6060">■</span> enemy in sight';
   show("ovMap");}
+
+// ---------- tapping something while a message or a "leave it" choice is up: clear it and do the thing ----------
+const WALK_AWAY=/^(NOT YET|LEAVE IT|LEAVE THEM BE|STAY HERE|STAY|NEVER MIND|WALK ON|CANCEL)$/;
+function clearInterruptions(){if(sayState&&sayState.force){sayState.force();return true;}
+  if(choosing&&mode==="explore"&&choosing.opts){const i=choosing.opts.findIndex(o=>WALK_AWAY.test(o.t)&&!o.dis);if(i>=0){choosing.pick(i);return true;}}return false;}
+// run fn as soon as the game is free (skipping any messages that pop up in between)
+function whenFree(fn,tries){tries=tries||0;if(sayState&&sayState.force)sayState.force();if(busy||sayState){if(tries<80)setTimeout(()=>whenFree(fn,tries+1),40);return;}if(choosing)return;fn();}

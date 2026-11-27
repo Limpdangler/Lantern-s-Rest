@@ -18,6 +18,7 @@ if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const
     if(isHiddenMon(m)){m.spotted=true;m.lurk=false;m.ambusher=true;await say(`${cap(aN(m.name))} lunges out of the shadows!`,900,true);busy=false;startCombat({bumped:m,by:[m]});return;}
     if(m.peace){if(!act){hintA(`The ${m.name} lets you pass.`);return;}const c=await choose(`The ${m.name} watches you warily. They agreed to let you pass.`,[{t:"ATTACK THEM",sub:m.fooled?"They think you're friends: they'll be surprised":"They're watching you: no surprise"},{t:"LEAVE THEM BE"}]);
       if(c===0){for(const q of G.mons)if(q.gid===m.gid)q.peace=false;busy=false;startCombat({bumped:m,partyFirst:true});}return;}
+    if(isKin(m)){await kinTalk(m);return;}
     busy=false;startCombat({bumped:m,partyFirst:true});return;}
   if(G.npc&&G.npc.x===nx&&G.npc.y===ny){if(!act){hintA("A lost adventurer.");return;}await recruit();return;}
   const d=doorAt(nx,ny);if(d&&!d.open){if(!act){hintA("A closed door.");return;}await doorInteract(d);return;}
@@ -56,6 +57,7 @@ async function huntStep(){for(const m of G.mons){if(m.state!=="hunt"||m.hp<=0)co
     for(const h of G.party){if(h.dead)continue;for(const [ax,ay] of DIRS8){const k=(h.y+ay)*G.W+h.x+ax;const v=dist.get(k);if(v&&v.c<bd){bd=v.c;best=k;}}}
     if(best!==null){const p=pathTo(dist,best);const step=p.slice(0,1);if(step.length&&!unitAt(step[0]%G.W,(step[0]/G.W)|0)){m.x=step[0]%G.W;m.y=(step[0]/G.W)|0;}}}}
 async function checkAwareness(){if(mode!=="explore"||!G||G.over)return;stirSleepers();
+  {const kin=G.mons.find(m=>m.hp>0&&!m.peace&&isKin(m)&&(noticesParty(m)||m.state==="hunt"));if(kin){busy=true;try{await kinTalk(kin);}finally{busy=false;}return;}}
   const aware=G.mons.filter(m=>m.hp>0&&!m.peace&&(m.state==="hunt"&&G.party.some(h=>!h.dead&&cheb(h,m)<=1)||noticesParty(m)));if(!aware.length)return;
   const p=aware.find(m=>m.parley&&m.state!=="hunt");if(p&&!aware.some(m=>!m.parley)){await parley(p);return;}
   const dr=heroesUp().find(h=>h.id==="druid"&&!h.wild);const gid=aware[0].gid;
@@ -87,6 +89,7 @@ async function recruit(){await recruitInner();if(G.level>=3)await chooseSubclass
 async function recruitInner(){const n=G.npc;const h=mkHero(n.def,n.race||pick(RACE_KEYS));nameHero(h);h.x=n.x;h.y=n.y;h.dx=h.x*TS;h.dy=h.y*TS;G.npc=null;G.party.push(h);
   log(`The ${esc(h.name)} joins your party!`,"lv");hud();await say(`"A light, at last! Mind if I come along?" ${h.nick}, a ${RACES[h.race].name} ${h.name}, joins your party. (${TRAITS[h.trait].name}: likes ${TRAITS[h.trait].likes}; dislikes ${TRAITS[h.trait].dislikes}.)`,2000,true);$("tBox").hidden=true;fov();}
 async function doorInteract(d){
+  if(noHands()){toast(`${G.party[0].wild?"A "+G.party[0].wild.form:"An animal"} cannot open doors. Change back first.`);return;}
   if(d.burn){toast("The door is on fire! Give it time to burn through.");return;}
   if(d.wedged){d.wedged=false;toast("You kick the wedge out.");}
   if(!d.heard&&!d.open){const c0=await choose(`A closed ${d.iron?"iron":"wooden"} door${d.locked?", locked":""}.`,[{t:d.locked?"TRY IT":"OPEN IT"},{t:"LISTEN AT THE DOOR",sub:oddsTag(bestAt("perception"),"perception",d.iron?15:10)+" · hear what's on the other side"},{t:"LEAVE IT"}]);
@@ -114,6 +117,7 @@ async function doorInteract(d){
   else if(c===4){if(G.bag.oil)takeItem("oil");else takeItem("torch");setAlight(d);toast("You douse the door and set it alight. It'll take a while to burn through, and the smoke and light will carry...");}
   computeLight();fov();hud();}
 async function interact(o){
+  if(noHands()&&!["boulder","barrel","web"].includes(o.type)){toast(`Paws and claws cannot do that. Change back to normal form first.`);return;}
   if(o.type==="boulder"){const L=G.party[0];await pushMenu(o,Math.sign(o.x-L.x),Math.sign(o.y-L.y));return;}
   if(o.type==="barrel"){const L=G.party[0];await pushMenu(o,Math.sign(o.x-L.x),Math.sign(o.y-L.y));return;}
   if(o.type==="wood"){await woodInteract(o);return;}
@@ -193,6 +197,7 @@ function ambushSpot(){const L=G.party[0];for(let r=4;r<=7;r++)for(let k=0;k<30;k
 async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   if(G.pebble){throwPebble(x,y);return;}
   if(G.aim){await aimAt(x,y);return;}
+  if(stompable(x,y)&&cheb(G.party[0],{x,y})<=1&&!(x===G.party[0].x&&y===G.party[0].y)){busy=true;try{const c=await choose("Flames lick across the floor here.",[{t:"STOMP IT OUT",sub:"Takes a moment"},{t:"LEAVE IT"}]);$("tBox").hidden=true;if(c===0){stompFire(x,y);G.steps+=1;toast("You stamp the flames out.");}}finally{busy=false;}return;}
   if(!G.owlPick&&needsReach(x,y)&&cheb(G.party[0],{x,y})>1){const ok=await walkUpTo(x,y);const torch=G.torches.some(t=>t.x===x&&t.y===y);if(!ok&&!torch){if(mode==="explore")toast("You can't find a way over there.");return;}if(mode!=="explore"||busy||G.over)return;}
   {const d=doorAt(x,y);const L=G.party[0];if(d&&d.open&&!d.burnt&&cheb(L,d)===1&&!unitAt(x,y)){const ft=heroesUp().find(h=>h.id==="fighter");busy=true;try{
       const c=await choose("An open door.",[{t:"CLOSE IT"},{t:"WEDGE IT SHUT",sub:ft?`${ft.name}: jams it so monsters can't open it (you can kick it free)`:"Needs a fighter",dis:!ft},{t:"LEAVE IT OPEN"}]);
@@ -203,8 +208,8 @@ async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   const gl=G.dropLights.find(l=>l.x===x&&l.y===y);if(gl&&cheb(G.party[0],gl)<=1){busy=true;try{await groundTorchInteract(gl);}finally{busy=false;}return;}
   const dc=G.objs.find(o=>!o.gone&&o.x===x&&o.y===y&&(o.deco||o.type==="rubble"||o.type==="cavein"));if(dc&&cheb(G.party[0],dc)<=1&&(BLOCKERS[dc.type]||!dc.seen)){busy=true;try{await decoInteract(dc);}finally{busy=false;}return;}
   const cp=(G.corpses||[]).find(c=>c.x===x&&c.y===y);if(cp&&(!cp.searched||(!cp.spoken&&cp.kind==="body"&&heroesUp().some(h=>h.id==="cleric")))&&!monAt(x,y)&&cheb(G.party[0],cp)<=1){busy=true;try{await corpseInteract(cp);}finally{busy=false;}return;}
-  if(gnd(x,y)===GROUND.acid&&cheb(G.party[0],{x,y})<=1&&!monAt(x,y)){const opts=heroesUp().filter(h=>!h.coat&&h.id!=="beast");if(opts.length){busy=true;try{
-      const c=await choose("A hissing puddle of acid. Someone could dip a weapon in it (one attack's worth before it wears off), or you could jump over it.",opts.map(h=>({t:h.name.toUpperCase(),sub:`Coat the ${weaponOf(h,"main").name}`})).concat([{t:"LEAVE IT"},{t:"JUMP OVER IT",sub:"Everyone makes an Athletics check (DC 10)"}]));
+  if(gnd(x,y)===GROUND.acid&&cheb(G.party[0],{x,y})<=1&&!monAt(x,y)){const opts=heroesUp().filter(h=>!h.coat&&(h.id==="rogue"||h.id==="ranger")&&!h.wild);if(opts.length){busy=true;try{
+      const c=await choose("A hissing puddle of acid. A rogue or ranger could carefully dip a blade or arrowheads in it (one attack's worth), or you could jump over it.",opts.map(h=>({t:h.name.toUpperCase(),sub:`Coat the ${weaponOf(h,"main").name}`})).concat([{t:"LEAVE IT"},{t:"JUMP OVER IT",sub:"Everyone makes an Athletics check (DC 10)"}]));
       if(c===opts.length+1){$("tBox").hidden=true;busy=false;const L=G.party[0];await jumpOver(Math.sign(x-L.x),Math.sign(y-L.y));return;}
       if(c>=0&&c<opts.length){opts[c].coat={name:"acid",type:"acid",dice:"2d4"};toast(`The ${opts[c].name}'s weapon hisses with acid. It'll last for one attack.`);}$("tBox").hidden=true;}finally{busy=false;}return;}}
   const m=monAt(x,y);if(m&&seen(x,y)&&!isHiddenMon(m)){if(m.peace){toast(`The ${m.name} let you pass. Walk into them to start a fight.`);return;}
@@ -223,7 +228,7 @@ async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   G.walkTo=null;}
 // ---------- walking up to things, and the A (interact) button ----------
 // things you have to be next to before you can use them: tapping one from afar walks the leader over first
-function needsReach(x,y){if(!G.explored[y]||!G.explored[y][x])return false;
+function needsReach(x,y){if(!G.explored[y]||!G.explored[y][x])return false;if(stompable(x,y))return true;
   if(G.torches.some(t=>t.x===x&&t.y===y)||G.dropLights.some(l=>l.x===x&&l.y===y))return true;
   if(G.traps.some(q=>q.x===x&&q.y===y&&q.disarmed&&!q.rearmFail)&&heroesUp().some(h=>h.id==="rogue"))return true;
   if(G.objs.some(o=>!o.gone&&o.x===x&&o.y===y&&(o.deco||o.type==="rubble"||o.type==="cavein")&&(BLOCKERS[o.type]||!o.seen)))return true;
@@ -270,3 +275,16 @@ async function pushMenu(o,dx,dy){if(dx&&dy){dx=0;}if(!dx&&!dy)return;const barre
 // you struck a chest first and it turns out to be a mimic: it's surprised and you get the first round
 async function mimicAmbushed(o){o.gone=true;const mm=mkMon(MIMIC,o.x,o.y);mm.gid=999;mm.state="combat";mm.fooled=true;G.mons.push(mm);fx.push({type:"flash",u:mm,t:now()});
   await say("Your blow lands, and the chest howls and sprouts teeth: a MIMIC! It's caught off guard.",1300,true);busy=false;startCombat({extra:[mm],bumped:mm,partyFirst:true});}
+
+// a party with no hands: everyone up is in animal form
+function noHands(){const up=heroesUp();return up.length>0&&up.every(h=>h.wild||h.id==="beast");}
+// a druid leading the party in the shape of a wolf/rat/spider can talk to creatures of the same kind
+const isKin=m=>{const L=G.party[0];return !C&&L&&L.wild&&!m.boss&&m.key===L.wild.form;};
+async function kinTalk(m){const grp=G.mons.filter(q=>q.gid===m.gid&&q.hp>0);const L=G.party[0];const n=grp.length;
+  const c=await choose(`${n>1?`${n} ${m.name}s`:`A ${m.name}`} sniff${n>1?"":"s"} at the ${L.name}. To them, you're one of their own kind.`,[
+    {t:"ASK WHAT THEY'VE SEEN",sub:"Animal talk: they may know the way, or where danger lies"},{t:"SEND THEM AWAY",sub:`Convince them to leave this place (Animal Handling, DC 12) · half XP`},{t:"ATTACK",sub:"They trust you: they'll be surprised"},{t:"WALK ON",sub:"They'll leave you be"}]);
+  $("tBox").hidden=true;for(const q of grp){q.peace=true;q.state="idle";q.parley=0;}
+  if(c===0)await shareSecret(grp);
+  else if(c===1){const r=await check(L,"animal",12);if(r.ok){for(const q of grp)G.mons.splice(G.mons.indexOf(q),1);const xp=Math.floor(grp.reduce((a,q)=>a+q.xp,0)/2);await say(`The ${m.name}s slink off into the dark. (${r.txt}) +${xp} XP.`,1200,true);for(const msg of gainXpNow(xp))await say(msg,1200,true);}else await say(`They don't want to leave, but they won't bother you. (${r.txt})`,1100,true);}
+  else if(c===2){for(const q of grp){q.peace=false;q.fooled=true;}busy=false;startCombat({bumped:m,partyFirst:true});return;}
+  $("tBox").hidden=true;}

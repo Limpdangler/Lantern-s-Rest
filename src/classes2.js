@@ -131,13 +131,14 @@ async function jumpOver(dx,dy){const L=G.party[0];const hx=L.x+dx,hy=L.y+dy,tx=L
 async function fireOnTile(x,y,by){let what=[];
   for(const o of G.objs){if(o.gone||o.x!==x||o.y!==y)continue;if(o.type==="barrel"){await breakBarrel(o,true,0,0);what.push("the barrel bursts into flames");}else if(isWooden(o)&&!o.burn){setAlight(o);what.push(`the ${o.type==="door"?"door":o.type==="web"?"web":"wood"} catches fire`);}}
   if(gnd(x,y)===GROUND.oil){igniteAt(x,y);what.push("the oil goes up");}
+  if(what.length)await scorch();
   const t=G.torches.find(q=>q.x===x&&q.y===y);if(t&&t.out){t.out=false;what.push("the wall torch flares back to life");}
   return what;}
 async function aimAt(x,y){const a=G.aim;G.aim=null;const h=a.by;const range=a.kind==="torch"?6:12;
   if(cheb(h,{x,y})>range||!los(h.x,h.y,x,y)){toast("You can't hit that from here.");return;}
   if(monAt(x,y)&&!monAt(x,y).peace){toast("To attack a creature, tap it to start a fight.");return;}
   busy=true;try{if(a.kind==="torch"){takeItem("torch");fx.push({type:"shot",from:{x:h.x,y:h.y},to:{x,y},t:now(),col:"#ffb040"});await wait(250);G.dropLights.push({x,y});
-      const what=await fireOnTile(x,y,h);makeNoise(x,y,4);await say(`The torch tumbles end over end and lands, lighting up the floor${what.length?": "+what.join(", "):""}.`,1200,true);}
+      const what=await fireOnTile(x,y,h);if(what.length)G.dropLights.pop();makeNoise(x,y,4);await say(what.length?`The torch tumbles end over end and lands: ${what.join(", ")}. The torch burns away with them.`:"The torch tumbles end over end and lands, lighting up the floor.",1200,true);}
     else{fx.push({type:"shot",from:{x:h.x,y:h.y},to:{x,y},t:now(),col:"#ff8030"});await wait(250);const what=await fireOnTile(x,y,h);makeNoise(x,y,6);
       await say(what.length?`Fire Bolt! ${cap(what.join(", "))}.`:"The Fire Bolt splashes harmlessly against the stone.",1100,true);}
   }finally{busy=false;}$("tBox").hidden=true;computeLight();fov();hud();}
@@ -146,3 +147,17 @@ function aimButtons(h){const A=[];if(G.party[0]!==h)return A;
   return A;}
 function wizardFire(h){if(h.id!=="wizard"||h.wild)return [];return [{t:"FIRE BOLT",sub:"Cantrip: set fire to a door, barrel, web or oil, or relight a torch, up to 12 squares away",f:()=>{G.aim={kind:"firebolt",by:h};closeMenu();toast("Tap what to set alight (up to 12 squares).");}}];}
 {const base=classActions;classActions=h=>{const A=base(h);if(h.dead||h.down||mode!=="explore")return A;return A.concat(wizardFire(h),aimButtons(h));};}
+
+// ---------- stomping out fire ----------
+const stompable=(x,y)=>G.fire.has(y*G.W+x)&&!G.objs.some(o=>!o.gone&&o.burn&&o.x===x&&o.y===y);
+function stompFire(x,y){G.fire.delete(y*G.W+x);if(gnd(x,y)===GROUND.oil){G.ground[y][x]=0;buildTerrain();}computeLight();fov();}
+function stompButtons(u){if(!DIRS8.some(([a,b])=>stompable(u.x+a,u.y+b))&&!stompable(u.x,u.y))return [];
+  return [{t:"STOMP OUT FIRE",icon:"fire",sub:"Action · put out a burning square next to you",cost:"action",dis:!hasAction()||C.attacksLeft>0,f:()=>targetMode({kind:"tile",range:1,empty:false,label:"Stomp out which burning square?",onPick:async(x,y)=>{if(!stompable(x,y)){prompt("That square isn't burning (or it's a burning object you can't stomp).");afterAction();return;}C.actions--;stompFire(x,y);await say(`The ${u.name} stamps the flames out.`,700);}})}];}
+// ---------- mimics caught in a fire reveal themselves ----------
+async function scorchMimics(){for(const o of G.objs){if(o.type!=="chest"||!o.mimic||o.gone)continue;if(![[0,0]].concat(DIRS8).some(([a,b])=>G.fire.has((o.y+b)*G.W+(o.x+a))))continue;
+  o.gone=true;const mm=mkMon(MIMIC,o.x,o.y);mm.gid=999;mm.state="combat";G.mons.push(mm);fx.push({type:"flash",u:mm,t:now()});
+  await say("The chest shrieks as the flames lick at it and sprouts teeth: it's a MIMIC!",1200,true);await dealDamage(mm,roll("2d6").total,"fire",{});
+  if(mm.hp>0){if(C){mm.inCombat=true;rollInit(mm,abm(mm,"dex"));C.units.push(mm);renderStrip();}else{busy=false;startCombat({extra:[mm]});}}}}
+{const base=scorch;scorch=async()=>{await base();await scorchMimics();};}
+
+function saveOdds(u,a,dc){const need=dc-saveBonus(u,a);const p=Math.max(5,Math.min(95,(21-need)*5));return `${p}% chance`;}

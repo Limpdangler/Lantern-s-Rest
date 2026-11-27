@@ -193,7 +193,7 @@ function makeCorpse(m){G.corpses=G.corpses||[];const smart=["goblin","archer","s
   if(smart&&Math.random()<.12){const it=rollItem(false);if(it)loot.items.push(it);}
   if(m.boss||m.named){loot.gold+=ri(15,30)*G.floor;const it=rollItem(true);if(it)loot.items.push(it);}
   G.corpses.push({x:m.x,y:m.y,sprite:m.sprite,name:m.name,kind:m.key==="ooze"?"puddle":m.tr.undead?"bones":"body",loot,searched:false,big:!!m.boss,hum:!!HUMAN[m.sprite]});}
-async function corpseInteract(c){if(c.kind==="puddle"){toast("Just a drying smear of ooze.");return;}
+async function corpseInteract(c){if(c.kind==="puddle"){toast("Just a drying smear of ooze.");return;}if(noHands()){toast("Paws and claws are no good for searching bodies. Change back first.");return;}
   const cl=heroesUp().find(h=>h.id==="cleric");const canSpeak=cl&&!c.spoken&&c.kind==="body";
   if(c.searched&&!canSpeak){toast(c.msg||"You've already searched that.");return;}
   const ch=await choose(`The ${c.kind==="bones"?"scattered bones":"body"} of ${aN(c.name)}.`,[{t:"SEARCH IT",sub:c.searched?"Already searched":"Takes a moment",dis:!!c.searched},{t:"LEAVE IT"}].concat(canSpeak?[{t:"SPEAK WITH DEAD",sub:`${cl.name}: uses a spell slot · ask it what it knew`,dis:!slotAvail(cl,1)}]:[]));
