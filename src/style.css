@@ -106,7 +106,8 @@ input.err{border-color:var(--bad);background:#4a1f26}
 /* v4 additions */
 .cstat em{font-style:normal;font-weight:400;font-size:12px;color:#5c6470;margin-left:auto}
 .cbtns{display:grid;grid-template-columns:1fr 1fr;gap:5px;flex:1}
-.cbtns.list{max-height:190px;overflow-y:auto;align-content:start}
+.cbtns.list{max-height:190px;overflow-y:auto;align-content:start;grid-auto-rows:max-content}
+.cbtns.list .cb{height:auto;min-height:44px}
 .cb.wide{grid-column:1/-1;min-height:40px;align-items:center}
 .cb.back{background:#eef0f4}
 .cb:not(:disabled):active{background:#f0ead8}

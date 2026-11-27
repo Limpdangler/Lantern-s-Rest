@@ -290,7 +290,7 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
       <p class="help"><b>Exhaustion:</b> each level is −1 to every d20 roll (only half that on skills and saves you're proficient in) and −1 square of speed. You can't rest again straight after resting. Level 6 is death. A fed fire camp removes one level.</p>`);
     const mk=(t,sub,f,dis)=>{const b=document.createElement("button");b.type="button";b.className="big";b.innerHTML=`${t}<br><small>${sub}</small>`;b.disabled=!!dis;b.addEventListener("click",f);el.appendChild(b);};
     const cl=floorCleared();
-    mk("SHORT REST",`${maxShort()-G.shortRests} left · ${cl?"floor cleared: safe":"ambush risk "+Math.round(campRisk("short")*100)+"%"}`,()=>doRest(false),G.shortRests>=maxShort()||restTooSoon(false)>0);
+    mk("SHORT REST",`${maxShort()-G.shortRests} left · ${cl?"floor cleared: safe":"ambush risk "+Math.round(campRisk("short")*100)+"%"+(doorSafety().why?" ("+doorSafety().why+")":"")}`,()=>doRest(false),G.shortRests>=maxShort()||restTooSoon(false)>0);
     mk("MAKE CAMP (LONG REST)",`${S.rules.fatigue&&G.fatigue<3?"Only when Tired":cl?"Floor cleared: safe":"Fire "+Math.round(campRisk("fire")*100)+"% / cold "+Math.round(campRisk("cold")*100)+"% ambush risk"}`,()=>doRest(true),S.rules.fatigue&&G.fatigue<3||restTooSoon(true)>0);}}
 function alertMenu(t){const el=$("menuBody");el.querySelectorAll(".msg").forEach(m=>m.remove());el.insertAdjacentHTML("afterbegin",`<p class="msg">${esc(t)}</p>`);}
 function drawIconTo(canvas,id){const c2=canvas.getContext("2d");if(id==="potion"||id==="gpotion"){c2.drawImage(monSpr("potion",id==="gpotion"?{r:"#4a7ae0",R:"#2a4aa0"}:null),0,0);return;}drawIconBase(c2,id);}

@@ -36,6 +36,7 @@ python3 build.py
 | `effects.js` | **The trigger system**: every class/race/subclass/feat/item effect that changes attacks or damage, each in one labelled entry |
 | `social.js` | Monster surrender & questioning, calling for help, languages, haggling, Revivify, prepared spells |
 | `houserules.js` | House rules: brutal crits, flanking, exhaustion stages, initiative ties, ambush-only surprise, shields, potions, rest spacing, extra feats, pushing barrels/boulders, mouse holes, foraging & the almanac |
+| `classes2.js` | The Monk (and its 3 subclasses), traits, rest tasks, jumping over hazards, throwing torches / Fire Bolt outside combat, armour, safer rests behind doors |
 | `ui.js` | Drawing the screen, menus, party sheets, shop, settings |
 | `hotbar.js` | The combat hotbar (icon buttons, no sub-menus), status icons you can tap (Wild Shape, Concentration…), the ABILITIES button |
 | `main.js` | Start-up, controls, saving settings |

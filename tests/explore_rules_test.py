@@ -8,7 +8,7 @@ async def main():
     b=await p.chromium.launch(executable_path="/usr/bin/google-chrome");pg=await b.new_page();errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
     html=open(DIST).read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
     await pg.set_content("<body>"+html+"</body>");await pg.wait_for_timeout(300)
-    await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-human");await pg.evaluate("window.__fast=0.01");await pg.wait_for_timeout(300)
+    await pg.evaluate("window.__skipIntro=true");await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-human");await pg.evaluate("window.__fast=0.01");await pg.wait_for_timeout(300)
     r=await pg.evaluate("""(async()=>{const t=__t,G=t.G,L=G.party[0];const out={};
       const d=G.objs.find(o=>o.type==='door')||{type:'door',x:L.x+2,y:L.y,open:false};const m=t.mkMon(t.monByKey('goblin'),d.x+3,d.y,false);G.mons.push(m);await t.listenAtDoor(d);out.heard=d.heard;
       G.ground[L.y][L.x+1]=6;out.heavyCanSwim=t.enterable(L,L.x+1,L.y);L.armourOff=true;out.unarmouredCanSwim=t.enterable(L,L.x+1,L.y);L.armourOff=false;G.ground[L.y][L.x+1]=0;

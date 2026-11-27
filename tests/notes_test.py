@@ -9,7 +9,7 @@ async def main():
     b=await p.chromium.launch(executable_path="/usr/bin/google-chrome");ctx=await b.new_context(viewport={"width":412,"height":800},device_scale_factor=2,is_mobile=True,has_touch=True);pg=await ctx.new_page();errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
     html=open(DOCS).read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
     await pg.set_content(html);await pg.wait_for_timeout(300)
-    await pg.click("#btnSetOut");await pg.click("#pick-barbarian");await pg.click("#pick-race-dwarf");await pg.wait_for_timeout(400);await pg.click("#kA");await pg.wait_for_timeout(400);await pg.evaluate("window.__fast=0.01")
+    await pg.evaluate("window.__skipIntro=true");await pg.click("#btnSetOut");await pg.click("#pick-barbarian");await pg.click("#pick-race-dwarf");await pg.wait_for_timeout(400);await pg.click("#kA");await pg.wait_for_timeout(400);await pg.evaluate("window.__fast=0.01")
     out=await pg.evaluate("""(async()=>{const t=__t,G=t.G,L=G.party[0];const out={};G.mons=[];
       const o=G.objs.find(o=>o.type==='door'&&!o.open);for(const [dx,dy] of [[0,1],[0,-1],[1,0],[-1,0]]){const x=o.x+dx,y=o.y+dy;if(!t.isWall(x,y)&&!t.doorAt(x,y)&&!t.objAt(x,y)&&t.enterable(L,x,y)){L.x=x;L.y=y;await t.tryMove(-dx,-dy);break;}}
       out.hint=document.getElementById('tText').innerHTML;out.cap=t.packCap();G.floor=1;out.trap1=t.trapN();G.floor=5;out.trap5=t.trapN();G.floor=1;

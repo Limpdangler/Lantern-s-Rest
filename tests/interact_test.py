@@ -10,7 +10,7 @@ async def main():
     b=await p.chromium.launch(executable_path="/usr/bin/google-chrome");pg=await b.new_page();errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
     html=open(DIST).read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
     await pg.set_content("<body>"+html+"</body>");await pg.wait_for_timeout(300)
-    await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-human");await pg.evaluate("window.__fast=0.01");await pg.wait_for_timeout(300);await pg.evaluate(CLICKER)
+    await pg.evaluate("window.__skipIntro=true");await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-human");await pg.evaluate("window.__fast=0.01");await pg.wait_for_timeout(300);await pg.evaluate(CLICKER)
     r=await pg.evaluate("""(async()=>{const t=__t,G=t.G,L=G.party[0];const out={};
       for(let y=0;y<G.H;y++)for(let x=0;x<G.W;x++)G.explored[y][x]=true;G.mons=G.mons.filter(m=>Math.max(Math.abs(m.x-L.x),Math.abs(m.y-L.y))>25);
       // the torch whose wall is reachable and farthest from the leader (but not crazy far)

@@ -8,7 +8,7 @@ async def main():
     b=await p.chromium.launch(executable_path="/usr/bin/google-chrome");pg=await b.new_page(viewport={"width":412,"height":730});errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
     html=open(DIST).read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
     await pg.set_content("<body>"+html+"</body>");await pg.wait_for_timeout(300)
-    await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-dwarf");await pg.wait_for_timeout(500)
+    await pg.evaluate("window.__skipIntro=true");await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-dwarf");await pg.wait_for_timeout(500)
     out=await pg.evaluate("""(async()=>{const t=__t,G=t.G;const out={};G.mons=[];
       const d=G.objs.find(o=>o.type==='door'&&!o.open);const L=G.party[0];let dir=null;
       for(const [dx,dy] of [[0,1],[0,-1],[1,0],[-1,0]]){const x=d.x+dx,y=d.y+dy;if(!t.isWall(x,y)&&!t.doorAt(x,y)&&t.enterable(L,x,y)){L.x=x;L.y=y;dir=[-dx,-dy];break;}}

@@ -37,7 +37,7 @@ const GLYPHS={
   music:["......kkkk..","......k..k..","......k..k..","......k..k..","......k..k..","...kkkk.kk..","..kkkkkkkk..","..kkkk.kk...","............","............","............","............"],
   owl:["............","..n.....n...","..nnnnnnn...",".nwwnnnwwn..",".nwknnnwkn..",".nnnngnnnn..","..nnnnnnn...","..nmnmnmn...","...nnnnn....","....g.g.....","............","............"],
   end:["............","..kkkkkkk...","..k.....k...","..k.kkk.k...","..k.k.k.k...","..k.kkk.k...","..k.....k...","..kkkkkkk...","............","............","............","............"]};
-const ICON_RULES=[[/REVERT/,"paw"],[/WILD SHAPE/,"paw"],[/MOON/,"moon"],[/RAGE|FRENZY|RECKLESS/,"rage"],[/HEAL|CURE|SECOND WIND|PRESERVE|SPARE|MEDIC|POTION/,"heal"],[/SHIELD|PROTECT|DODGE|WARD/,"shield"],
+const ICON_RULES=[[/FLURRY|MARTIAL/,"fist"],[/PATIENT/,"shield"],[/STEP OF THE WIND/,"run"],[/SHADOW STEP/,"eye"],[/ARMOUR/,"shield"],[/REVERT/,"paw"],[/WILD SHAPE/,"paw"],[/MOON/,"moon"],[/RAGE|FRENZY|RECKLESS/,"rage"],[/HEAL|CURE|SECOND WIND|PRESERVE|SPARE|MEDIC|POTION/,"heal"],[/SHIELD|PROTECT|DODGE|WARD/,"shield"],
   [/DASH/,"run"],[/DISENGAGE|ESCAPE/,"run"],[/HELP|OWL/,"owl"],[/SHOVE|PUSH|THUNDER/,"push"],[/HIDE|SIZE UP|INVISIB|FAERIE/,"eye"],[/FIRE|FLAM|BURN|HELLISH|DAWN/,"fire"],[/BOLT|MISSILE|LIGHTNING|ELDRITCH|RAY/,"bolt"],
   [/TURN UNDEAD|SICKNESS|SKULL/,"skull"],[/BLESS|GUID|SACRED|RADIANCE|LIGHT|SUN/,"sun"],[/POISON|ACID|ANTITOX/,"drop"],[/SCROLL|WAND/,"scroll"],[/FLASH|BOMB/,"bomb"],[/READY/,"hourglass"],[/JUMP|MISTY/,"jump"],
   [/GRAPPLE|GIANT|THROW/,"fist"],[/WEB|ENTANGLE|SPIKE|HOLD|SLEEP/,"web"],[/LOCK|DISARM|TRAP/,"lock"],[/VOLLEY|ARROW|PINNING|BOW|OFF-HAND/,"bow"],[/TRIP|MENAC|PRECIS|ATTACK|STRIKE|MARK/,"sword"],[/OIL|TORCH|SHAPE WATER|DOUSE/,"drop"],[/SURGE|SYMBIOTIC|INSPIR/,"star"]];
@@ -63,6 +63,7 @@ function effectsOf(h){const E=[];const myTurn=C&&C.cur===h&&mode==="combat"&&!bu
     E.push({icon:"star",label:"CONC",desc:`Concentrating on ${nm}. Taking damage means a CON save to keep it.`,act:"Tap to drop it",f:async()=>{const c=await choose(`Stop concentrating on ${nm}?`,[{t:"DROP IT"},{t:"KEEP IT"}]);if(c===0){endConc(h);hud();if(C)buildPanel();}$("tBox").hidden=!C;}});}
   for(const k in COND_INFO)if(h.st[k]){const [ic,l,d]=COND_INFO[k];E.push({icon:ic,label:l.toUpperCase(),desc:`${l}: ${d}`});}
   if(h.coat)E.push({icon:"drop",label:h.coat.name.toUpperCase(),desc:`Your weapon is coated in ${h.coat.name}: extra damage on the next hit.`});
+  if(h.task&&Object.values(TASKS).find(T=>T.id===h.task)){const T=Object.values(TASKS).find(T=>T.id===h.task);if(T.id!=="fletch"&&T.id!=="picks")E.push({icon:"star",label:T.fx.toUpperCase(),desc:`${T.name}: ${T.fx} until the next rest.`});}
   if(h.insp)E.push({icon:"star",label:"INSPIRED",desc:"Inspired: you'll reroll your next failed d20."});
   if(h.thp)E.push({icon:"shield",label:"TEMP "+h.thp,desc:`${h.thp} temporary hit points soak damage first.`});
   if(h.ward)E.push({icon:"shield",label:"WARD "+h.ward,desc:`Arcane Ward: soaks the next ${h.ward} damage.`});
@@ -150,7 +151,7 @@ function heroCardTop(el,i){const h=G.party[i];const N=G.party.length;
   nav.appendChild(mk("◀",()=>{menuHero=(i-1+N)%N;renderMenu();},N<2));
   const mid=document.createElement("div");mid.className="cardwho";const c=document.createElement("canvas");c.width=16;c.height=CH_H;const cx=c.getContext("2d");if(h.wild)cx.drawImage(wildSpr(h),0,10);else cx.drawImage(heroSpr(h.id,"f",0,h.race),0,0);mid.appendChild(c);
   const hp=h.wild?`${h.wild.hp}/${h.wild.max} HP as a ${h.wild.form}`:h.dead?"Dead":h.down?"Down":`${h.hp}/${h.maxHp} HP`;
-  mid.insertAdjacentHTML("beforeend",`<div><b>${esc(h.nick||h.name)}</b><br><span class="sm">${esc(RACES[h.race||"human"].name)} ${esc(h.name)}${subOf(h)?" · "+esc(subOf(h).name):""} · ${hp} · AC ${acOf(h)}${i===0?" · LEADER":""}</span></div>`);nav.appendChild(mid);
+  mid.insertAdjacentHTML("beforeend",`<div><b>${esc(h.nick||h.name)}</b><br><span class="sm">${esc(RACES[h.race||"human"].name)} ${esc(h.name)}${subOf(h)?" · "+esc(subOf(h).name):""} · ${hp} · AC ${acOf(h)}${i===0?" · LEADER":""}${h.perk&&PERKS[h.perk]?`<br>Trait: ${esc(PERKS[h.perk].name)} (${esc(PERKS[h.perk].desc)})`:""}</span></div>`);nav.appendChild(mid);
   nav.appendChild(mk("▶",()=>{menuHero=(i+1)%N;renderMenu();},N<2));el.appendChild(nav);
   const fx=effectsOf(h);if(fx.length){const row=document.createElement("div");row.className="fxrow cardfx";fx.forEach(e=>row.appendChild(effectChip(h,e,false)));el.appendChild(row);}
   const abil=heroWild(h).concat(classActions(h));

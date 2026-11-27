@@ -9,7 +9,7 @@ async def main():
     html=open(""+__import__("os").path.join(__import__("os").path.dirname(__file__),"..","dist","lantern-crawl.html")+"").read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
     await pg.set_content("<!doctype html><html><head><meta name=viewport content='width=device-width,initial-scale=1'></head><body>"+html+"</body></html>")
     await pg.wait_for_timeout(400)
-    await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.wait_for_timeout(100);await pg.screenshot(path="/tmp/shots/race.png");await pg.click("#pick-race-dwarf")
+    await pg.evaluate("window.__skipIntro=true");await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.wait_for_timeout(100);await pg.screenshot(path="/tmp/shots/race.png");await pg.click("#pick-race-dwarf")
     await pg.evaluate("window.__fast=0.02");await pg.wait_for_timeout(200)
     await pg.evaluate("window.__pick=0;setInterval(()=>{const bs=[...document.querySelectorAll('#chBtns button')].filter(x=>!x.disabled);if(!document.getElementById('chPanel').hidden&&bs.length){(bs[Math.min(window.__pick,bs.length-1)]).click();}},120)")
     async def run(name,code,pickIdx=0):

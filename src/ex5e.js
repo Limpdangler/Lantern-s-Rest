@@ -118,7 +118,7 @@ async function campFlow(atLadder){// returns the camp settings, or null if cance
   const cl=up.find(h=>h.id==="cleric"&&slotAvail(h,1));if(cl&&!atLadder){const c4=await choose("The cleric can sanctify the camp with a prayer (uses a spell slot): monsters are far less likely to find you, and everyone regains an extra Hit Die.",[{t:"SANCTIFY THE CAMP"},{t:"DON'T BOTHER"}]);if(c4===0){useSlot(cl,1);camp.sanct=true;}}
   if(G.party.some(armoured)){const c3=await choose("Sleep in armour? Medium and heavy armour make for a poor rest.",[{t:"TAKE IT OFF",sub:"Rest properly, but lower AC if attacked tonight"},{t:"KEEP IT ON",sub:"Armoured heroes regain fewer Hit Dice and no exhaustion"}]);camp.armourOff=c3!==1;}
   $("tBox").hidden=true;return camp;}
-async function applyLongRest(camp){const food=(G.bag.ration||0)>0;if(food)takeItem("ration");if(camp.type==="fire")takeItem("firewood");
+async function applyLongRest(camp){const food=(G.bag.ration||0)>0;const light=anyPerk("lighteater")&&Math.random()<.5;if(food&&!light)takeItem("ration");if(food&&light)log("A light eater makes the meal stretch: no ration used.","lv");if(camp.type==="fire")takeItem("firewood");
   const lines=[];
   for(const h of G.party){if(h.dead)continue;const heavy=armoured(h)&&!camp.armourOff;
     h.down=false;h.st={};h.wild=null;h.conc=null;h.armourOff=false;h.ds={s:0,f:0};h.stable=false;
@@ -146,7 +146,7 @@ async function doRest(long){if(mode!=="explore"||busy)return;
     const list=near.filter(m=>m.gid===gid).slice(0,4);
     for(const m of list){const p=ambushSpot();if(p){m.x=p.x;m.y=p.y;m.dx=p.x*TS;m.dy=p.y*TS;}m.state="hunt";m.lurk=false;}
     const st=Math.max(...list.map(m=>rnd(20)+monStealth(m)));const w=camp.watch;const pp=w?passive(w,"perception")-2*exhOf(w)-(camp.type==="cold"&&!heroDV(w)?5:0):0;
-    const spotted=w&&pp>=st;
+    const spotted=(w&&pp>=st)||anyPerk("lightsleeper");
     for(const h of G.party){if(h.dead||h.down)continue;if(long&&h!==w)h.st.prone=true;if(long&&camp.armourOff&&armoured(h))h.armourOff=true;if(!spotted&&!hasFeat(h,"alert"))h.st.surprised=true;}
     log(`Ambush! Enemy Stealth ${st} vs ${w?esc(w.name)+"'s":"your"} Passive Perception ${pp}.`,"hurt");
     if(long)G.pendingRest=camp;fov();busy=false;

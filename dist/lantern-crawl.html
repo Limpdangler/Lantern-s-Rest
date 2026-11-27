@@ -112,7 +112,8 @@ input.err{border-color:var(--bad);background:#4a1f26}
 /* v4 additions */
 .cstat em{font-style:normal;font-weight:400;font-size:12px;color:#5c6470;margin-left:auto}
 .cbtns{display:grid;grid-template-columns:1fr 1fr;gap:5px;flex:1}
-.cbtns.list{max-height:190px;overflow-y:auto;align-content:start}
+.cbtns.list{max-height:190px;overflow-y:auto;align-content:start;grid-auto-rows:max-content}
+.cbtns.list .cb{height:auto;min-height:44px}
 .cb.wide{grid-column:1/-1;min-height:40px;align-items:center}
 .cb.back{background:#eef0f4}
 .cb:not(:disabled):active{background:#f0ead8}
@@ -289,7 +290,7 @@ input.err{border-color:var(--bad);background:#4a1f26}
   <div class="ov" id="ovClass" hidden>
     <h2>Choose your first hero</h2>
     <p>You start alone. Lost adventurers deeper down will join you, up to a party of four. Explore with the D-pad, or tap a spot to walk there. Press A to use whatever you're facing (doors, chests, torches, bodies), B for the party menu, and SEARCH to look for hidden traps and doors. Tap a monster that hasn't seen you to ambush it.</p>
-    <p class="help">When a fight starts, the room becomes a battlefield. Everyone rolls initiative. On a hero's turn, tap blue squares to move and tap enemies to attack. Use SKILLS, ACTIONS (Dash, Dodge, Disengage, Help, Shove, Hide) and ITEMS. Push enemies into fire, acid, traps or off ledges!</p>
+    <p class="help">When a fight starts, the room becomes a battlefield. Everyone rolls initiative. On a hero's turn, tap blue squares to move and tap enemies to attack. Tap an icon on the action bar to use it (hold it to read what it does). Push enemies into fire, acid, traps or off ledges!</p>
     <div class="cards" id="classCards"></div>
   </div>
 
@@ -984,7 +985,7 @@ function genFloorInner(){
   const L=G.party[0];L.x=start.cx;L.y=start.cy;
   for(let i=1;i<G.party.length;i++){const p=nearFree(start.cx,start.cy);G.party[i].x=p.x;G.party[i].y=p.y;}
   // doors
-  for(const r of rooms)for(const e of entrances(r))if(e.door&&!doorAt(e.x,e.y)&&Math.random()<.3)G.objs.push({type:"door",x:e.x,y:e.y,open:false,locked:false,iron:G.floor>=2&&Math.random()<.25});
+  for(const r of rooms)for(const e of entrances(r))if(e.door&&!doorAt(e.x,e.y)&&Math.random()<.3){const iron=G.floor>=2&&Math.random()<.25;G.objs.push({type:"door",x:e.x,y:e.y,open:false,locked:!iron&&Math.random()<.18,iron});}
   // vault: a room whose every entrance can hold a door
   // ...and only a dead end: locking it must never cut the way to the ladder (or any other room)
   const deadEnd=v=>{const blocked=new Set(entrances(v).map(e=>e.y*G.W+e.x));const W2=G.W;const s0=start.cy*W2+start.cx;const seenT=new Set([s0]);const q=[s0];
@@ -1299,16 +1300,16 @@ function slotMax(h){const cs=casterOf(h);const t=cs==="full"?SLOTS_FULL:cs==="ha
 function featRes(h){const out=[];if(h.sub==="land")out.push("natrec");for(const f of featsOf(h)){const r=FEATS[f].res;if(r&&!out.includes(r))out.push(r);}if(h.info.arcaneRecovery)out.push("arcane");return out.filter((v,i)=>out.indexOf(v)===i);}
 function restoreAll(h,keepHD){h.pins=2;if(hasFeat(h,"lucky"))h.luck=3;h.goodberry=false;h.sanct=false;h.slots=slotMax(h);for(const k of featRes(h))h.res[k]=RES[k].max(G.level);h.wand=gearFx(h).wand?3:0;if(!keepHD)h.hdLeft=h.hdMax;h.rebukeUsed=false;h.relentlessUsed=false;if(h.sub==="abjurer")h.ward=wardMax(h);}
 function gearFx(h){const f={};for(const id of h.gear){const it=ITEMS[id];if(!it||!it.fx)continue;for(const k in it.fx){if(k.startsWith("set"))f[k]=Math.max(f[k]||0,it.fx[k]);else f[k]=(f[k]||0)+it.fx[k];}}return f;}
-function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)+(u.st.sof?2:0)+(u.st.raised?2:0)-(u.shieldBroken?2:0)-curse;}
+function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)+(u.st.sof?2:0)+(u.st.raised?2:0)+(u.task==="kit"?1:0)-(u.shieldBroken?2:0)-curse;}
 function speedOf(u){if(u.side==="m")return u.speed;if(overloaded()&&!u.wild)return Math.max(1,speedOf2(u)-2);return speedOf2(u);}
 function speedOf2(u){let s=u.wild?8:u.def.speed+(gearFx(u).speed||0)+(hasFeat(u,"mobile")?2:0);s-=exhOf(u);if(u.st&&u.st.pinned)return 0;return Math.max(1,s);}
-function saveBonus(u,a){if(u.side==="m")return abm(u,a)+(u.boss?3:0);return abm(u,a)+(u.info.saves.includes(a)?prof():0)+(gearFx(u).save||0)+(G.blessFloor===G.floor?1:0)+loyalBonus(u);}
+function saveBonus(u,a){if(u.side==="m")return abm(u,a)+(u.boss?3:0);return abm(u,a)+(u.info.saves.includes(a)?prof():0)+(gearFx(u).save||0)+(G.blessFloor===G.floor?1:0)+(prayerUp()?1:0)+loyalBonus(u);}
 function skillBonus(u,sk){const a=SKILLS[sk];if(u.side==="m")return abm(u,a)+(sk==="perception"&&u.tr.keen?3:0)+(u.boss?2:0)+(sk==="athletics"&&u.tr.shover?2:0);
   let b=abm(u,a);const R=u.race&&RACES[u.race];if(u.info.skills.includes(sk)||(R&&R.skills&&R.skills.includes(sk))||(u.extraSkills&&u.extraSkills.includes(sk)))b+=prof()*((u.info.expertise||[]).includes(sk)?2:1);if(sk==="thieves")b+=gearFx(u).thieves||0;if(u.sub==="champion"&&!u.info.skills.includes(sk)&&(a==="str"||a==="dex"))b+=Math.ceil(prof()/2);return b;}
 const passive=(u,sk)=>10+skillBonus(u,sk)+((sk==="perception"||sk==="investigation")&&typeof hasFeat==="function"&&hasFeat(u,"observant")?5:0);
 const castMod=u=>abm(u,u.info.castAbil||"int");
 const spellAtk=u=>prof()+castMod(u);
-const spellDC=u=>8+prof()+castMod(u);
+const spellDC=u=>8+prof()+castMod(u)+(u.task==="herbs"?1:0);
 const sneakDice=()=>`${Math.ceil(G.level/2)}d6`;
 function slotAvail(h,lvl){for(let i=lvl-1;i<h.slots.length;i++)if(h.slots[i]>0)return i+1;return 0;}
 function useSlot(h,lvl){const s=slotAvail(h,lvl);if(s)h.slots[s-1]--;return s;}
@@ -1491,10 +1492,10 @@ const trapN=()=>1+Math.floor((((G&&G.floor)||1)-1)/2);// trap damage dice: 1 on 
 async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?`The ${u.name}`:`The ${u.name}`;{const r=await triggerNewTrap(t,u);if(r!==null)return r;}
   if(t.type==="darts"){const r=rnd(20)+5;const hit=r>=acOf(u);fx.push({type:"shot",from:{x:t.x-2,y:t.y},to:{x:t.x,y:t.y},t:now(),col:"#d0d0d0"});
     await say(`Click! Darts fly from the walls at ${who}: ${r} vs AC ${acOf(u)}. ${hit?"Hit!":"Miss!"}`,950);
-    if(hit){await dealDamage(u,roll(`${trapN()}d4`).total,"piercing",{});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
+    if(hit){await dealDamage(u,roll(`${trapN()}d4`).total,"piercing",{trap:true});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
   if(t.type==="pit"){G.ground[t.y][t.x]=GROUND.rubble;buildTerrain();const s=saveRoll(u,"dex",t.dc);
     if(s.ok){await say(`A pit trap! ${who} leaps clear as the floor drops. (${s.txt})`,950);return false;}
-    u.st.prone=true;await say(`A pit trap! ${who} falls in. (${s.txt})`,950);await dealDamage(u,roll(`${trapN()}d6`).total,"bludgeoning",{});return true;}
+    u.st.prone=true;await say(`A pit trap! ${who} falls in. (${s.txt})`,950);await dealDamage(u,roll(`${trapN()}d6`).total,"bludgeoning",{trap:true,fall:true});return true;}
   if(t.type==="fire"){const s=saveRoll(u,"dex",t.dc);const dm=roll(`${trapN()}d6`).total;fx.push({type:"boom",x:t.x,y:t.y,t:now()});
     await say(`Flames roar from a vent under ${who}! (${s.txt})`,950);await dealDamage(u,s.ok?Math.floor(dm/2):dm,"fire",{});
     for(const [dx,dy] of DIRS8)if(gnd(t.x+dx,t.y+dy)===GROUND.oil)igniteAt(t.x+dx,t.y+dy);return false;}
@@ -1541,7 +1542,7 @@ async function pushUnit(u,dx,dy,n){for(let i=0;i<n;i++){const nx=u.x+dx,ny=u.y+d
     const o=objAt(nx,ny);if(o&&o.type==="barrel"){await breakBarrel(o,false,dx,dy);return;}
     if(!enterable(u,nx,ny)||unitAt(nx,ny)){float(u,"THUD","#ffffff");return;}
     const fe=elevAt(u.x,u.y);u.x=nx;u.y=ny;await wait(150);fov();
-    if(fe>elevAt(nx,ny)&&!isRamp(nx,ny)){u.st.prone=true;await say(`The ${u.name} is knocked off the ledge!`,750);await dealDamage(u,roll("1d6").total,"bludgeoning",{});}
+    if(fe>elevAt(nx,ny)&&!isRamp(nx,ny)){u.st.prone=true;await say(`The ${u.name} is knocked off the ledge!`,750);await dealDamage(u,roll("1d6").total,"bludgeoning",{fall:true});}
     const r=await onEnter(u,nx,ny,{forced:true});if(r.stop||u.hp<=0||u.down||u.dead)return;}}
 function pushResult(t,dx,dy){const nx=t.x+dx,ny=t.y+dy;if(!inB(nx,ny))return "wall";const o=objAt(nx,ny);if(o&&o.type==="barrel")return "barrel";
   if(!enterable(t,nx,ny)||unitAt(nx,ny))return "blocked";const bits=[];const tr=trapAt(nx,ny);if(tr&&tr.found)bits.push(TRAPS[tr.type].name);
@@ -1633,7 +1634,7 @@ function attacksPer(u){if(u.wild)return u.wild.form==="bear"?2:1;return u.info.e
 const canAttack=()=>C.attacksLeft>0||C.actions>0||C.extraAtk>0;
 function useAttack(u){C.attackedOnce=true;if(C.attacksLeft<=0&&C.actions<=0&&C.extraAtk>0){C.extraAtk--;C.dreadHit=true;return;}if(C.attacksLeft<=0){C.actions--;C.attacksLeft=attacksPer(u);}C.attacksLeft--;}
 const hasAction=()=>C.actions>0;
-function heroTurn(u){u.readied=null;C.meleeAttacked=false;C.moveLeft=speedOf(u);C.actions=1;C.bonus=true;C.attacksLeft=0;C.disengaged=false;C.reckless=false;C.attackedOnce=false;C.sneakUsed=false;C.objUsed=false;C.mode="move";C.tgt=null;C.sel=null;C.weapon="main";C.panel="main";C.pending=null;
+function heroTurn(u){u.readied=null;C.meleeAttacked=false;C.moveLeft=speedOf(u);C.actions=1;C.bonus=true;C.attacksLeft=0;C.disengaged=false;C.reckless=false;C.attackedOnce=false;C.flurry=false;C.stunTried=false;if(perkOf(u,"brave")&&u.st.frightened){delete u.st.frightened;float(u,"BRAVE","#ffffff");}C.sneakUsed=false;C.objUsed=false;C.mode="move";C.tgt=null;C.sel=null;C.weapon="main";C.panel="main";C.pending=null;
   if(u.st.prone){delete u.st.prone;C.moveLeft=Math.floor(C.moveLeft/2);float(u,"STANDS UP","#ffffff");log(`${esc(u.name)} stands up (half movement).`,"miss");}
   C.extraAtk=0;if(u.sub==="gloom"&&!u.dreadDone){u.dreadDone=true;C.moveLeft+=2;C.extraAtk=1;log(`Dread Ambusher: ${esc(u.name)} gets +2 speed and an extra attack this turn.`,"magic");}
   if(u.st.restrained)C.moveLeft=0;
@@ -1712,7 +1713,7 @@ function featButtons(u){const B=[];const info=u.info;
     B.push({t:"REVERT",sub:"Bonus action: leave beast form",dis:!C.bonus,f:async()=>{busy=true;C.bonus=false;u.wild=null;computeLight();fov();await say(`${u.name} returns to normal form.`,700);afterAction();}});return B;}
   if(info.alt.save)B.push({t:"SACRED FLAME",sub:"Cantrip · action · DEX save · ignores cover",dis:!hasAction()||C.attacksLeft>0,f:()=>targetMode({kind:"enemy",range:12,label:"Sacred Flame: tap an enemy within 12 squares.",onPick:async(x,y,t)=>{C.actions--;await sacredFlame(u,t);}})});
   for(const f of featsOf(u)){const F=FEATS[f];const left=F.res?u.res[F.res]||0:null;const costOK=F.cost==="bonus"?C.bonus:F.cost==="action"?hasAction()&&C.attacksLeft===0:true;
-    let dis=!costOK||(F.res&&left<=0);if(f==="reckless")dis=C.reckless||C.attackedOnce;if(f==="frenzy")dis=dis||!u.st.raging;if(f==="giantsmight")dis=dis||!!u.st.giant;if(f==="symbiotic")dis=dis||!!u.st.symbiotic;
+    let dis=!costOK||(F.res&&left<=0);if(f==="reckless")dis=C.reckless||C.attackedOnce;if(f==="martialarts"||f==="flurry")dis=dis||!C.attackedOnce;if(f==="frenzy")dis=dis||!u.st.raging;if(f==="giantsmight")dis=dis||!!u.st.giant;if(f==="symbiotic")dis=dis||!!u.st.symbiotic;
     if(F.cost==="free"&&F.res&&f!=="actionsurge"){const armedK={mtrip:"trip",mpush:"push",mmenace:"menace",mprecise:"precise",guidedstrike:"guided"}[f];if(armedK){if(C.armed===armedK){B.push({t:"✓ "+F.name.toUpperCase(),sub:"armed for your next attack · tap to disarm",sel:true,f:()=>{C.armed=null;buildPanel();}});continue;}dis=dis||!canAttack();}}if(f==="secondwind")dis=dis||u.hp>=u.maxHp;if(f==="rage")dis=dis||u.st.raging;
     B.push({t:F.name.toUpperCase(),sub:`${F.cost==="free"?"free":F.cost==="bonus"?"bonus action":"action"}${left!==null?` · ${left} left`:""}`,dis,f:()=>FEAT_RUN[f](u)});}
   for(const s of spellsOf(u).filter(s=>isPrepared(u,s))){const sp=SPELLS[s];const maxLvl=u.slots.length;
@@ -1805,7 +1806,7 @@ function actionButtons(u){const B=[];const act=hasAction()&&C.attacksLeft===0;
     if(c.ok){delete u.st.restrained;await say(`Free! (${c.txt})`,800);}else await say(`Still stuck. (${c.txt})`,800);afterAction();}});
   for(const a of G.party)if(a!==u&&a.down&&!a.dead&&!a.stable&&cheb(a,u)<=1)B.push({t:`STABILIZE ${a.name.toUpperCase()}`,sub:"Action · Medicine DC 10 · stops death saves",dis:!act,f:async()=>{busy=true;C.actions--;const c=await check(u,"medicine",10);
     if(c.ok){a.stable=true;a.ds={s:0,f:0};await say(`The ${u.name} stops the bleeding. The ${a.name} is stable. (${c.txt})`,1000);}else await say(`The ${u.name} can't stop the bleeding. (${c.txt})`,900);hud();afterAction();}});
-  B.push(...snuffButtons(u),...classCombatButtons(u),...rules2Buttons(u),...shieldButtons(u));
+  B.push(...snuffButtons(u),...classCombatButtons(u),...rules2Buttons(u),...shieldButtons(u),...armourButtons(u));
   {const fast=u.id==="rogue";const ok=fast?C.bonus:hasAction()&&C.attacksLeft===0;const spend=()=>{if(fast)C.bonus=false;else C.actions--;};const cost=fast?"Bonus action (rogue)":"Action";
     if((G.bag.poisonvial||0)>0&&!u.coat&&!u.wild)B.push({t:"POISON YOUR WEAPON",sub:`${cost} · next attack +2d4 poison, CON save or poisoned`,dis:!ok,f:async()=>{busy=true;spend();takeItem("poisonvial");u.coat={name:"poison",type:"poison",dice:"2d4"};await say(`The ${u.name} smears poison along the weapon.`,800);afterAction();}});
     const acid=[[0,0]].concat(DIRS8).some(([dx,dy])=>gnd(u.x+dx,u.y+dy)===GROUND.acid);
@@ -1826,7 +1827,7 @@ function itemButtons(u){const B=[];const n=id=>G.bag[id]||0;const fh=u.sub==="th
     spill(x,y,[[x,y],[x+1,y],[x-1,y],[x,y+1],[x,y-1]]);await say("The flask shatters. Slick oil spreads across the floor!",850);if(fireAt(x,y)||[[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>fireAt(x+a,y+b))){igniteAt(x,y);await scorch();}}})});
   if(n("torch")){B.push({t:"PLACE TORCH",sub:"Free · lights an adjacent square",dis:C.objUsed,f:()=>targetMode({kind:"tile",range:1,empty:false,label:"Place a torch: tap a square next to you.",onPick:async(x,y)=>{C.objUsed=true;takeItem("torch");G.dropLights.push({x,y});if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH!",800);await scorch();}fov();}})});
     B.push({t:"THROW TORCH",sub:`${AC} · range 4 · lights & ignites oil`,dis:!act,f:()=>targetMode({kind:"tile",range:4,label:"Throw a torch: tap a square within 4.",onPick:async(x,y)=>{spend();takeItem("torch");G.dropLights.push({x,y});
-      if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH!",800);await scorch();}else await say("The torch lights up the area.",600);fov();joinNew();}})});}
+      if(gnd(x,y)===GROUND.oil){igniteAt(x,y);await say("The torch lands in the oil. FWOOSH!",800);await scorch();}else{const what=await fireOnTile(x,y,u);await say(what.length?`The torch lands: ${what.join(", ")}.`:"The torch lights up the area.",700);}fov();joinNew();}})});}
   if(["scroll_mm","scroll_cure","scroll_fb"].some(id=>n(id)&&!isKnown(id)))B.push({t:"UNREAD SCROLL",sub:"Identify it in the bag first",dis:true});
   if(n("scroll_mm")&&isKnown("scroll_mm"))B.push({t:"SCROLL: MISSILE",sub:"Action · 3 darts of 1d4+1",dis:!(hasAction()&&C.attacksLeft===0),f:()=>SPELL_RUN.magicmissile(u,{scroll:true})});
   if(n("scroll_cure")&&isKnown("scroll_cure"))B.push({t:"SCROLL: CURE",sub:"Action · touch · 2d8+3",dis:!(hasAction()&&C.attacksLeft===0),f:()=>SPELL_RUN.curewounds(u,{scroll:true})});
@@ -1922,8 +1923,8 @@ function newRun(ci,race){clearRun();
   clearLog();log(`${esc(heroLabel(G.party[0]))} lights a lantern and steps into the ${esc(THEMES[G.theme].name)}.`,"lv");
   genFloor();mode="explore";busy=false;C=null;showCombatUI(false);hud();
   toast(`Floor 1: ${THEMES[G.theme].name}. Find the ladder down, and look for lost adventurers to join you.${G.goal?" Goal: "+G.goal.desc+".":""}`);
-  if(G.party.some(h=>h.race==="human"&&!h.humanFeat))setTimeout(()=>{if(!busy&&mode==="explore")humanFeats();},400);}
-async function tryMove(dx,dy,act){if(mode!=="explore"||busy||!G||G.over)return;busy=true;try{await doMove(dx,dy,act);}finally{if(mode==="explore")busy=false;}}
+  setTimeout(()=>{if(!busy&&mode==="explore"&&!window.__skipIntro)newHeroPrompts();},400);}
+async function tryMove(dx,dy,act){if(mode!=="explore"||busy||!G||G.over)return;if(G.aim){G.aim=null;toast("Never mind.");}busy=true;try{await doMove(dx,dy,act);}finally{if(mode==="explore")busy=false;}}
 async function doMove(dx,dy,act){// act: true when the player chose to use what is there (A button or tapping it), false when just walking with the D-pad
 if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const [h]=G.party.splice(i,1);G.party.unshift(h);hud();}}const L=G.party[0];L.face=dy<0?"b":dy>0?"f":"s";if(dx)L.flip=dx<0;const nx=L.x+dx,ny=L.y+dy;
   const m=monAt(nx,ny);if(m){
@@ -1941,13 +1942,14 @@ if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const
   if(o&&BLOCKERS[o.type]){if(!act){hintA(`${BUMP_NAME[o.type]||"Something"} is in the way.`);return;}await interact(o);return;}
   if(isWall(nx,ny))return;
   const up=elevAt(nx,ny)>elevAt(L.x,L.y),down=elevAt(nx,ny)<elevAt(L.x,L.y),noRamp=!isRamp(nx,ny)&&!isRamp(L.x,L.y);
-  const easyClimb=L.sub==="thief"||(L.wild&&L.wild.form==="spider");
+  const easyClimb=L.sub==="thief"||(L.wild&&L.wild.form==="spider")||perkOf(L,"surefooted");
   if((up||down)&&noRamp&&!easyClimb){const sk=up?"athletics":"acrobatics";const c0=await choose(up?`A ledge. Climb up? (Athletics, DC 10)`:`A drop. Jump down? (Acrobatics, DC 10: a bad landing hurts)`,[{t:up?"CLIMB UP":"JUMP DOWN",sub:oddsTag(L,sk,10)},{t:"STAY HERE",sub:"Look for a ramp instead"}]);$("tBox").hidden=true;if(c0!==0)return;}
   if(up&&noRamp){const c=easyClimb?{ok:true}:await check(L,"athletics",10,{quiet:true});G.steps+=2;
-    if(!c.ok){if(c.total<=5){toast(`The ${L.name} slips off the ledge and lands hard! (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{});}else toast(`The ${L.name} can't get a grip on the ledge. (${c.txt}) Try again, or use the ramp.`);return;}}
-  if(down&&noRamp){const c=await check(L,"acrobatics",10,{quiet:true});if(!c.ok){toast(`The ${L.name} jumps down and lands badly. (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{});if(L.down)return;}}
+    if(!c.ok){if(c.total<=5){toast(`The ${L.name} slips off the ledge and lands hard! (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{fall:true});}else toast(`The ${L.name} can't get a grip on the ledge. (${c.txt}) Try again, or use the ramp.`);return;}}
+  if(down&&noRamp){const c=await check(L,"acrobatics",10,{quiet:true});if(!c.ok){toast(`The ${L.name} jumps down and lands badly. (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{fall:true});if(L.down)return;}}
   const t=trapAt(nx,ny);if(t&&t.found&&!act&&!t.done&&!t.disarmed){hintA(`A ${TRAPS[t.type].name}.`);return;}if(t&&t.found){const dz=bestAt("thieves"),iv=bestAt("investigation");
-    const c=await choose(`${cap(aN(TRAPS[t.type].name))} lies ahead.${t.easy?" You've worked out how it works.":""}`,[{t:"DISARM IT",sub:t.disFail?"You already tried":`${oddsTag(dz,"thieves",t.dc,{adv:!!t.easy})}${toolNote(dz)}`},{t:"STUDY IT",sub:t.studied?"Already studied":`${oddsTag(iv,"investigation",t.dc)} · success makes disarming easier`},{t:"STEP ON IT",sub:"Set it off on purpose"},{t:"LEAVE IT"}].concat(heroesUp().some(h=>h.sub==="trickster")?[{t:"MAGE HAND",sub:"Arcane Trickster disarms it from a safe distance (a failure just sets it off harmlessly)"}]:[]));
+    const c=await choose(`${cap(aN(TRAPS[t.type].name))} lies ahead.${t.easy?" You've worked out how it works.":""}`,[{t:"DISARM IT",sub:t.disFail?"You already tried":`${oddsTag(dz,"thieves",t.dc,{adv:!!t.easy})}${toolNote(dz)}`},{t:"STUDY IT",sub:t.studied?"Already studied":`${oddsTag(iv,"investigation",t.dc)} · success makes disarming easier`},{t:"STEP ON IT",sub:"Set it off on purpose"},{t:"LEAVE IT"}].concat(heroesUp().some(h=>h.sub==="trickster")?[{t:"MAGE HAND",sub:"Arcane Trickster disarms it from a safe distance (a failure just sets it off harmlessly)"}]:[]).concat([{t:"JUMP OVER IT",sub:`Everyone makes an Athletics check (DC 10) · ${oddsTag(L,"athletics",10)} for the ${L.name}`}]));
+    if(c===4+(heroesUp().some(h=>h.sub==="trickster")?1:0)){$("tBox").hidden=true;await jumpOver(dx,dy);return;}
     if(c===4){const tr=heroesUp().find(h=>h.sub==="trickster");const r=await check(tr,"thieves",t.dc,{adv:!!t.easy});t.done=true;if(r.ok){t.disarmed=true;await say(`A spectral hand dismantles the trap. (${r.txt}) +10 XP.`,1100,true);for(const m of gainXpNow(10))await say(m,1200,true);}else await say(`The spectral hand sets it off: it fires harmlessly into the air. (${r.txt})`,1200,true);$("tBox").hidden=true;hud();return;}
     if(c===0){if(t.disFail){toast(t.disFail);return;}await disarm(dz,t);hud();return;}
     if(c===1){if(t.studied){toast(t.easy?"You already know how it works.":"You still can't make sense of it.");return;}t.studied=true;const r=await check(iv,"investigation",t.dc);G.steps+=4;t.easy=r.ok;await say(r.ok?`The ${iv.name} figures out the mechanism. (${r.txt}) Disarming it will be easier.`:`The ${iv.name} can't make sense of it. (${r.txt})`,1200,true);$("tBox").hidden=true;return;}
@@ -1956,7 +1958,7 @@ if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const
   if(f){f.x=L.x;f.y=L.y;faceToward(f,L.x-nx,L.y-ny);L.x=nx;L.y=ny;}
   else{const prev=G.party.map(h=>({x:h.x,y:h.y}));L.x=nx;L.y=ny;for(let i=1;i<G.party.length;i++){const h=G.party[i];const tp=prev[i-1];if(h.x===tp.x&&h.y===tp.y)continue;faceToward(h,tp.x-h.x,tp.y-h.y);h.x=tp.x;h.y=tp.y;}}
   const cost=(G.sneak?2:1)+(overloaded()?1:0);const before=G.steps;G.steps+=cost;burnFuel(cost);for(const h of G.party)if(!h.down&&h.st.prone)delete h.st.prone;
-  if(S.rules.fatigue&&Math.floor(G.steps/120)>Math.floor(before/120)){G.fatigue++;await partyWeary();}
+  if(S.rules.fatigue&&Math.floor(G.steps/fatigueStep())>Math.floor(before/fatigueStep())){G.fatigue++;await partyWeary();}
   if(G.steps%3===0&&G.fire.size)tickFire();
   if(G.sneak&&areaKey(L.x,L.y)!==G.sneakArea)rollSneak();
   fov();await onEnter(L,nx,ny,{});collectItems(L);
@@ -1994,7 +1996,7 @@ async function search(){if(mode!=="explore"||busy||!G)return;const L=G.party[0];
   G.steps+=10;burnFuel(10);await huntStep();
   G.searchMsg[key]=found.length?"Nothing else turns up here.":"Nothing unusual, as far as you can tell.";
   await say(`Perception ${c.total}. ${found.length?"Found: "+found.join(", ")+"!":"Nothing unusual, as far as you can tell."}`,1500,true);$("tBox").hidden=true;busy=false;hud();await checkAwareness();}
-async function recruit(){await recruitInner();if(G.level>=3)await chooseSubclasses();await humanFeats();}
+async function recruit(){await recruitInner();if(G.level>=3)await chooseSubclasses();await newHeroPrompts();}
 async function recruitInner(){const n=G.npc;const h=mkHero(n.def,n.race||pick(RACE_KEYS));nameHero(h);h.x=n.x;h.y=n.y;h.dx=h.x*TS;h.dy=h.y*TS;G.npc=null;G.party.push(h);
   log(`The ${esc(h.name)} joins your party!`,"lv");hud();await say(`"A light, at last! Mind if I come along?" ${h.nick}, a ${RACES[h.race].name} ${h.name}, joins your party. (${TRAITS[h.trait].name}: likes ${TRAITS[h.trait].likes}; dislikes ${TRAITS[h.trait].dislikes}.)`,2000,true);$("tBox").hidden=true;fov();}
 async function doorInteract(d){
@@ -2006,12 +2008,12 @@ async function doorInteract(d){
   d.fail=d.fail||{};const hasKey=(G.bag.key||0)>0;const barb=heroesUp().find(h=>h.id==="barbarian"&&(h.res.rage||0)>0&&!h.wild);const th=bestAt("thieves"),st=bestAt("athletics");const fdc=d.iron?22:17;
   const canBurn=!d.iron&&((G.bag.oil||0)>0||(G.bag.torch||0)>0);
   const c=await choose(d.iron?"A heavy iron door, locked tight. It won't burn.":"A heavy wooden door, locked tight.",[{t:"USE KEY",sub:hasKey?"The rusty key":"You don't have a key",dis:!hasKey},
-    {t:"PICK THE LOCK",sub:`${oddsTag(th,"thieves",15)}${toolNote(th)}`},
-    {t:"FORCE IT",sub:`${oddsTag(st,"athletics",fdc)} · LOUD`},
+    {t:"PICK THE LOCK",sub:d.fail.pick&&(G.bag.lockpick||0)>0&&!/broken pick/.test(d.fail.pick)?`Try again with a spare lockpick (${G.bag.lockpick}) · ${oddsTag(th,"thieves",15)} · quiet`:`${oddsTag(th,"thieves",15)}${toolNote(th)} · quiet`},
+    {t:"FORCE IT",sub:`Shoulder-charge · ${oddsTag(st,"athletics",fdc)} · LOUD`},
     {t:"RAGE AND SMASH",sub:barb?`${barb.name}: uses a Rage · always works on wood · LOUD`:"Needs a barbarian with Rage left",dis:!barb||d.iron},{t:"BURN IT",sub:d.iron?"Iron doesn't burn":canBurn?"Uses an oil flask or torch · slow, smoky, draws attention":"You need an oil flask or a torch",dis:!canBurn},
-    {t:d.iron?"WORK THE HINGES LOOSE":"HACK THROUGH IT",sub:(d.fail.pick||d.fail.force)?"Always works, but takes ages: the party tires and the racket may draw wanderers":"Try the other ways first",dis:!(d.fail.pick||d.fail.force)},{t:"LEAVE IT"}]);
+    {t:d.iron?"WORK THE HINGES LOOSE":"BREAK IT DOWN",sub:d.iron?((d.fail.pick||d.fail.force)?"Always works, but takes ages: the party tires and the racket may draw wanderers":"Try the other ways first"):"Hack it apart with weapons · always works · takes a while · VERY LOUD",dis:d.iron&&!(d.fail.pick||d.fail.force)},{t:"LEAVE IT"}]);
   if(c===0){takeItem("key");d.locked=false;d.open=true;toast("The key turns. The door swings open.");}
-  else if(c===1){if(d.fail.pick){toast(d.fail.pick);return;}const r=await check(th,"thieves",15);G.steps+=5;
+  else if(c===1){if(d.fail.pick){if((G.bag.lockpick||0)>0&&!/broken pick/.test(d.fail.pick)){takeItem("lockpick");d.fail.pick=null;toast("You fit a fresh pick into the lock...");await wait(500);}else{toast(d.fail.pick);return;}}const r=await check(th,"thieves",15);G.steps+=5;
     if(r.ok){d.locked=false;d.open=true;toast(`Click! (${r.txt})`);}
     else{d.fail.pick=r.r===1?"The broken pick is still jammed in the lock. Nobody can pick it now.":"The lock won't budge.";toast(`${r.r===1?"SNAP! The pick breaks off inside the lock.":"The lock won't budge."} (${r.txt})`);}}
   else if(c===2){if(d.fail.force){toast(d.fail.force);return;}const r=await check(st,"athletics",fdc);
@@ -2019,8 +2021,8 @@ async function doorInteract(d){
     else{makeNoise(d.x,d.y,12);if(r.ok){d.locked=false;d.open=true;toast(`CRASH! The door bursts open. (${r.txt}) Something may have heard that...`);}else{d.fail.force="The door shudders but holds.";toast(`The door shudders but holds. (${r.txt}) The noise echoes...`);}}}
   else if(c===3){barb.res.rage--;d.locked=false;d.open=true;d.burnt=true;makeNoise(d.x,d.y,14);cam.shake=now();await say(`The ${barb.name} ROARS and smashes the door to splinters!`,1300,true);$("tBox").hidden=true;}
   else if(c===5){// fail forward: there's always a way through, it just costs time, energy and noise
-    d.locked=false;d.open=true;d.burnt=!d.iron;G.steps+=60;if(S.rules.fatigue)G.fatigue=(G.fatigue||0)+2;makeNoise(d.x,d.y,16);
-    await say(d.iron?"It takes the best part of an hour, chipping and levering at the hinge pins, but at last the iron door groans off its hinges. Everyone's worn out, and the clanging carried a long way.":"It takes a long time and a lot of noise, but you hack a hole through the door big enough to squeeze through. Everyone's worn out.",2000,true);
+    const slow=d.iron||(d.fail.pick||d.fail.force);d.locked=false;d.open=true;d.burnt=!d.iron;G.steps+=d.iron?60:20;if(S.rules.fatigue&&d.iron)G.fatigue=(G.fatigue||0)+2;makeNoise(d.x,d.y,16);
+    await say(d.iron?"It takes the best part of an hour, chipping and levering at the hinge pins, but at last the iron door groans off its hinges. Everyone's worn out, and the clanging carried a long way.":"Axes and boots against wood: it takes a while and makes a terrible racket, but the door comes apart.",2000,true);
     $("tBox").hidden=true;if(typeof wakeWanderers==="function"&&Math.random()<.6)wakeWanderers();}
   else if(c===4){if(G.bag.oil)takeItem("oil");else takeItem("torch");setAlight(d);toast("You douse the door and set it alight. It'll take a while to burn through, and the smoke and light will carry...");}
   computeLight();fov();hud();}
@@ -2101,6 +2103,7 @@ function ambushSpot(){const L=G.party[0];for(let r=4;r<=7;r++)for(let k=0;k<30;k
 // ---------- tap to walk & tap to ambush ----------
 async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   if(G.pebble){throwPebble(x,y);return;}
+  if(G.aim){await aimAt(x,y);return;}
   if(!G.owlPick&&needsReach(x,y)&&cheb(G.party[0],{x,y})>1){const ok=await walkUpTo(x,y);const torch=G.torches.some(t=>t.x===x&&t.y===y);if(!ok&&!torch){if(mode==="explore")toast("You can't find a way over there.");return;}if(mode!=="explore"||busy||G.over)return;}
   {const d=doorAt(x,y);const L=G.party[0];if(d&&d.open&&!d.burnt&&cheb(L,d)===1&&!unitAt(x,y)){const ft=heroesUp().find(h=>h.id==="fighter");busy=true;try{
       const c=await choose("An open door.",[{t:"CLOSE IT"},{t:"WEDGE IT SHUT",sub:ft?`${ft.name}: jams it so monsters can't open it (you can kick it free)`:"Needs a fighter",dis:!ft},{t:"LEAVE IT OPEN"}]);
@@ -2112,7 +2115,8 @@ async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   const dc=G.objs.find(o=>!o.gone&&o.x===x&&o.y===y&&(o.deco||o.type==="rubble"||o.type==="cavein"));if(dc&&cheb(G.party[0],dc)<=1&&(BLOCKERS[dc.type]||!dc.seen)){busy=true;try{await decoInteract(dc);}finally{busy=false;}return;}
   const cp=(G.corpses||[]).find(c=>c.x===x&&c.y===y);if(cp&&(!cp.searched||(!cp.spoken&&cp.kind==="body"&&heroesUp().some(h=>h.id==="cleric")))&&!monAt(x,y)&&cheb(G.party[0],cp)<=1){busy=true;try{await corpseInteract(cp);}finally{busy=false;}return;}
   if(gnd(x,y)===GROUND.acid&&cheb(G.party[0],{x,y})<=1&&!monAt(x,y)){const opts=heroesUp().filter(h=>!h.coat&&h.id!=="beast");if(opts.length){busy=true;try{
-      const c=await choose("A hissing puddle of acid. Someone could dip a weapon in it (one attack's worth before it wears off).",opts.map(h=>({t:h.name.toUpperCase(),sub:`Coat the ${weaponOf(h,"main").name}`})).concat([{t:"LEAVE IT"}]));
+      const c=await choose("A hissing puddle of acid. Someone could dip a weapon in it (one attack's worth before it wears off), or you could jump over it.",opts.map(h=>({t:h.name.toUpperCase(),sub:`Coat the ${weaponOf(h,"main").name}`})).concat([{t:"LEAVE IT"},{t:"JUMP OVER IT",sub:"Everyone makes an Athletics check (DC 10)"}]));
+      if(c===opts.length+1){$("tBox").hidden=true;busy=false;const L=G.party[0];await jumpOver(Math.sign(x-L.x),Math.sign(y-L.y));return;}
       if(c>=0&&c<opts.length){opts[c].coat={name:"acid",type:"acid",dice:"2d4"};toast(`The ${opts[c].name}'s weapon hisses with acid. It'll last for one attack.`);}$("tBox").hidden=true;}finally{busy=false;}return;}}
   const m=monAt(x,y);if(m&&seen(x,y)&&!isHiddenMon(m)){if(m.peace){toast(`The ${m.name} let you pass. Walk into them to start a fight.`);return;}
     const unaware=monsterSurprised(m);const rg=heroesUp().find(h=>h.id==="rogue"&&cheb(h,m)<=1);const canPick=rg&&unaware&&!m.picked;
@@ -2294,7 +2298,7 @@ async function campFlow(atLadder){// returns the camp settings, or null if cance
   const cl=up.find(h=>h.id==="cleric"&&slotAvail(h,1));if(cl&&!atLadder){const c4=await choose("The cleric can sanctify the camp with a prayer (uses a spell slot): monsters are far less likely to find you, and everyone regains an extra Hit Die.",[{t:"SANCTIFY THE CAMP"},{t:"DON'T BOTHER"}]);if(c4===0){useSlot(cl,1);camp.sanct=true;}}
   if(G.party.some(armoured)){const c3=await choose("Sleep in armour? Medium and heavy armour make for a poor rest.",[{t:"TAKE IT OFF",sub:"Rest properly, but lower AC if attacked tonight"},{t:"KEEP IT ON",sub:"Armoured heroes regain fewer Hit Dice and no exhaustion"}]);camp.armourOff=c3!==1;}
   $("tBox").hidden=true;return camp;}
-async function applyLongRest(camp){const food=(G.bag.ration||0)>0;if(food)takeItem("ration");if(camp.type==="fire")takeItem("firewood");
+async function applyLongRest(camp){const food=(G.bag.ration||0)>0;const light=anyPerk("lighteater")&&Math.random()<.5;if(food&&!light)takeItem("ration");if(food&&light)log("A light eater makes the meal stretch: no ration used.","lv");if(camp.type==="fire")takeItem("firewood");
   const lines=[];
   for(const h of G.party){if(h.dead)continue;const heavy=armoured(h)&&!camp.armourOff;
     h.down=false;h.st={};h.wild=null;h.conc=null;h.armourOff=false;h.ds={s:0,f:0};h.stable=false;
@@ -2322,7 +2326,7 @@ async function doRest(long){if(mode!=="explore"||busy)return;
     const list=near.filter(m=>m.gid===gid).slice(0,4);
     for(const m of list){const p=ambushSpot();if(p){m.x=p.x;m.y=p.y;m.dx=p.x*TS;m.dy=p.y*TS;}m.state="hunt";m.lurk=false;}
     const st=Math.max(...list.map(m=>rnd(20)+monStealth(m)));const w=camp.watch;const pp=w?passive(w,"perception")-2*exhOf(w)-(camp.type==="cold"&&!heroDV(w)?5:0):0;
-    const spotted=w&&pp>=st;
+    const spotted=(w&&pp>=st)||anyPerk("lightsleeper");
     for(const h of G.party){if(h.dead||h.down)continue;if(long&&h!==w)h.st.prone=true;if(long&&camp.armourOff&&armoured(h))h.armourOff=true;if(!spotted&&!hasFeat(h,"alert"))h.st.surprised=true;}
     log(`Ambush! Enemy Stealth ${st} vs ${w?esc(w.name)+"'s":"your"} Passive Perception ${pp}.`,"hurt");
     if(long)G.pendingRest=camp;fov();busy=false;
@@ -3299,6 +3303,155 @@ function readAlmanac(){if(!(G.bag.almanac>0))return;takeItem("almanac");G.lore=G
 // mouse holes are dug when each floor is built
 {const base=genFloorInner;genFloorInner=function(){base();placeMouseHoles();};}
 
+// ================= the Monk, traits, rest tasks, jumping, throwing torches and fire outside combat =================
+
+// ---------- the Monk ----------
+DEFAULTS.classes.push({id:"monk",name:"Monk",str:10,dex:16,con:14,int:10,wis:15,cha:8,ac:15,hd:8,dmg:"1d6",range:1,speed:7});
+CINFO.monk={atk:{name:"Unarmed Strike",abil:"dex",type:"bludgeoning",finesse:true},alt:{name:"Darts",abil:"dex",dice:"1d4",type:"piercing",range:8,thrown:true,finesse:true},
+  saves:["str","dex"],skills:["acrobatics","stealth","insight","athletics"],armour:"none",feats:["martialarts","flurry","patient","stepwind"],spells:[],extra:true,primary:"dex",
+  blurb:"Fast and unarmoured (AC from DEX + WIS). Martial Arts: a free extra punch as a bonus action after attacking. Ki powers Flurry of Blows, Patient Defence and Step of the Wind. Deflects arrows; Stunning Strike from level 5."};
+LOOKS.monk={skin:"#e8b890",hair:"#2a2420",hs:"topknot",eye:"#4a3a2a",robe:"#d27a2a",arm:"#d27a2a",trim:"#8a3a1a",boots:"#6a4a2a",belt:"#5a2a1a",wpn:"staff"};
+RES.ki={name:"Ki",rest:"sr",max:l=>Math.max(2,l)};
+Object.assign(FEATS,{
+  martialarts:{name:"Martial Arts",cost:"bonus",desc:"Bonus action after you attack: one extra unarmed strike."},
+  flurry:{name:"Flurry of Blows",cost:"bonus",res:"ki",desc:"Bonus action after you attack, 1 ki: two extra unarmed strikes."},
+  patient:{name:"Patient Defence",cost:"bonus",res:"ki",desc:"Bonus action, 1 ki: Dodge (attacks against you have disadvantage until your next turn)."},
+  stepwind:{name:"Step of the Wind",cost:"bonus",res:"ki",desc:"Bonus action, 1 ki: Dash and Disengage at once."},
+  shadowstep:{name:"Shadow Step",cost:"bonus",desc:"Bonus action: step from one patch of darkness to another up to 8 squares away; your next melee attack this turn has advantage."},
+  handheal:{name:"Hand of Healing",cost:"bonus",res:"ki",desc:"Bonus action, 1 ki: touch an ally (or yourself) to heal 1d6 + WIS."}});
+SUBS.monk=[
+  {id:"openhand",name:"Way of the Open Hand",desc:"Every Flurry of Blows hit forces a DEX save or the target is knocked prone."},
+  {id:"shadow",name:"Way of Shadow",desc:"Shadow Step: teleport between dark squares as a bonus action and strike with advantage. Monks of Shadow also hide well in the dark.",feats:["shadowstep"]},
+  {id:"mercy",name:"Way of Mercy",desc:"Hand of Healing: spend ki to heal an ally you touch as a bonus action.",feats:["handheal"]}];
+Object.assign(FEAT_RUN,{
+  martialarts:async u=>{busy=true;C.bonus=false;C.attacksLeft++;C.weapon="main";await say(`Martial Arts: the ${u.name} follows up with a quick strike.`,650);afterAction();},
+  flurry:async u=>{busy=true;C.bonus=false;u.res.ki--;C.attacksLeft+=2;C.weapon="main";C.flurry=true;await say(`Flurry of Blows! Two extra strikes.`,700);afterAction();},
+  patient:async u=>{busy=true;C.bonus=false;u.res.ki--;u.st.dodge=true;await say(`Patient Defence: the ${u.name} focuses on dodging.`,700);afterAction();},
+  stepwind:async u=>{busy=true;C.bonus=false;u.res.ki--;C.disengaged=true;C.moveLeft+=speedOf(u);refreshReach();await say(`Step of the Wind! ${C.moveLeft} squares of movement, and no opportunity attacks.`,800);afterAction();},
+  shadowstep:u=>targetMode({kind:"tile",range:8,label:"Shadow Step: tap a dark, empty square within 8.",onPick:async(x,y)=>{
+    if(litAt(x,y)||unitAt(x,y)||isWall(x,y)){prompt("You can only step into darkness, onto an empty square.");afterAction();return;}C.bonus=false;fx.push({type:"ring",u,col:"#6a5aa0",t:now()});u.x=x;u.y=y;u.dx=x*TS;u.dy=y*TS;u.st.shadowAdv=true;fov();await say(`The ${u.name} melts into the shadows and steps out somewhere else.`,800);}}),
+  handheal:u=>targetMode({kind:"ally",range:1,label:"Hand of Healing: tap yourself or an ally next to you.",onPick:async(x,y,t)=>{C.bonus=false;u.res.ki--;const n=roll("1d6").total+abm(u,"wis");heal(t,Math.max(1,n));await say(`The ${u.name}'s touch heals the ${t.name} for ${n}.`,800);}})});
+effect("monkCombat","Monk: Shadow Step advantage, stunned targets, Open Hand flurries",{
+  attackMods:c=>{if(c.a.st.shadowAdv&&c.w.melee)c.adv.push("from the shadows");if(c.t.st.stunned)c.adv.push("stunned");},
+  afterAttack:async c=>{if(c.w.melee)delete c.a.st.shadowAdv;},
+  afterHit:async c=>{const a=c.a,t=c.t;if(!isHero(a)||a.id!=="monk"||!c.w.melee||c.w.spell||t.hp<=0||t.dead)return;const dc=8+prof()+abm(a,"wis");
+    if(a.sub==="openhand"&&C&&C.flurry&&!t.st.prone){const s=saveRoll(t,"dex",dc);if(!s.ok){t.st.prone=true;float(t,"PRONE","#ffffff");}log(`Open Hand: the ${esc(t.name)} ${s.ok?"keeps its feet":"is knocked prone"} (${s.txt}).`,"hit");}
+    if(G.level>=5&&(a.res.ki||0)>0&&!t.st.stunned&&t.side==="m"&&C&&!C.stunTried&&await askReact(a,`Stunning Strike on the ${t.name}? (1 ki: CON save or it loses its next turn)`)){C.stunTried=true;a.res.ki--;const s=saveRoll(t,"con",dc);if(!s.ok){t.st.stunned=true;float(t,"STUNNED","#ffe060");}await say(`Stunning Strike! The ${t.name} ${s.ok?"shrugs it off":"is stunned"} (${s.txt}).`,850);}}});
+effect("deflectMissiles","Monk: reaction to knock aside an arrow or bolt",{damageIn:async c=>{const u=c.u,src=c.o.src;if(!isHero(u)||u.id!=="monk"||u.wild||!c.o.attack||!src||cheb(src,u)<=1||!canReact(u)||c.n<=0)return;
+  if(!await askReact(u,`Deflect Missiles: knock the ${src.name}'s shot aside? (reduces ${c.n} damage by 1d10 + DEX + level)`))return;u.reaction=false;const r=roll("1d10").total+abm(u,"dex")+G.level;c.n=Math.max(0,c.n-r);float(u,c.n?"DEFLECT -"+r:"CAUGHT IT!","#d0e0ff");}});
+{const base=conditionTurn;conditionTurn=async u=>{if(u.st.stunned){delete u.st.stunned;float(u,"STUNNED","#ffe060");await say(`The ${u.name} is stunned and loses its turn!`,800);return true;}return base(u);};}
+
+// ---------- traits: small innate perks every hero starts with ----------
+const PERKS={
+  springheel:{name:"Springheel",desc:"Half damage from falls, bad landings and pit traps; advantage when jumping."},
+  reflexes:{name:"Quick Reflexes",desc:"+1 to initiative."},
+  lighteater:{name:"Light Eater",desc:"Half the time, a long rest's meal doesn't use up a ration."},
+  packmule:{name:"Pack Mule",desc:"The party can carry 5 more."},
+  stamina:{name:"Stamina",desc:"The party tires more slowly (a longer walk before each step of fatigue)."},
+  keeneyes:{name:"Keen Eyes",desc:"+2 to Perception (spotting traps, lurkers and secret doors)."},
+  lightsleeper:{name:"Light Sleeper",desc:"Wakes at the slightest sound: the party is never caught asleep by a camp ambush."},
+  thickskin:{name:"Thick Skin",desc:"Take 2 less damage from traps and falls."},
+  ironstomach:{name:"Iron Stomach",desc:"Poison damage is halved."},
+  quickhands:{name:"Quick Hands",desc:"+2 to picking locks and disarming traps."},
+  surefooted:{name:"Surefooted",desc:"Climbing ledges and jumping down never need a check."},
+  brave:{name:"Brave",desc:"Shakes off fear at the start of each turn."},
+  hardy:{name:"Hardy",desc:"+1 HP per level."},
+  fleetfoot:{name:"Fleet of Foot",desc:"+1 square of movement."},
+  haggler:{name:"Haggler",desc:"Shops charge 10% less."},
+  scholar:{name:"Scholar",desc:"+2 to Arcana, History, Religion and Investigation."}};
+const perkOf=(u,k)=>u&&u.side==="h"&&u.perk===k&&!u.dead;
+const anyPerk=k=>G&&G.party.some(h=>perkOf(h,k));
+{const base=skillBonus;skillBonus=(u,sk)=>{let b=base(u,sk);if(u.side!=="h")return b;
+  if(sk==="perception"&&perkOf(u,"keeneyes"))b+=2;if(sk==="thieves"&&perkOf(u,"quickhands"))b+=2;if(["arcana","history","religion","investigation"].includes(sk)&&perkOf(u,"scholar"))b+=2;
+  if(sk==="arcana"&&u.task==="study")b+=1;return b;};}
+{const base=packCap;packCap=()=>base()+5*G.party.filter(h=>perkOf(h,"packmule")).length;}
+{const base=speedOf2;speedOf2=u=>base(u)+(perkOf(u,"fleetfoot")?1:0);}
+{const base=rollInit;rollInit=(u,b)=>base(u,b+(perkOf(u,"reflexes")?1:0)+(u.task==="meditate"?1:0));}
+{const base=shopPrice;shopPrice=id=>Math.max(1,Math.round(base(id)*(anyPerk("haggler")?.9:1)));}
+{const base=applyLevel;applyLevel=(h,init)=>{const before=h.maxHp;base(h,init);if(perkOf(h,"hardy")){h.maxHp+=G.level;if(!init&&!h.dead&&before)h.hp=Math.min(h.maxHp,h.hp+G.level);else if(init)h.hp=h.maxHp;}};}
+const fatigueStep=()=>120+20*Math.min(2,G.party.filter(h=>perkOf(h,"stamina")).length);
+effect("perkDamage","Traits: Springheel, Thick Skin, Iron Stomach",{damageIn:async c=>{const u=c.u;if(!isHero(u))return;
+  if((c.o.fall||c.o.trap)&&perkOf(u,"springheel")&&c.o.fall)halve(c,"springheel");if((c.o.fall||c.o.trap)&&perkOf(u,"thickskin"))c.n=Math.max(0,c.n-2);
+  if(c.type==="poison"&&perkOf(u,"ironstomach"))halve(c,"iron stomach");}});
+async function chooseTraits(){if(!G)return;for(const h of G.party){if(h.dead||h.id==="beast"||h.perk)continue;const keys=Object.keys(PERKS);
+  const c0=await choose(`Every hero has a small trait of their own. How should the ${h.nick||h.name} the ${h.name} get theirs?`,[{t:"ROLL ONE AT RANDOM"},{t:"CHOOSE IT"}]);
+  let k;if(c0===1){const c=await choose(`Choose a trait for the ${h.name}:`,keys.map(k=>({t:PERKS[k].name.toUpperCase(),sub:PERKS[k].desc})));k=keys[Math.max(0,c)];}else k=pick(keys);
+  h.perk=k;applyLevel(h,false);log(`${esc(h.nick||h.name)} the ${esc(h.name)}: trait <b>${esc(PERKS[k].name)}</b>. ${esc(PERKS[k].desc)}`,"lv");if(c0!==1)toast(`${h.name}'s trait: ${PERKS[k].name}. ${PERKS[k].desc}`);}
+  $("tBox").hidden=true;hud();}
+async function newHeroPrompts(){await humanFeats();await chooseTraits();}
+
+// ---------- rest tasks: what each class does while the others rest ----------
+// On a long rest everyone does theirs. On a short rest, only heroes healthy enough not to need a Hit Die do (the rest are busy bandaging).
+// The benefit lasts until the next rest.
+const TASKS={fighter:{id:"kit",name:"Kit maintained",fx:"+1 AC",line:h=>`The ${h.name} oils and tightens every strap of their armour (+1 AC until the next rest).`},
+  barbarian:{id:"hone",name:"Weapon honed",fx:"+1 melee damage",line:h=>`The ${h.name} hones their weapon to a wicked edge (+1 melee damage until the next rest).`},
+  wizard:{id:"study",name:"Studied",fx:"+1 spell attacks & Arcana",line:h=>`The ${h.name} pores over their spellbook (+1 to spell attacks and Arcana until the next rest).`},
+  druid:{id:"herbs",name:"Components gathered",fx:"+1 spell save DC",line:h=>`The ${h.name} gathers fresh moss, bark and bone for their spells (+1 spell save DC until the next rest).`},
+  ranger:{id:"fletch",name:"Arrows fletched",fx:"new arrows",line:(h,n)=>`The ${h.name} fletches ${n} new arrows.`},
+  cleric:{id:"pray",name:"Prayed",fx:"party +1 to saves",line:h=>`The ${h.name} kneels in prayer (the whole party gets +1 to saving throws until the next rest).`},
+  rogue:{id:"picks",name:"Lockpick made",fx:"spare lockpick",line:h=>`The ${h.name} files a spare lockpick out of a bent nail (one extra try on a lock that beat you).`},
+  monk:{id:"meditate",name:"Meditated",fx:"+1 ki, +1 initiative",line:h=>`The ${h.name} meditates (+1 ki and +1 initiative until the next rest).`}};
+ITEMS.lockpick={name:"Spare Lockpick",kind:"keep",price:5,floor:1,w:0,desc:"Lets you try a lock again after a failed attempt."};WEIGHT.lockpick=0;
+function doTask(h){const T=TASKS[h.id];if(!T||h.dead||h.wild)return null;h.task=T.id;
+  if(T.id==="fletch"){const n=rnd(4)+2;addItem("arrows",n);return T.line(h,n);}
+  if(T.id==="picks"){if((G.bag.lockpick||0)<2)addItem("lockpick");}
+  if(T.id==="meditate")h.res.ki=(h.res.ki||0)+1;return T.line(h);}
+{const base=shortRest;shortRest=async function(){const before=new Map(G.party.map(h=>[h,h.hdLeft]));for(const h of G.party)h.task=null;await base();
+  const lines=[];for(const h of G.party){if(h.dead||h.down)continue;if(h.hdLeft===before.get(h)){const l=doTask(h);if(l)lines.push(l);}}
+  if(lines.length)await say(lines.join(" "),1800,true);};}
+{const base=applyLongRest;applyLongRest=async camp=>{for(const h of G.party)h.task=null;const out=await base(camp);for(const h of G.party){const l=doTask(h);if(l)out.push(l);}return out;};}
+effect("taskBuffs","Rest tasks: honed weapons and studied spells",{onHit:async c=>{if(isHero(c.a)&&c.a.task==="hone"&&c.w.melee&&!c.w.spell){c.total+=1;c.parts.push("+1 honed");}},
+  attackMods:c=>{if(isHero(c.a)&&c.a.task==="study"&&c.w.spell){c.bonus+=1;c.notes.push("studied +1");}}});
+const prayerUp=()=>G&&G.party.some(h=>h.task==="pray"&&!h.dead&&!h.down);
+
+// ---------- armour off: put it back on in a fight instead of your action ----------
+function armourButtons(u){if(!u.armourOff||u.wild)return [];return [{t:"PUT ARMOUR ON",icon:"shield",sub:"Action · back to full AC",cost:"action",dis:!hasAction()||C.attacksLeft>0,f:async()=>{busy=true;C.actions--;u.armourOff=false;await say(`The ${u.name} hauls their armour on and buckles up. (AC ${acOf(u)})`,850);afterAction();}}];}
+
+// ---------- resting behind a closed door is safer ----------
+function roomOfParty(){const L=G.party[0];return G.rooms.find(r=>L.x>=r.x&&L.x<r.x+r.w&&L.y>=r.y&&L.y<r.y+r.h)||null;}
+function doorSafety(){const r=roomOfParty();if(!r)return {mult:1,why:""};const ent=entrances(r);if(!ent.length)return {mult:1,why:""};
+  const doors=ent.map(e=>doorAt(e.x,e.y));if(doors.some(d=>!d||d.open||d.burnt))return {mult:1,why:""};
+  const locked=doors.every(d=>d.locked||d.wedged);return locked?{mult:.3,why:"behind locked doors"}:{mult:.5,why:"behind closed doors"};}
+{const base=campRisk;campRisk=type=>base(type)*doorSafety().mult;}
+
+// ---------- jumping over a hazard (acid, a trap) ----------
+async function jumpOver(dx,dy){const L=G.party[0];const hx=L.x+dx,hy=L.y+dy,tx=L.x+2*dx,ty=L.y+2*dy;
+  const free=(x,y)=>inB(x,y)&&!isWall(x,y)&&!unitAt(x,y)&&!blocksObj(x,y)&&!(doorAt(x,y)&&!doorAt(x,y).open)&&gnd(x,y)!==GROUND.acid&&!(trapAt(x,y)&&!trapAt(x,y).done&&trapAt(x,y).found)&&elevAt(x,y)===elevAt(L.x,L.y)&&gnd(x,y)!==GROUND.deep;
+  if(!free(tx,ty)){toast("There's nowhere safe to land on the other side.");return;}
+  const W=G.W;const near=[];const seenT=new Set([ty*W+tx,hy*W+hx]);const q=[[tx,ty]];
+  while(q.length&&near.length<G.party.length+2){const [x,y]=q.shift();for(const [a,b] of DIRS4){const nx=x+a,ny=y+b,k=ny*W+nx;if(seenT.has(k))continue;seenT.add(k);if(free(nx,ny)){near.push([nx,ny]);q.push([nx,ny]);}}}
+  const hazardTrap=trapAt(hx,hy);const lines=[];let k=0;
+  for(const h of G.party){if(h.dead)continue;if(h.down){toast("You can't jump with someone who's down.");return;}}
+  for(const h of G.party){if(h.dead)continue;const sure=perkOf(h,"surefooted")||(h.wild&&["wolf","spider","cat"].includes(h.wild.form));const adv=perkOf(h,"springheel");
+    const r=sure?{ok:true,txt:"surefooted"}:await check(h,"athletics",10,{quiet:true,adv});const [px,py]=h===L?[tx,ty]:(near[k++]||[tx,ty]);
+    if(r.ok){h.x=px;h.y=py;}else{h.x=hx;h.y=hy;lines.push(`The ${h.name} comes up short and lands in it! (${r.txt})`);}
+    h.dx=h.x*TS;h.dy=h.y*TS;}
+  fov();computeLight();hud();
+  for(const h of G.party){if(h.dead||h.x!==hx||h.y!==hy)continue;
+    if(hazardTrap&&!hazardTrap.done){await triggerTrap(hazardTrap,h);}else if(gnd(hx,hy)===GROUND.acid){await dealDamage(h,roll("1d6").total,"acid",{});}
+    const spot=near[k++];if(spot&&!h.dead&&!h.down){h.x=spot[0];h.y=spot[1];h.dx=h.x*TS;h.dy=h.y*TS;}}
+  await say(lines.length?lines.join(" "):`The party leaps over it, one by one.`,1100,true);$("tBox").hidden=true;G.steps+=1;fov();hud();}
+
+// ---------- aiming outside combat: throwing a torch, or a wizard's Fire Bolt ----------
+async function fireOnTile(x,y,by){let what=[];
+  for(const o of G.objs){if(o.gone||o.x!==x||o.y!==y)continue;if(o.type==="barrel"){await breakBarrel(o,true,0,0);what.push("the barrel bursts into flames");}else if(isWooden(o)&&!o.burn){setAlight(o);what.push(`the ${o.type==="door"?"door":o.type==="web"?"web":"wood"} catches fire`);}}
+  if(gnd(x,y)===GROUND.oil){igniteAt(x,y);what.push("the oil goes up");}
+  const t=G.torches.find(q=>q.x===x&&q.y===y);if(t&&t.out){t.out=false;what.push("the wall torch flares back to life");}
+  return what;}
+async function aimAt(x,y){const a=G.aim;G.aim=null;const h=a.by;const range=a.kind==="torch"?6:12;
+  if(cheb(h,{x,y})>range||!los(h.x,h.y,x,y)){toast("You can't hit that from here.");return;}
+  if(monAt(x,y)&&!monAt(x,y).peace){toast("To attack a creature, tap it to start a fight.");return;}
+  busy=true;try{if(a.kind==="torch"){takeItem("torch");fx.push({type:"shot",from:{x:h.x,y:h.y},to:{x,y},t:now(),col:"#ffb040"});await wait(250);G.dropLights.push({x,y});
+      const what=await fireOnTile(x,y,h);makeNoise(x,y,4);await say(`The torch tumbles end over end and lands, lighting up the floor${what.length?": "+what.join(", "):""}.`,1200,true);}
+    else{fx.push({type:"shot",from:{x:h.x,y:h.y},to:{x,y},t:now(),col:"#ff8030"});await wait(250);const what=await fireOnTile(x,y,h);makeNoise(x,y,6);
+      await say(what.length?`Fire Bolt! ${cap(what.join(", "))}.`:"The Fire Bolt splashes harmlessly against the stone.",1100,true);}
+  }finally{busy=false;}$("tBox").hidden=true;computeLight();fov();hud();}
+function aimButtons(h){const A=[];if(G.party[0]!==h)return A;
+  if((G.bag.torch||0)>0)A.push({t:"THROW A TORCH",sub:`Light up a spot up to 6 squares away; sets oil, wood and webs alight · ${G.bag.torch} left`,f:()=>{G.aim={kind:"torch",by:h};closeMenu();toast("Tap where to throw the torch (up to 6 squares).");}});
+  return A;}
+function wizardFire(h){if(h.id!=="wizard"||h.wild)return [];return [{t:"FIRE BOLT",sub:"Cantrip: set fire to a door, barrel, web or oil, or relight a torch, up to 12 squares away",f:()=>{G.aim={kind:"firebolt",by:h};closeMenu();toast("Tap what to set alight (up to 12 squares).");}}];}
+{const base=classActions;classActions=h=>{const A=base(h);if(h.dead||h.down||mode!=="explore")return A;return A.concat(wizardFire(h),aimButtons(h));};}
+
 // ================= sprites =================
 const sprCache={};
 function paint(rows,pal,w,h){const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");
@@ -3591,7 +3744,7 @@ function renderMenu(){const el=$("menuBody");["party","bag","notes","rest"].forE
       <p class="help"><b>Exhaustion:</b> each level is −1 to every d20 roll (only half that on skills and saves you're proficient in) and −1 square of speed. You can't rest again straight after resting. Level 6 is death. A fed fire camp removes one level.</p>`);
     const mk=(t,sub,f,dis)=>{const b=document.createElement("button");b.type="button";b.className="big";b.innerHTML=`${t}<br><small>${sub}</small>`;b.disabled=!!dis;b.addEventListener("click",f);el.appendChild(b);};
     const cl=floorCleared();
-    mk("SHORT REST",`${maxShort()-G.shortRests} left · ${cl?"floor cleared: safe":"ambush risk "+Math.round(campRisk("short")*100)+"%"}`,()=>doRest(false),G.shortRests>=maxShort()||restTooSoon(false)>0);
+    mk("SHORT REST",`${maxShort()-G.shortRests} left · ${cl?"floor cleared: safe":"ambush risk "+Math.round(campRisk("short")*100)+"%"+(doorSafety().why?" ("+doorSafety().why+")":"")}`,()=>doRest(false),G.shortRests>=maxShort()||restTooSoon(false)>0);
     mk("MAKE CAMP (LONG REST)",`${S.rules.fatigue&&G.fatigue<3?"Only when Tired":cl?"Floor cleared: safe":"Fire "+Math.round(campRisk("fire")*100)+"% / cold "+Math.round(campRisk("cold")*100)+"% ambush risk"}`,()=>doRest(true),S.rules.fatigue&&G.fatigue<3||restTooSoon(true)>0);}}
 function alertMenu(t){const el=$("menuBody");el.querySelectorAll(".msg").forEach(m=>m.remove());el.insertAdjacentHTML("afterbegin",`<p class="msg">${esc(t)}</p>`);}
 function drawIconTo(canvas,id){const c2=canvas.getContext("2d");if(id==="potion"||id==="gpotion"){c2.drawImage(monSpr("potion",id==="gpotion"?{r:"#4a7ae0",R:"#2a4aa0"}:null),0,0);return;}drawIconBase(c2,id);}
@@ -3707,7 +3860,7 @@ const GLYPHS={
   music:["......kkkk..","......k..k..","......k..k..","......k..k..","......k..k..","...kkkk.kk..","..kkkkkkkk..","..kkkk.kk...","............","............","............","............"],
   owl:["............","..n.....n...","..nnnnnnn...",".nwwnnnwwn..",".nwknnnwkn..",".nnnngnnnn..","..nnnnnnn...","..nmnmnmn...","...nnnnn....","....g.g.....","............","............"],
   end:["............","..kkkkkkk...","..k.....k...","..k.kkk.k...","..k.k.k.k...","..k.kkk.k...","..k.....k...","..kkkkkkk...","............","............","............","............"]};
-const ICON_RULES=[[/REVERT/,"paw"],[/WILD SHAPE/,"paw"],[/MOON/,"moon"],[/RAGE|FRENZY|RECKLESS/,"rage"],[/HEAL|CURE|SECOND WIND|PRESERVE|SPARE|MEDIC|POTION/,"heal"],[/SHIELD|PROTECT|DODGE|WARD/,"shield"],
+const ICON_RULES=[[/FLURRY|MARTIAL/,"fist"],[/PATIENT/,"shield"],[/STEP OF THE WIND/,"run"],[/SHADOW STEP/,"eye"],[/ARMOUR/,"shield"],[/REVERT/,"paw"],[/WILD SHAPE/,"paw"],[/MOON/,"moon"],[/RAGE|FRENZY|RECKLESS/,"rage"],[/HEAL|CURE|SECOND WIND|PRESERVE|SPARE|MEDIC|POTION/,"heal"],[/SHIELD|PROTECT|DODGE|WARD/,"shield"],
   [/DASH/,"run"],[/DISENGAGE|ESCAPE/,"run"],[/HELP|OWL/,"owl"],[/SHOVE|PUSH|THUNDER/,"push"],[/HIDE|SIZE UP|INVISIB|FAERIE/,"eye"],[/FIRE|FLAM|BURN|HELLISH|DAWN/,"fire"],[/BOLT|MISSILE|LIGHTNING|ELDRITCH|RAY/,"bolt"],
   [/TURN UNDEAD|SICKNESS|SKULL/,"skull"],[/BLESS|GUID|SACRED|RADIANCE|LIGHT|SUN/,"sun"],[/POISON|ACID|ANTITOX/,"drop"],[/SCROLL|WAND/,"scroll"],[/FLASH|BOMB/,"bomb"],[/READY/,"hourglass"],[/JUMP|MISTY/,"jump"],
   [/GRAPPLE|GIANT|THROW/,"fist"],[/WEB|ENTANGLE|SPIKE|HOLD|SLEEP/,"web"],[/LOCK|DISARM|TRAP/,"lock"],[/VOLLEY|ARROW|PINNING|BOW|OFF-HAND/,"bow"],[/TRIP|MENAC|PRECIS|ATTACK|STRIKE|MARK/,"sword"],[/OIL|TORCH|SHAPE WATER|DOUSE/,"drop"],[/SURGE|SYMBIOTIC|INSPIR/,"star"]];
@@ -3733,6 +3886,7 @@ function effectsOf(h){const E=[];const myTurn=C&&C.cur===h&&mode==="combat"&&!bu
     E.push({icon:"star",label:"CONC",desc:`Concentrating on ${nm}. Taking damage means a CON save to keep it.`,act:"Tap to drop it",f:async()=>{const c=await choose(`Stop concentrating on ${nm}?`,[{t:"DROP IT"},{t:"KEEP IT"}]);if(c===0){endConc(h);hud();if(C)buildPanel();}$("tBox").hidden=!C;}});}
   for(const k in COND_INFO)if(h.st[k]){const [ic,l,d]=COND_INFO[k];E.push({icon:ic,label:l.toUpperCase(),desc:`${l}: ${d}`});}
   if(h.coat)E.push({icon:"drop",label:h.coat.name.toUpperCase(),desc:`Your weapon is coated in ${h.coat.name}: extra damage on the next hit.`});
+  if(h.task&&Object.values(TASKS).find(T=>T.id===h.task)){const T=Object.values(TASKS).find(T=>T.id===h.task);if(T.id!=="fletch"&&T.id!=="picks")E.push({icon:"star",label:T.fx.toUpperCase(),desc:`${T.name}: ${T.fx} until the next rest.`});}
   if(h.insp)E.push({icon:"star",label:"INSPIRED",desc:"Inspired: you'll reroll your next failed d20."});
   if(h.thp)E.push({icon:"shield",label:"TEMP "+h.thp,desc:`${h.thp} temporary hit points soak damage first.`});
   if(h.ward)E.push({icon:"shield",label:"WARD "+h.ward,desc:`Arcane Ward: soaks the next ${h.ward} damage.`});
@@ -3820,7 +3974,7 @@ function heroCardTop(el,i){const h=G.party[i];const N=G.party.length;
   nav.appendChild(mk("◀",()=>{menuHero=(i-1+N)%N;renderMenu();},N<2));
   const mid=document.createElement("div");mid.className="cardwho";const c=document.createElement("canvas");c.width=16;c.height=CH_H;const cx=c.getContext("2d");if(h.wild)cx.drawImage(wildSpr(h),0,10);else cx.drawImage(heroSpr(h.id,"f",0,h.race),0,0);mid.appendChild(c);
   const hp=h.wild?`${h.wild.hp}/${h.wild.max} HP as a ${h.wild.form}`:h.dead?"Dead":h.down?"Down":`${h.hp}/${h.maxHp} HP`;
-  mid.insertAdjacentHTML("beforeend",`<div><b>${esc(h.nick||h.name)}</b><br><span class="sm">${esc(RACES[h.race||"human"].name)} ${esc(h.name)}${subOf(h)?" · "+esc(subOf(h).name):""} · ${hp} · AC ${acOf(h)}${i===0?" · LEADER":""}</span></div>`);nav.appendChild(mid);
+  mid.insertAdjacentHTML("beforeend",`<div><b>${esc(h.nick||h.name)}</b><br><span class="sm">${esc(RACES[h.race||"human"].name)} ${esc(h.name)}${subOf(h)?" · "+esc(subOf(h).name):""} · ${hp} · AC ${acOf(h)}${i===0?" · LEADER":""}${h.perk&&PERKS[h.perk]?`<br>Trait: ${esc(PERKS[h.perk].name)} (${esc(PERKS[h.perk].desc)})`:""}</span></div>`);nav.appendChild(mid);
   nav.appendChild(mk("▶",()=>{menuHero=(i+1)%N;renderMenu();},N<2));el.appendChild(nav);
   const fx=effectsOf(h);if(fx.length){const row=document.createElement("div");row.className="fxrow cardfx";fx.forEach(e=>row.appendChild(effectChip(h,e,false)));el.appendChild(row);}
   const abil=heroWild(h).concat(classActions(h));

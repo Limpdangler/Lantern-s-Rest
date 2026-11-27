@@ -10,8 +10,8 @@ function newRun(ci,race){clearRun();
   clearLog();log(`${esc(heroLabel(G.party[0]))} lights a lantern and steps into the ${esc(THEMES[G.theme].name)}.`,"lv");
   genFloor();mode="explore";busy=false;C=null;showCombatUI(false);hud();
   toast(`Floor 1: ${THEMES[G.theme].name}. Find the ladder down, and look for lost adventurers to join you.${G.goal?" Goal: "+G.goal.desc+".":""}`);
-  if(G.party.some(h=>h.race==="human"&&!h.humanFeat))setTimeout(()=>{if(!busy&&mode==="explore")humanFeats();},400);}
-async function tryMove(dx,dy,act){if(mode!=="explore"||busy||!G||G.over)return;busy=true;try{await doMove(dx,dy,act);}finally{if(mode==="explore")busy=false;}}
+  setTimeout(()=>{if(!busy&&mode==="explore"&&!window.__skipIntro)newHeroPrompts();},400);}
+async function tryMove(dx,dy,act){if(mode!=="explore"||busy||!G||G.over)return;if(G.aim){G.aim=null;toast("Never mind.");}busy=true;try{await doMove(dx,dy,act);}finally{if(mode==="explore")busy=false;}}
 async function doMove(dx,dy,act){// act: true when the player chose to use what is there (A button or tapping it), false when just walking with the D-pad
 if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const [h]=G.party.splice(i,1);G.party.unshift(h);hud();}}const L=G.party[0];L.face=dy<0?"b":dy>0?"f":"s";if(dx)L.flip=dx<0;const nx=L.x+dx,ny=L.y+dy;
   const m=monAt(nx,ny);if(m){
@@ -29,13 +29,14 @@ if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const
   if(o&&BLOCKERS[o.type]){if(!act){hintA(`${BUMP_NAME[o.type]||"Something"} is in the way.`);return;}await interact(o);return;}
   if(isWall(nx,ny))return;
   const up=elevAt(nx,ny)>elevAt(L.x,L.y),down=elevAt(nx,ny)<elevAt(L.x,L.y),noRamp=!isRamp(nx,ny)&&!isRamp(L.x,L.y);
-  const easyClimb=L.sub==="thief"||(L.wild&&L.wild.form==="spider");
+  const easyClimb=L.sub==="thief"||(L.wild&&L.wild.form==="spider")||perkOf(L,"surefooted");
   if((up||down)&&noRamp&&!easyClimb){const sk=up?"athletics":"acrobatics";const c0=await choose(up?`A ledge. Climb up? (Athletics, DC 10)`:`A drop. Jump down? (Acrobatics, DC 10: a bad landing hurts)`,[{t:up?"CLIMB UP":"JUMP DOWN",sub:oddsTag(L,sk,10)},{t:"STAY HERE",sub:"Look for a ramp instead"}]);$("tBox").hidden=true;if(c0!==0)return;}
   if(up&&noRamp){const c=easyClimb?{ok:true}:await check(L,"athletics",10,{quiet:true});G.steps+=2;
-    if(!c.ok){if(c.total<=5){toast(`The ${L.name} slips off the ledge and lands hard! (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{});}else toast(`The ${L.name} can't get a grip on the ledge. (${c.txt}) Try again, or use the ramp.`);return;}}
-  if(down&&noRamp){const c=await check(L,"acrobatics",10,{quiet:true});if(!c.ok){toast(`The ${L.name} jumps down and lands badly. (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{});if(L.down)return;}}
+    if(!c.ok){if(c.total<=5){toast(`The ${L.name} slips off the ledge and lands hard! (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{fall:true});}else toast(`The ${L.name} can't get a grip on the ledge. (${c.txt}) Try again, or use the ramp.`);return;}}
+  if(down&&noRamp){const c=await check(L,"acrobatics",10,{quiet:true});if(!c.ok){toast(`The ${L.name} jumps down and lands badly. (${c.txt})`);await dealDamage(L,rnd(4),"bludgeoning",{fall:true});if(L.down)return;}}
   const t=trapAt(nx,ny);if(t&&t.found&&!act&&!t.done&&!t.disarmed){hintA(`A ${TRAPS[t.type].name}.`);return;}if(t&&t.found){const dz=bestAt("thieves"),iv=bestAt("investigation");
-    const c=await choose(`${cap(aN(TRAPS[t.type].name))} lies ahead.${t.easy?" You've worked out how it works.":""}`,[{t:"DISARM IT",sub:t.disFail?"You already tried":`${oddsTag(dz,"thieves",t.dc,{adv:!!t.easy})}${toolNote(dz)}`},{t:"STUDY IT",sub:t.studied?"Already studied":`${oddsTag(iv,"investigation",t.dc)} · success makes disarming easier`},{t:"STEP ON IT",sub:"Set it off on purpose"},{t:"LEAVE IT"}].concat(heroesUp().some(h=>h.sub==="trickster")?[{t:"MAGE HAND",sub:"Arcane Trickster disarms it from a safe distance (a failure just sets it off harmlessly)"}]:[]));
+    const c=await choose(`${cap(aN(TRAPS[t.type].name))} lies ahead.${t.easy?" You've worked out how it works.":""}`,[{t:"DISARM IT",sub:t.disFail?"You already tried":`${oddsTag(dz,"thieves",t.dc,{adv:!!t.easy})}${toolNote(dz)}`},{t:"STUDY IT",sub:t.studied?"Already studied":`${oddsTag(iv,"investigation",t.dc)} · success makes disarming easier`},{t:"STEP ON IT",sub:"Set it off on purpose"},{t:"LEAVE IT"}].concat(heroesUp().some(h=>h.sub==="trickster")?[{t:"MAGE HAND",sub:"Arcane Trickster disarms it from a safe distance (a failure just sets it off harmlessly)"}]:[]).concat([{t:"JUMP OVER IT",sub:`Everyone makes an Athletics check (DC 10) · ${oddsTag(L,"athletics",10)} for the ${L.name}`}]));
+    if(c===4+(heroesUp().some(h=>h.sub==="trickster")?1:0)){$("tBox").hidden=true;await jumpOver(dx,dy);return;}
     if(c===4){const tr=heroesUp().find(h=>h.sub==="trickster");const r=await check(tr,"thieves",t.dc,{adv:!!t.easy});t.done=true;if(r.ok){t.disarmed=true;await say(`A spectral hand dismantles the trap. (${r.txt}) +10 XP.`,1100,true);for(const m of gainXpNow(10))await say(m,1200,true);}else await say(`The spectral hand sets it off: it fires harmlessly into the air. (${r.txt})`,1200,true);$("tBox").hidden=true;hud();return;}
     if(c===0){if(t.disFail){toast(t.disFail);return;}await disarm(dz,t);hud();return;}
     if(c===1){if(t.studied){toast(t.easy?"You already know how it works.":"You still can't make sense of it.");return;}t.studied=true;const r=await check(iv,"investigation",t.dc);G.steps+=4;t.easy=r.ok;await say(r.ok?`The ${iv.name} figures out the mechanism. (${r.txt}) Disarming it will be easier.`:`The ${iv.name} can't make sense of it. (${r.txt})`,1200,true);$("tBox").hidden=true;return;}
@@ -44,7 +45,7 @@ if(G.party[0].down){const i=G.party.findIndex(h=>!h.down&&!h.dead);if(i>0){const
   if(f){f.x=L.x;f.y=L.y;faceToward(f,L.x-nx,L.y-ny);L.x=nx;L.y=ny;}
   else{const prev=G.party.map(h=>({x:h.x,y:h.y}));L.x=nx;L.y=ny;for(let i=1;i<G.party.length;i++){const h=G.party[i];const tp=prev[i-1];if(h.x===tp.x&&h.y===tp.y)continue;faceToward(h,tp.x-h.x,tp.y-h.y);h.x=tp.x;h.y=tp.y;}}
   const cost=(G.sneak?2:1)+(overloaded()?1:0);const before=G.steps;G.steps+=cost;burnFuel(cost);for(const h of G.party)if(!h.down&&h.st.prone)delete h.st.prone;
-  if(S.rules.fatigue&&Math.floor(G.steps/120)>Math.floor(before/120)){G.fatigue++;await partyWeary();}
+  if(S.rules.fatigue&&Math.floor(G.steps/fatigueStep())>Math.floor(before/fatigueStep())){G.fatigue++;await partyWeary();}
   if(G.steps%3===0&&G.fire.size)tickFire();
   if(G.sneak&&areaKey(L.x,L.y)!==G.sneakArea)rollSneak();
   fov();await onEnter(L,nx,ny,{});collectItems(L);
@@ -82,7 +83,7 @@ async function search(){if(mode!=="explore"||busy||!G)return;const L=G.party[0];
   G.steps+=10;burnFuel(10);await huntStep();
   G.searchMsg[key]=found.length?"Nothing else turns up here.":"Nothing unusual, as far as you can tell.";
   await say(`Perception ${c.total}. ${found.length?"Found: "+found.join(", ")+"!":"Nothing unusual, as far as you can tell."}`,1500,true);$("tBox").hidden=true;busy=false;hud();await checkAwareness();}
-async function recruit(){await recruitInner();if(G.level>=3)await chooseSubclasses();await humanFeats();}
+async function recruit(){await recruitInner();if(G.level>=3)await chooseSubclasses();await newHeroPrompts();}
 async function recruitInner(){const n=G.npc;const h=mkHero(n.def,n.race||pick(RACE_KEYS));nameHero(h);h.x=n.x;h.y=n.y;h.dx=h.x*TS;h.dy=h.y*TS;G.npc=null;G.party.push(h);
   log(`The ${esc(h.name)} joins your party!`,"lv");hud();await say(`"A light, at last! Mind if I come along?" ${h.nick}, a ${RACES[h.race].name} ${h.name}, joins your party. (${TRAITS[h.trait].name}: likes ${TRAITS[h.trait].likes}; dislikes ${TRAITS[h.trait].dislikes}.)`,2000,true);$("tBox").hidden=true;fov();}
 async function doorInteract(d){
@@ -94,12 +95,12 @@ async function doorInteract(d){
   d.fail=d.fail||{};const hasKey=(G.bag.key||0)>0;const barb=heroesUp().find(h=>h.id==="barbarian"&&(h.res.rage||0)>0&&!h.wild);const th=bestAt("thieves"),st=bestAt("athletics");const fdc=d.iron?22:17;
   const canBurn=!d.iron&&((G.bag.oil||0)>0||(G.bag.torch||0)>0);
   const c=await choose(d.iron?"A heavy iron door, locked tight. It won't burn.":"A heavy wooden door, locked tight.",[{t:"USE KEY",sub:hasKey?"The rusty key":"You don't have a key",dis:!hasKey},
-    {t:"PICK THE LOCK",sub:`${oddsTag(th,"thieves",15)}${toolNote(th)}`},
-    {t:"FORCE IT",sub:`${oddsTag(st,"athletics",fdc)} · LOUD`},
+    {t:"PICK THE LOCK",sub:d.fail.pick&&(G.bag.lockpick||0)>0&&!/broken pick/.test(d.fail.pick)?`Try again with a spare lockpick (${G.bag.lockpick}) · ${oddsTag(th,"thieves",15)} · quiet`:`${oddsTag(th,"thieves",15)}${toolNote(th)} · quiet`},
+    {t:"FORCE IT",sub:`Shoulder-charge · ${oddsTag(st,"athletics",fdc)} · LOUD`},
     {t:"RAGE AND SMASH",sub:barb?`${barb.name}: uses a Rage · always works on wood · LOUD`:"Needs a barbarian with Rage left",dis:!barb||d.iron},{t:"BURN IT",sub:d.iron?"Iron doesn't burn":canBurn?"Uses an oil flask or torch · slow, smoky, draws attention":"You need an oil flask or a torch",dis:!canBurn},
-    {t:d.iron?"WORK THE HINGES LOOSE":"HACK THROUGH IT",sub:(d.fail.pick||d.fail.force)?"Always works, but takes ages: the party tires and the racket may draw wanderers":"Try the other ways first",dis:!(d.fail.pick||d.fail.force)},{t:"LEAVE IT"}]);
+    {t:d.iron?"WORK THE HINGES LOOSE":"BREAK IT DOWN",sub:d.iron?((d.fail.pick||d.fail.force)?"Always works, but takes ages: the party tires and the racket may draw wanderers":"Try the other ways first"):"Hack it apart with weapons · always works · takes a while · VERY LOUD",dis:d.iron&&!(d.fail.pick||d.fail.force)},{t:"LEAVE IT"}]);
   if(c===0){takeItem("key");d.locked=false;d.open=true;toast("The key turns. The door swings open.");}
-  else if(c===1){if(d.fail.pick){toast(d.fail.pick);return;}const r=await check(th,"thieves",15);G.steps+=5;
+  else if(c===1){if(d.fail.pick){if((G.bag.lockpick||0)>0&&!/broken pick/.test(d.fail.pick)){takeItem("lockpick");d.fail.pick=null;toast("You fit a fresh pick into the lock...");await wait(500);}else{toast(d.fail.pick);return;}}const r=await check(th,"thieves",15);G.steps+=5;
     if(r.ok){d.locked=false;d.open=true;toast(`Click! (${r.txt})`);}
     else{d.fail.pick=r.r===1?"The broken pick is still jammed in the lock. Nobody can pick it now.":"The lock won't budge.";toast(`${r.r===1?"SNAP! The pick breaks off inside the lock.":"The lock won't budge."} (${r.txt})`);}}
   else if(c===2){if(d.fail.force){toast(d.fail.force);return;}const r=await check(st,"athletics",fdc);
@@ -107,8 +108,8 @@ async function doorInteract(d){
     else{makeNoise(d.x,d.y,12);if(r.ok){d.locked=false;d.open=true;toast(`CRASH! The door bursts open. (${r.txt}) Something may have heard that...`);}else{d.fail.force="The door shudders but holds.";toast(`The door shudders but holds. (${r.txt}) The noise echoes...`);}}}
   else if(c===3){barb.res.rage--;d.locked=false;d.open=true;d.burnt=true;makeNoise(d.x,d.y,14);cam.shake=now();await say(`The ${barb.name} ROARS and smashes the door to splinters!`,1300,true);$("tBox").hidden=true;}
   else if(c===5){// fail forward: there's always a way through, it just costs time, energy and noise
-    d.locked=false;d.open=true;d.burnt=!d.iron;G.steps+=60;if(S.rules.fatigue)G.fatigue=(G.fatigue||0)+2;makeNoise(d.x,d.y,16);
-    await say(d.iron?"It takes the best part of an hour, chipping and levering at the hinge pins, but at last the iron door groans off its hinges. Everyone's worn out, and the clanging carried a long way.":"It takes a long time and a lot of noise, but you hack a hole through the door big enough to squeeze through. Everyone's worn out.",2000,true);
+    const slow=d.iron||(d.fail.pick||d.fail.force);d.locked=false;d.open=true;d.burnt=!d.iron;G.steps+=d.iron?60:20;if(S.rules.fatigue&&d.iron)G.fatigue=(G.fatigue||0)+2;makeNoise(d.x,d.y,16);
+    await say(d.iron?"It takes the best part of an hour, chipping and levering at the hinge pins, but at last the iron door groans off its hinges. Everyone's worn out, and the clanging carried a long way.":"Axes and boots against wood: it takes a while and makes a terrible racket, but the door comes apart.",2000,true);
     $("tBox").hidden=true;if(typeof wakeWanderers==="function"&&Math.random()<.6)wakeWanderers();}
   else if(c===4){if(G.bag.oil)takeItem("oil");else takeItem("torch");setAlight(d);toast("You douse the door and set it alight. It'll take a while to burn through, and the smoke and light will carry...");}
   computeLight();fov();hud();}
@@ -189,6 +190,7 @@ function ambushSpot(){const L=G.party[0];for(let r=4;r<=7;r++)for(let k=0;k<30;k
 // ---------- tap to walk & tap to ambush ----------
 async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   if(G.pebble){throwPebble(x,y);return;}
+  if(G.aim){await aimAt(x,y);return;}
   if(!G.owlPick&&needsReach(x,y)&&cheb(G.party[0],{x,y})>1){const ok=await walkUpTo(x,y);const torch=G.torches.some(t=>t.x===x&&t.y===y);if(!ok&&!torch){if(mode==="explore")toast("You can't find a way over there.");return;}if(mode!=="explore"||busy||G.over)return;}
   {const d=doorAt(x,y);const L=G.party[0];if(d&&d.open&&!d.burnt&&cheb(L,d)===1&&!unitAt(x,y)){const ft=heroesUp().find(h=>h.id==="fighter");busy=true;try{
       const c=await choose("An open door.",[{t:"CLOSE IT"},{t:"WEDGE IT SHUT",sub:ft?`${ft.name}: jams it so monsters can't open it (you can kick it free)`:"Needs a fighter",dis:!ft},{t:"LEAVE IT OPEN"}]);
@@ -200,7 +202,8 @@ async function exploreTap(x,y){if(mode!=="explore"||busy||!G||G.over)return;
   const dc=G.objs.find(o=>!o.gone&&o.x===x&&o.y===y&&(o.deco||o.type==="rubble"||o.type==="cavein"));if(dc&&cheb(G.party[0],dc)<=1&&(BLOCKERS[dc.type]||!dc.seen)){busy=true;try{await decoInteract(dc);}finally{busy=false;}return;}
   const cp=(G.corpses||[]).find(c=>c.x===x&&c.y===y);if(cp&&(!cp.searched||(!cp.spoken&&cp.kind==="body"&&heroesUp().some(h=>h.id==="cleric")))&&!monAt(x,y)&&cheb(G.party[0],cp)<=1){busy=true;try{await corpseInteract(cp);}finally{busy=false;}return;}
   if(gnd(x,y)===GROUND.acid&&cheb(G.party[0],{x,y})<=1&&!monAt(x,y)){const opts=heroesUp().filter(h=>!h.coat&&h.id!=="beast");if(opts.length){busy=true;try{
-      const c=await choose("A hissing puddle of acid. Someone could dip a weapon in it (one attack's worth before it wears off).",opts.map(h=>({t:h.name.toUpperCase(),sub:`Coat the ${weaponOf(h,"main").name}`})).concat([{t:"LEAVE IT"}]));
+      const c=await choose("A hissing puddle of acid. Someone could dip a weapon in it (one attack's worth before it wears off), or you could jump over it.",opts.map(h=>({t:h.name.toUpperCase(),sub:`Coat the ${weaponOf(h,"main").name}`})).concat([{t:"LEAVE IT"},{t:"JUMP OVER IT",sub:"Everyone makes an Athletics check (DC 10)"}]));
+      if(c===opts.length+1){$("tBox").hidden=true;busy=false;const L=G.party[0];await jumpOver(Math.sign(x-L.x),Math.sign(y-L.y));return;}
       if(c>=0&&c<opts.length){opts[c].coat={name:"acid",type:"acid",dice:"2d4"};toast(`The ${opts[c].name}'s weapon hisses with acid. It'll last for one attack.`);}$("tBox").hidden=true;}finally{busy=false;}return;}}
   const m=monAt(x,y);if(m&&seen(x,y)&&!isHiddenMon(m)){if(m.peace){toast(`The ${m.name} let you pass. Walk into them to start a fight.`);return;}
     const unaware=monsterSurprised(m);const rg=heroesUp().find(h=>h.id==="rogue"&&cheb(h,m)<=1);const canPick=rg&&unaware&&!m.picked;

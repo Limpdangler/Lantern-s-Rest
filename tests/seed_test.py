@@ -7,7 +7,7 @@ async def floor_sig(b,seed):
   pg=await b.new_page();errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
   html=open(DIST).read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
   await pg.set_content("<body>"+html+"</body>");await pg.wait_for_timeout(300)
-  await pg.fill("#seedIn",str(seed));await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-human");await pg.wait_for_timeout(300)
+  await pg.fill("#seedIn",str(seed));await pg.evaluate("window.__skipIntro=true");await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-human");await pg.wait_for_timeout(300)
   sig=await pg.evaluate("(()=>{const G=__t.G;return JSON.stringify([G.seed,G.theme,G.t,G.objs.map(o=>[o.type,o.x,o.y]),G.mons.map(m=>[m.key,m.x,m.y]),G.traps.map(t=>[t.x,t.y,t.type])])})()")
   await pg.close();return sig,errs
 async def main():

@@ -20,16 +20,16 @@ function slotMax(h){const cs=casterOf(h);const t=cs==="full"?SLOTS_FULL:cs==="ha
 function featRes(h){const out=[];if(h.sub==="land")out.push("natrec");for(const f of featsOf(h)){const r=FEATS[f].res;if(r&&!out.includes(r))out.push(r);}if(h.info.arcaneRecovery)out.push("arcane");return out.filter((v,i)=>out.indexOf(v)===i);}
 function restoreAll(h,keepHD){h.pins=2;if(hasFeat(h,"lucky"))h.luck=3;h.goodberry=false;h.sanct=false;h.slots=slotMax(h);for(const k of featRes(h))h.res[k]=RES[k].max(G.level);h.wand=gearFx(h).wand?3:0;if(!keepHD)h.hdLeft=h.hdMax;h.rebukeUsed=false;h.relentlessUsed=false;if(h.sub==="abjurer")h.ward=wardMax(h);}
 function gearFx(h){const f={};for(const id of h.gear){const it=ITEMS[id];if(!it||!it.fx)continue;for(const k in it.fx){if(k.startsWith("set"))f[k]=Math.max(f[k]||0,it.fx[k]);else f[k]=(f[k]||0)+it.fx[k];}}return f;}
-function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)+(u.st.sof?2:0)+(u.st.raised?2:0)-(u.shieldBroken?2:0)-curse;}
+function acOf(u){if(u.side==="m")return u.ac;const curse=G.curseFloor===G.floor?1:0;if(u.wild)return (u.wild.form==="bear"?11:13)-curse;if(u.armourOff&&u.info.unarmAC)return u.info.unarmAC+(gearFx(u).ac||0)-curse;return u.def.ac+(gearFx(u).ac||0)+(u.st.shieldSpell?5:0)+(u.st.sof?2:0)+(u.st.raised?2:0)+(u.task==="kit"?1:0)-(u.shieldBroken?2:0)-curse;}
 function speedOf(u){if(u.side==="m")return u.speed;if(overloaded()&&!u.wild)return Math.max(1,speedOf2(u)-2);return speedOf2(u);}
 function speedOf2(u){let s=u.wild?8:u.def.speed+(gearFx(u).speed||0)+(hasFeat(u,"mobile")?2:0);s-=exhOf(u);if(u.st&&u.st.pinned)return 0;return Math.max(1,s);}
-function saveBonus(u,a){if(u.side==="m")return abm(u,a)+(u.boss?3:0);return abm(u,a)+(u.info.saves.includes(a)?prof():0)+(gearFx(u).save||0)+(G.blessFloor===G.floor?1:0)+loyalBonus(u);}
+function saveBonus(u,a){if(u.side==="m")return abm(u,a)+(u.boss?3:0);return abm(u,a)+(u.info.saves.includes(a)?prof():0)+(gearFx(u).save||0)+(G.blessFloor===G.floor?1:0)+(prayerUp()?1:0)+loyalBonus(u);}
 function skillBonus(u,sk){const a=SKILLS[sk];if(u.side==="m")return abm(u,a)+(sk==="perception"&&u.tr.keen?3:0)+(u.boss?2:0)+(sk==="athletics"&&u.tr.shover?2:0);
   let b=abm(u,a);const R=u.race&&RACES[u.race];if(u.info.skills.includes(sk)||(R&&R.skills&&R.skills.includes(sk))||(u.extraSkills&&u.extraSkills.includes(sk)))b+=prof()*((u.info.expertise||[]).includes(sk)?2:1);if(sk==="thieves")b+=gearFx(u).thieves||0;if(u.sub==="champion"&&!u.info.skills.includes(sk)&&(a==="str"||a==="dex"))b+=Math.ceil(prof()/2);return b;}
 const passive=(u,sk)=>10+skillBonus(u,sk)+((sk==="perception"||sk==="investigation")&&typeof hasFeat==="function"&&hasFeat(u,"observant")?5:0);
 const castMod=u=>abm(u,u.info.castAbil||"int");
 const spellAtk=u=>prof()+castMod(u);
-const spellDC=u=>8+prof()+castMod(u);
+const spellDC=u=>8+prof()+castMod(u)+(u.task==="herbs"?1:0);
 const sneakDice=()=>`${Math.ceil(G.level/2)}d6`;
 function slotAvail(h,lvl){for(let i=lvl-1;i<h.slots.length;i++)if(h.slots[i]>0)return i+1;return 0;}
 function useSlot(h,lvl){const s=slotAvail(h,lvl);if(s)h.slots[s-1]--;return s;}
@@ -212,10 +212,10 @@ const trapN=()=>1+Math.floor((((G&&G.floor)||1)-1)/2);// trap damage dice: 1 on 
 async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?`The ${u.name}`:`The ${u.name}`;{const r=await triggerNewTrap(t,u);if(r!==null)return r;}
   if(t.type==="darts"){const r=rnd(20)+5;const hit=r>=acOf(u);fx.push({type:"shot",from:{x:t.x-2,y:t.y},to:{x:t.x,y:t.y},t:now(),col:"#d0d0d0"});
     await say(`Click! Darts fly from the walls at ${who}: ${r} vs AC ${acOf(u)}. ${hit?"Hit!":"Miss!"}`,950);
-    if(hit){await dealDamage(u,roll(`${trapN()}d4`).total,"piercing",{});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
+    if(hit){await dealDamage(u,roll(`${trapN()}d4`).total,"piercing",{trap:true});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
   if(t.type==="pit"){G.ground[t.y][t.x]=GROUND.rubble;buildTerrain();const s=saveRoll(u,"dex",t.dc);
     if(s.ok){await say(`A pit trap! ${who} leaps clear as the floor drops. (${s.txt})`,950);return false;}
-    u.st.prone=true;await say(`A pit trap! ${who} falls in. (${s.txt})`,950);await dealDamage(u,roll(`${trapN()}d6`).total,"bludgeoning",{});return true;}
+    u.st.prone=true;await say(`A pit trap! ${who} falls in. (${s.txt})`,950);await dealDamage(u,roll(`${trapN()}d6`).total,"bludgeoning",{trap:true,fall:true});return true;}
   if(t.type==="fire"){const s=saveRoll(u,"dex",t.dc);const dm=roll(`${trapN()}d6`).total;fx.push({type:"boom",x:t.x,y:t.y,t:now()});
     await say(`Flames roar from a vent under ${who}! (${s.txt})`,950);await dealDamage(u,s.ok?Math.floor(dm/2):dm,"fire",{});
     for(const [dx,dy] of DIRS8)if(gnd(t.x+dx,t.y+dy)===GROUND.oil)igniteAt(t.x+dx,t.y+dy);return false;}
@@ -262,7 +262,7 @@ async function pushUnit(u,dx,dy,n){for(let i=0;i<n;i++){const nx=u.x+dx,ny=u.y+d
     const o=objAt(nx,ny);if(o&&o.type==="barrel"){await breakBarrel(o,false,dx,dy);return;}
     if(!enterable(u,nx,ny)||unitAt(nx,ny)){float(u,"THUD","#ffffff");return;}
     const fe=elevAt(u.x,u.y);u.x=nx;u.y=ny;await wait(150);fov();
-    if(fe>elevAt(nx,ny)&&!isRamp(nx,ny)){u.st.prone=true;await say(`The ${u.name} is knocked off the ledge!`,750);await dealDamage(u,roll("1d6").total,"bludgeoning",{});}
+    if(fe>elevAt(nx,ny)&&!isRamp(nx,ny)){u.st.prone=true;await say(`The ${u.name} is knocked off the ledge!`,750);await dealDamage(u,roll("1d6").total,"bludgeoning",{fall:true});}
     const r=await onEnter(u,nx,ny,{forced:true});if(r.stop||u.hp<=0||u.down||u.dead)return;}}
 function pushResult(t,dx,dy){const nx=t.x+dx,ny=t.y+dy;if(!inB(nx,ny))return "wall";const o=objAt(nx,ny);if(o&&o.type==="barrel")return "barrel";
   if(!enterable(t,nx,ny)||unitAt(nx,ny))return "blocked";const bits=[];const tr=trapAt(nx,ny);if(tr&&tr.found)bits.push(TRAPS[tr.type].name);

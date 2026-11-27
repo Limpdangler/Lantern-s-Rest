@@ -12,7 +12,7 @@ async def main():
       b=await p.chromium.launch(executable_path="/usr/bin/google-chrome");ctx=await b.new_context();pg=await ctx.new_page()
       errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
       await pg.goto("http://localhost:8765/index.html");await pg.wait_for_timeout(500)
-      await pg.click("#btnSetOut");await pg.click("#pick-wizard");await pg.click("#pick-race-elf");await pg.evaluate("window.__fast=0.02")
+      await pg.evaluate("window.__skipIntro=true");await pg.click("#btnSetOut");await pg.click("#pick-wizard");await pg.click("#pick-race-elf");await pg.evaluate("window.__fast=0.02")
       await pg.wait_for_timeout(600);await pg.mouse.click(195,150);await pg.wait_for_timeout(200)
       before=await pg.evaluate("""(async()=>{const t=__t,G=t.G;for(const [dx,dy] of [[1,0],[0,1],[-1,0],[0,-1],[1,0],[0,1]]){await t.tryMove(dx,dy);await new Promise(r=>setTimeout(r,150));}
         const m=G.mons[0];if(m){G.goal={type:'named',desc:'test',done:false,target:m};}G.searched.add('r0');G.fire.set(5,2);const ok=t.saveRun();const L=G.party[0];

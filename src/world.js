@@ -70,7 +70,7 @@ function genFloorInner(){
   const L=G.party[0];L.x=start.cx;L.y=start.cy;
   for(let i=1;i<G.party.length;i++){const p=nearFree(start.cx,start.cy);G.party[i].x=p.x;G.party[i].y=p.y;}
   // doors
-  for(const r of rooms)for(const e of entrances(r))if(e.door&&!doorAt(e.x,e.y)&&Math.random()<.3)G.objs.push({type:"door",x:e.x,y:e.y,open:false,locked:false,iron:G.floor>=2&&Math.random()<.25});
+  for(const r of rooms)for(const e of entrances(r))if(e.door&&!doorAt(e.x,e.y)&&Math.random()<.3){const iron=G.floor>=2&&Math.random()<.25;G.objs.push({type:"door",x:e.x,y:e.y,open:false,locked:!iron&&Math.random()<.18,iron});}
   // vault: a room whose every entrance can hold a door
   // ...and only a dead end: locking it must never cut the way to the ladder (or any other room)
   const deadEnd=v=>{const blocked=new Set(entrances(v).map(e=>e.y*G.W+e.x));const W2=G.W;const s0=start.cy*W2+start.cx;const seenT=new Set([s0]);const q=[s0];

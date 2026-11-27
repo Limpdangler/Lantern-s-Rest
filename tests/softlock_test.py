@@ -11,12 +11,12 @@ async def main():
     b=await p.chromium.launch(executable_path="/usr/bin/google-chrome");pg=await b.new_page();errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
     html=open(DIST).read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
     await pg.set_content("<body>"+html+"</body>");await pg.wait_for_timeout(300)
-    await pg.click("#btnSetOut");await pg.click("#pick-rogue");await pg.click("#pick-race-human");await pg.evaluate("window.__fast=0.01");await pg.wait_for_timeout(300)
+    await pg.evaluate("window.__skipIntro=true");await pg.click("#btnSetOut");await pg.click("#pick-rogue");await pg.click("#pick-race-human");await pg.evaluate("window.__fast=0.01");await pg.wait_for_timeout(300)
     r=await pg.evaluate("""(()=>{const t=__t;let bad=0,tried=0,vaults=0;
       for(let s=1;s<=50;s++)for(let f=1;f<=3;f++){const G=t.G;G.seed=s*13;G.floor=f;t.genFloor();if(!G.stairs)continue;tried++;
         if(G.objs.some(o=>o.type==='door'&&o.locked))vaults++;
         const L=G.party[0],W=G.W;const seen=new Set([L.y*W+L.x]);const q=[L.y*W+L.x];
-        while(q.length){const c=q.pop();const x=c%W,y=(c/W)|0;for(const [dx,dy] of t.DIRS4){const nx=x+dx,ny=y+dy,k=ny*W+nx;if(seen.has(k)||t.isWall(nx,ny))continue;if(G.objs.some(o=>o.type==='door'&&o.locked&&o.x===nx&&o.y===ny))continue;seen.add(k);q.push(k);}}
+        while(q.length){const c=q.pop();const x=c%W,y=(c/W)|0;for(const [dx,dy] of t.DIRS4){const nx=x+dx,ny=y+dy,k=ny*W+nx;if(seen.has(k)||t.isWall(nx,ny))continue;if(G.objs.some(o=>o.type==='door'&&o.locked&&o.iron&&o.x===nx&&o.y===ny))continue;seen.add(k);q.push(k);}}
         if(!seen.has(G.stairs.y*W+G.stairs.x))bad++;}
       return {tried,vaults,bad};})()""")
     await pg.evaluate(CLICKER)

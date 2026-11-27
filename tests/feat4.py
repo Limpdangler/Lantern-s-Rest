@@ -35,7 +35,7 @@ async def main():
     errs=[];pg.on("pageerror",lambda e:errs.append(str(e)));pg.on("console",lambda m:errs.append("CON:"+m.text) if m.type=="error" and "ERR_TUNNEL" not in m.text else None)
     html=open(""+__import__("os").path.join(__import__("os").path.dirname(__file__),"..","dist","lantern-crawl.html")+"").read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
     await pg.set_content("<body>"+html+"<script>"+JS+"</script></body>")
-    await pg.wait_for_timeout(300);await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-human");await pg.evaluate("window.__fast=0.02")
+    await pg.wait_for_timeout(300);await pg.evaluate("window.__skipIntro=true");await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-human");await pg.evaluate("window.__fast=0.02")
     await pg.evaluate("setInterval(()=>{const bs=[...document.querySelectorAll('#chBtns button')].filter(x=>!x.disabled);if(!document.getElementById('chPanel').hidden&&bs.length){bs[0].click();}},150)")
     subs=await pg.evaluate("Object.entries(__t.SUBS).flatMap(([c,l])=>l.map(s=>[c,s.id]))")
     for c,s in subs:
