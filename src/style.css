@@ -294,7 +294,6 @@ body{font-variant-ligatures:none;font-feature-settings:"liga" 0,"lnum" 1}
 .app.port .railbtn{flex:1;padding:5px 0 4px;border-radius:8px;gap:2px}
 .app.port .railbtn canvas{width:22px;height:22px}
 .app.port .railbtn span{font-size:6px}
-.app.port .controls{margin-top:auto}
 /* landscape phone: game in the middle, party and stats left, icons right, D-pad and A/B in the bottom corners */
 .app.land{max-width:none;display:grid;grid-template-columns:minmax(150px,1fr) minmax(0,2.3fr) minmax(150px,1fr);grid-template-rows:auto minmax(0,1fr) auto;gap:4px 10px;padding:4px max(10px,env(safe-area-inset-right,0px)) 4px max(10px,env(safe-area-inset-left,0px));overflow:hidden}
 .app.land>.top{grid-column:1/-1}
@@ -321,3 +320,15 @@ body{font-variant-ligatures:none;font-feature-settings:"liga" 0,"lnum" 1}
 .app.land .fxrow{gap:3px}
 .app #btnMap{display:none}
 .app.land .tbox{font-size:clamp(12px,3.4cqw,18px)}
+
+/* portrait phone: fixed-size slots, so the screen never jumps when a fight or a choice starts */
+.app.port #tglRow,.app.port #strip{height:40px;margin:0;box-sizing:border-box;align-items:center}
+.app.port #controls,.app.port #cPanel,.app.port #chPanel{height:176px;min-height:176px;box-sizing:border-box;flex:none}
+.app.port #controls{align-items:flex-end;padding-bottom:4px}
+.app.port .hot{height:52px;padding-top:3px}
+.app.port .hot canvas{width:22px;height:22px}
+.app.port #chPanel .cbtns.list{max-height:none;flex:1;min-height:0}
+.app.port #cPanel{overflow:hidden}
+.app.port .bezel{flex:none}
+.app.port .dpad{grid-template-columns:repeat(3,54px);grid-template-rows:repeat(3,54px)}
+.app.port .round{width:66px;height:66px;font-size:16px}

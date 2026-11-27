@@ -69,9 +69,18 @@ setInterval(()=>{if(!busy||!G||G.demo){busySince=0;return;}if(!busySince){busySi
   if(idle&&mode==="explore"&&Date.now()-busySince>8000){busy=false;busySince=0;console.warn("Watchdog: cleared a stuck 'busy' state");hud();}},1000);
 // ---------- fit everything on one phone screen ----------
 // The game screen shrinks or grows so the buttons, menus and choices underneath always fit without scrolling.
-const WIDE_TOP=46,WIDE_BOTTOM=232;// PC layout: space kept above the screen (turn order) and below it (choices, action bar)
+const WIDE_TOP=46,WIDE_BOTTOM=232,PORT_ROW=40,PORT_BOTTOM=176;// PC layout: space kept above the screen (turn order) and below it (choices, action bar)
 (function(){const LOG_MIN=44;let queued=false;
   function fitScreen(){queued=false;const app=$("app"),bz=document.querySelector(".bezel");if(!app||!bz)return;
+    if(app.classList.contains("port")){// tall phone: the screen fills the width and grows taller to use the free space (it shows more of the dungeon)
+      const bs=getComputedStyle(bz);const padX=parseFloat(bs.paddingLeft)+parseFloat(bs.paddingRight),padY=parseFloat(bs.paddingTop)+parseFloat(bs.paddingBottom);
+      const cs=getComputedStyle(app);const gap=parseFloat(cs.rowGap)||0;let used=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
+      for(const id of ["party","fxRow","rail"]){const e=$(id);if(e&&!e.hidden)used+=e.offsetHeight+gap;}
+      used+=document.querySelector(".top").offsetHeight+gap+document.querySelector(".hud").offsetHeight+gap+PORT_ROW+gap+PORT_BOTTOM+gap;
+      const full=app.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);const sc=(full-padX)/240;const avail=app.clientHeight-used-padY;
+      if(avail>=160*sc){setScreenRows(avail/sc);bz.style.minWidth="0";bz.style.width=full+"px";return;}
+      setScreenRows(160);bz.style.minWidth="0";bz.style.width=Math.max(150,Math.min(full,Math.floor(avail*1.5+padX)))+"px";return;}
+    setScreenRows(160);
     if(app.classList.contains("land")){const col=$("colC");const bs=getComputedStyle(bz);const padX=parseFloat(bs.paddingLeft)+parseFloat(bs.paddingRight),padY=parseFloat(bs.paddingTop)+parseFloat(bs.paddingBottom);
       const sc=Math.min((col.clientWidth-padX)/240,(col.clientHeight-padY)/160);bz.style.minWidth="0";bz.style.width=Math.max(120,Math.floor(240*sc+padX))+"px";return;}
     if(app.classList.contains("wide")){const col=$("colL");const bs=getComputedStyle(bz);const padX=parseFloat(bs.paddingLeft)+parseFloat(bs.paddingRight),padY=parseFloat(bs.paddingTop)+parseFloat(bs.paddingBottom);

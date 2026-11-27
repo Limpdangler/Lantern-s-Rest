@@ -1,6 +1,6 @@
 // ================= world: map, features, light, sight, paths =================
 const cv=$("screen"),ctx=cv.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SW=240,SH=160,TS=16;
+const SW=240,TS=16;let SH=160;// the screen is 240 pixels wide; on a tall phone it can show more rows (SH grows)
 let G=null,C=null,mode="title",busy=false,camFocus=null;
 const cam={x:0,y:0,shake:0};
 const fx=[];
@@ -206,3 +206,5 @@ function dijkstra(u,maxCost,opts){opts=opts||{};const W=G.W,start=u.y*W+u.x;cons
       const k=ny*W+nx;const prev=best.get(k);if(prev&&prev.w<=w)continue;best.set(k,{c,w,p:cur});h.push(k,w);}}
   return best;}
 function pathTo(dist,k){const p=[];while(k!==-1&&dist.has(k)){p.unshift(k);k=dist.get(k).p;}return p.slice(1);}
+
+function setScreenRows(h){h=Math.max(160,Math.min(336,Math.round(h)));if(h===SH)return;SH=h;cv.height=SH;ctx.imageSmoothingEnabled=false;cv.style.aspectRatio=`240/${SH}`;}
