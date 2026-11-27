@@ -2,7 +2,7 @@
 function newRun(ci,race){clearRun();
   const seedIn=parseInt(($("seedIn")&&$("seedIn").value||"").replace(/\D/g,""),10);
   const seed=Number.isFinite(seedIn)?seedIn%1000000:Math.floor(NATIVE_RANDOM()*1000000);
-  G={seed,party:[],bag:{potion:2,torch:1,oil:1,ration:3,firewood:2,arrows:20},gold:0,floor:1,level:1,xp:0,kills:0,over:false,fatigue:0,steps:0,fallen:[],
+  G={seed,party:[],bag:{potion:2,torch:1,oil:1,ration:3,rope:1,firewood:2,arrows:20},gold:0,floor:1,level:1,xp:0,kills:0,over:false,fatigue:0,steps:0,fallen:[],
     light:true,fuel:FUEL_MAX,lightR:4,lore:{},sneak:false,coldUsed:false,shortRests:0,theme:THEME_KEYS[Math.floor(seededRandom(seed)()*THEME_KEYS.length)],known:new Set(KNOWN_START),idTried:new Set(),goal:null};
   if(hasUp("pack")){G.bag.ration+=2;G.bag.firewood+=2;}if(hasUp("lamp"))G.bag.oil+=2;if(hasUp("apoth"))G.bag.potion+=2;if(hasUp("yard"))G.level=2;
   if(hasUp("armoury")){const g=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&!ITEMS[k].cursed&&ITEMS[k].floor<=2);const it=pick(g);addItem(it);G.known.add(it);}
@@ -158,9 +158,11 @@ async function interact(o){
   if(o.type==="merchant"){openShop(o);return;}}
 async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&&q.hp>0);grp.forEach(q=>q.bubble=now()+900);const toll=10*G.floor;
   const per=bestAt("persuasion"),inti=bestAt("intimidation"),dec=bestAt("deception");const roarB=heroesUp().find(h=>h.id==="barbarian"&&(h.res.rage||0)>0&&!h.wild);let liar=grp.some(q=>q.treach);
-  const tongue=speakerFor(m),lang=MLANG[m.key];const talk={adv:!!tongue};
+  const tongue=speakerFor(m),lang=MLANG[m.key];const talk={adv:!!tongue,dis:!tongue&&!!lang};const garbled=!tongue&&!!lang;
+  // nobody speaks their language: the party can only read their body language (a secret Insight roll)
+  const readIns=heroesUp().filter(h=>h.id!=="beast").sort((a,b)=>skillBonus(b,"insight")-skillBonus(a,"insight"))[0]||heroesUp()[0];const readRoll=rnd(20)+skillBonus(readIns,"insight");const readOk=readRoll>=12;
   const ins=heroesUp().slice().sort((a,b)=>passive(b,"insight")-passive(a,"insight"))[0];const sensed=liar&&(!!tongue||passive(ins,"insight")-2*exhOf(ins)>=13);
-  if(liar){if(tongue)log(`${esc(tongue.name)} understands the ${esc(lang)} they mutter to each other: they plan to attack once you've paid.`,"miss");else log(`${esc(ins.name)}'s Passive Insight ${passive(ins,"insight")} vs their Deception 13: ${sensed?"sees through them":"doesn't notice anything off"}.`,"miss");}
+  if(liar&&tongue)log(`${esc(tongue.name)} overhears them muttering in ${esc(lang)} about jumping you once you've paid.`,"miss");else if(sensed)log(`${esc(ins.name)} has a bad feeling about this group.`,"miss");
   const calm=f=>{for(const q of grp){q.peace=true;q.parley=0;q.state="idle";if(f)q.fooled=true;}};
   const fight=async(t)=>{await say(t,1000,true);grp.forEach(q=>{q.parley=0;q.peace=false;});busy=false;startCombat({by:grp});};
   const flee=async(r,t)=>{for(const q of grp){G.mons.splice(G.mons.indexOf(q),1);}const xp=Math.floor(grp.reduce((a,q)=>a+q.xp,0)/2);await say(`${t} (${r.txt}) +${xp} XP.`,1200,true);for(const msg of gainXpNow(xp))await say(msg,1300,true);};
@@ -169,10 +171,12 @@ async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&
     if(turn>=4){await fight(`"Enough talking!" They lose patience and attack!`);return;}
     const price=att===1?Math.ceil(toll/2):toll;const pdc=liar?16:13;
     const who=`${grp.length>1?`${grp.length} ${m.name}s`:`A ${m.name}`}`;
-    const q=(att===0?`${who} block${grp.length>1?"":"s"} the way: "Halt! Pay ${toll} gold or turn back!"`:`${grp.length>1?`The ${m.name}s look at each other`:`The ${m.name} thinks it over`}. "Fine... ${price} gold and you can pass." (They're Indifferent now: talk them round and they may become Friendly.)`)
-      +(tongue?` The ${tongue.name} speaks ${lang}, so talking to them has advantage.`:lang?` They speak ${lang}; nobody in the party does.`:"")
-      +(sensed?` (They're lying: they'll attack once you've paid.)`:"");
-    const c=await choose(q,[{t:"PAY",sub:`${price} gold`,dis:G.gold<price},{t:"PERSUADE",sub:`${oddsTag(per,"persuasion",pdc)} · win big and they turn Friendly`},{t:"DECEIVE",sub:`${oddsTag(dec,"deception",14)} · "We work for your boss." If it works, they'll never see you coming`},{t:"INTIMIDATE",sub:oddsTag(inti,"intimidation",14)},{t:"ROAR",sub:roarB?`${roarB.name}: uses a Rage · Intimidation with advantage`:"Needs a barbarian with Rage left",dis:!roarB},{t:"ATTACK",sub:"They're ready for you"}]);
+    const q=(garbled?(att===0?`${who} block${grp.length>1?"":"s"} the way, jabbering in ${lang}. Nobody in the party understands a word. `+(readOk?`The ${readIns.name} reads their gestures: they keep pointing at your coin purse, then down the tunnel. They want paying to let you pass${liar?", and something about their grins is nasty":""}.`:`They sound angry, but what they actually want is anyone's guess.`)
+          :`${grp.length>1?`The ${m.name}s mutter to each other`:`The ${m.name} grunts`} in ${lang}. `+(readOk?"Their tone has softened a little.":"You can't tell if that's good or bad."))
+      :att===0?`${who} block${grp.length>1?"":"s"} the way: "Halt! Pay ${toll} gold or turn back!"`:`${grp.length>1?`The ${m.name}s look at each other`:`The ${m.name} thinks it over`}. "Fine... ${price} gold and you can pass." (They seem less hostile now.)`)
+      +(tongue?` (The ${tongue.name} speaks ${lang}.)`:"")
+      +(sensed&&!tongue?` The ${ins.name} has a bad feeling: they keep glancing at each other and fingering their weapons.`:sensed?` The ${tongue.name} overheard them: they plan to attack once you've paid.`:"");
+    const c=await choose(q,[{t:"PAY",sub:garbled?`${price} gold seems about right, judging by their fingers`:`${price} gold`,dis:G.gold<price},{t:"PERSUADE",sub:`${garbled?"With gestures only (disadvantage) · ":""}${oddsTag(per,"persuasion",pdc,talk)}`},{t:"DECEIVE",sub:garbled?"You don't share a language to lie in":`${oddsTag(dec,"deception",14)} · "We work for your boss."`,dis:garbled},{t:"INTIMIDATE",sub:oddsTag(inti,"intimidation",14)},{t:"ROAR",sub:roarB?`${roarB.name}: uses a Rage · Intimidation with advantage`:"Needs a barbarian with Rage left",dis:!roarB},{t:"ATTACK",sub:"They're ready for you"}]);
     approve(["toll","persuade","deceive","intimidate","intimidate","attackfirst"][c]||"");
     if(c===0){G.gold-=price;hud();if(liar){await fight("They pocket the gold... and draw their blades. \"Thanks, fools!\"");return;}calm();await say("They pocket the gold and wave you through.",1200,true);break;}
     else if(c===1){const r=await check(per,"persuasion",pdc,talk);

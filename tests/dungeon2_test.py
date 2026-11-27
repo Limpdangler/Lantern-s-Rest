@@ -45,7 +45,7 @@ async def main():
       const L=G.party[0];const fl={type:'flasks',x:L.x+2,y:L.y,deco:true};G.objs.push(fl);G.fire.set(L.y*G.W+L.x+3,3);t.burnObjects();o.blown=[!!fl.blown,G.fire.size>=5];
       return o;})()""")
     await pg.wait_for_timeout(500)
-    r3=await pg.evaluate("""(async()=>{const t=__t,G=t.G;const o={};t.setMode('explore');t.setC(null);G.mons=[];G.party=G.party.filter(h=>!h.rival);const L=G.party[0];
+    r3=await pg.evaluate("""(async()=>{const t=__t,G=t.G;const o={};t.setMode('explore');t.setC(null);G.mons=[];G.party=G.party.filter(h=>!h.rival);const L=G.party[0];L.hp=L.maxHp;L.down=false;L.dead=false;L.st={};
       let spot=null;for(let sd=3;sd<80&&!spot;sd++){G.seed=sd;G.floor=2;t.genFloor();G.mons=[];G.npc=null;G.party=G.party.slice(0,1);
         for(let y=2;y<G.H-2&&!spot;y++)for(let x=2;x<G.W-8;x++){let ok=true;for(let k=-1;k<=6;k++)for(let dy=-1;dy<=1;dy++)if(t.isWall(x+k,y+dy)||t.objAt(x+k,y+dy)||t.gnd(x+k,y+dy))ok=false;if(ok){spot=[x,y];break;}}}
       const [sx,sy]=spot;L.x=sx;L.y=sy;

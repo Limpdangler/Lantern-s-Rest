@@ -163,7 +163,7 @@ function rollItem(rich){const pool=Object.entries(ITEMS).filter(([k,v])=>v.floor
 function rollLoot(rich){const items=[];const n=rich?2:ri(1,2);for(let i=0;i<n;i++)items.push(rollItem(rich));
   if(rich&&!items.some(k=>ITEMS[k].kind==="gear")){const g=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&ITEMS[k].floor<=G.floor);items[0]=pick(g);}
   return {gold:ri(8,20)*G.floor*(rich?2:1),items};}
-function shopStock(){const s=["potion","potion","oil","oil","torch","firewood","firewood","arrows","arrows","flashpowder","antitoxin","scroll_cure","scroll_mm","shield"];if(G.party.some(h=>h.sub==="gunslinger"))s.push("bullets","bullets");if(!(G.lore&&G.lore.forage)&&Math.random()<.5)s.push("almanac");if(G.floor>=3)s.push("gpotion","scroll_fb");
+function shopStock(){const s=["potion","potion","oil","oil","torch","rope","firewood","firewood","arrows","arrows","flashpowder","antitoxin","scroll_cure","scroll_mm","shield"];if(G.party.some(h=>h.sub==="gunslinger"))s.push("bullets","bullets");if(!(G.lore&&G.lore.forage)&&Math.random()<.5)s.push("almanac");if(G.floor>=3)s.push("gpotion","scroll_fb");
   const gear=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&ITEMS[k].floor<=G.floor);shuffle(gear);return s.concat(gear.slice(0,2));}
 
 // ---------- light & sight ----------
@@ -200,7 +200,7 @@ function hazardPenalty(u,x,y){if(u.side==="h")return 0;const mind=u.tr.mind;let 
 function dijkstra(u,maxCost,opts){opts=opts||{};const W=G.W,start=u.y*W+u.x;const best=new Map([[start,{c:0,w:0,p:-1}]]);const h=new Heap();h.push(start,0);
   while(h.size){const cur=h.pop();const node=best.get(cur);const cx=cur%W,cy=(cur/W)|0;
     for(const [ax,ay] of DIRS8){const nx=cx+ax,ny=cy+ay;if(!enterable(u,nx,ny))continue;if(ax&&ay&&(isWall(cx+ax,cy)||isWall(cx,cy+ay)))continue;
-      const o=unitAt(nx,ny);if(o&&o!==u){if(o.side==="n")continue;if(o.side!==u.side&&!(o.side==="h"&&o.down&&u.side==="h"))continue;if(u.side==="h"&&o.side==="m")continue;}
+      const o=unitAt(nx,ny);if(o&&o!==u){if(o.side==="n")continue;if(o.side!==u.side&&!(o.side==="h"&&o.down&&u.side==="h"))continue;if(o.side==="m"&&u.side==="m"&&(o.team||"d")!==(u.team||"d"))continue;if(u.side==="h"&&o.side==="m")continue;}
       if(u.side==="h"&&!opts.allowTraps){const t=trapAt(nx,ny);if(t&&t.found)continue;}
       const sc=stepCost(u,cx,cy,nx,ny);const c=node.c+sc;if(c>maxCost)continue;const w=node.w+sc+hazardPenalty(u,nx,ny)+(opts.penalty?opts.penalty(nx,ny):0);
       const k=ny*W+nx;const prev=best.get(k);if(prev&&prev.w<=w)continue;best.set(k,{c,w,p:cur});h.push(k,w);}}

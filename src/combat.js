@@ -289,7 +289,7 @@ async function monsterTurn(m){const T=m.tr;await wait(200);
       if(ally){m.healReady=false;const n=roll("2d4+2").total;ally.hp=Math.min(ally.maxHp,ally.hp+n);float(ally,"+"+n,"#8aff7a");fx.push({type:"heal",u:ally,t:now()});await say(`The ${m.name} chants and heals the ${ally.name} for ${n}!`,900);}}else m.healReady=true;}
   if(T.web&&!m.webReady&&rnd(6)>=5)m.webReady=true;
   if(m.fleeing||m.st.turned){await fleeTurn(m,move);return;}
-  const targets=heroesUp();if(!targets.length)return;
+  const targets=targetsOf(m);if(!targets.length)return;
   if(T.aggressive&&!targets.some(h=>cheb(h,m)===1)){move+=m.speed;float(m,"CHARGE!","#ffe060");}
   if(T.web&&m.webReady){const t=targets.filter(h=>!h.st.restrained&&cheb(h,m)<=6&&cheb(h,m)>1&&los(m.x,m.y,h.x,h.y)).sort((a,b)=>cheb(a,m)-cheb(b,m))[0];
     if(t){m.webReady=false;fx.push({type:"shot",from:{x:m.x,y:m.y},to:{x:t.x,y:t.y},t:now(),col:"#ffffff"});const r=rnd(20)+5;await dice(t,r-5,null);
@@ -300,11 +300,11 @@ async function monsterTurn(m){const T=m.tr;await wait(200);
     if(!adj.length&&move>0){const dist=dijkstra(m,80);let best=null,bs=1e9;
       for(const [k,v] of dist){const x=k%G.W,y=(k/G.W)|0;const occ=unitAt(x,y);if(occ&&occ!==m)continue;for(const h of targets){if(Math.max(Math.abs(h.x-x),Math.abs(h.y-y))!==1)continue;const sc=v.w+threatScore(m,h,w)*2-(flankSpot(m,h,x,y)?2.5:0);if(sc<bs){bs=sc;best=k;}}}
       if(best!==null){const path=truncatePath(dist,pathTo(dist,best),move);if(path.length)await walk(m,path);if(m.hp<=0||!m.inCombat)return;}
-      adj=heroesUp().filter(h=>cheb(h,m)===1);}
+      adj=targetsOf(m).filter(h=>cheb(h,m)===1);}
     if(!adj.length)return;
-    if(T.shover){for(const h of adj){const res=pushResult(h,Math.sign(h.x-m.x),Math.sign(h.y-m.y));
+    if(T.shover){for(const h of adj){if(h.side!=="h")continue;const res=pushResult(h,Math.sign(h.x-m.x),Math.sign(h.y-m.y));
       if(/fire|acid|ledge|trap|crack|oil/.test(res)&&Math.random()<.6){await say(`The ${m.name} tries to shove the ${h.name} ${res.includes("ledge")?"off the ledge":"toward the "+res}!`,850);await shove(m,h,"push");if(!T.multi)return;break;}}}
-    const n=T.multi||1;for(let i=0;i<n;i++){const t=heroesUp().filter(h=>cheb(h,m)===1).sort((a,b)=>threatScore(m,a,w)-threatScore(m,b,w))[0];if(!t)break;await attack(m,t,w,{});if(!heroesUp().length||m.hp<=0)break;}
+    const n=T.multi||1;for(let i=0;i<n;i++){const t=targetsOf(m).filter(h=>cheb(h,m)===1).sort((a,b)=>threatScore(m,a,w)-threatScore(m,b,w))[0];if(!t)break;await attack(m,t,w,{});if(!heroesUp().length||m.hp<=0)break;}
     return;}
   // ranged
   const shoot=(x,y)=>targets.filter(h=>Math.max(Math.abs(h.x-x),Math.abs(h.y-y))<=w.range&&los(x,y,h.x,h.y));
@@ -313,8 +313,8 @@ async function monsterTurn(m){const T=m.tr;await wait(200);
     for(const [k,v] of dist){const x=k%G.W,y=(k/G.W)|0;const occ=unitAt(x,y);if(occ&&occ!==m)continue;const sh=shoot(x,y);const near=Math.min(...targets.map(h=>Math.max(Math.abs(h.x-x),Math.abs(h.y-y))));
       let sc=sh.length?20:0;sc+=(adjAt(x,y)?-40:0)+Math.min(near,5)*2-(v.c>move?(v.c-move)*3:0)-v.w*.3+(elevAt(x,y)?3:0)+(sh.length?coverScore(x,y,sh):0);if(!sh.length)sc-=near;if(sc>bs){bs=sc;best=k;}}
     if(best!==null){if(T.nimble&&adjAt(m.x,m.y))m.disengaged=true;const path=truncatePath(dist,pathTo(dist,best),move);if(path.length)await walk(m,path);if(m.hp<=0||!m.inCombat)return;}}
-  const inR=heroesUp().filter(h=>inReachW(m,h,w)).sort((a,b)=>threatScore(m,a,w)-threatScore(m,b,w));
-  if(inR.length){const n=T.multi||1;for(let i=0;i<n;i++){const t=inR.find(h=>!h.down&&!h.dead);if(!t)break;await attack(m,t,w,{});}}}
+  const inR=targetsOf(m).filter(h=>inReachW(m,h,w)).sort((a,b)=>threatScore(m,a,w)-threatScore(m,b,w));
+  if(inR.length){const n=T.multi||1;for(let i=0;i<n;i++){const t=inR.find(h=>!h.down&&!h.dead&&!(h.side==="m"&&h.hp<=0));if(!t)break;await attack(m,t,w,{});}}}
 async function fleeTurn(m,move){const dist=dijkstra(m,move);let best=null,bs=-1e9;
   for(const [k,v] of dist){const x=k%G.W,y=(k/G.W)|0;const occ=unitAt(x,y);if(occ&&occ!==m)continue;const near=Math.min(...heroesUp().map(h=>Math.max(Math.abs(h.x-x),Math.abs(h.y-y))));const sc=near*3-v.w*.2;if(sc>bs){bs=sc;best=k;}}
   if(m.tr.nimble)m.disengaged=true;

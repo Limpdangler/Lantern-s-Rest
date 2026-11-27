@@ -34,8 +34,8 @@ const sneakDice=()=>`${Math.ceil(G.level/2)}d6`;
 function slotAvail(h,lvl){for(let i=lvl-1;i<h.slots.length;i++)if(h.slots[i]>0)return i+1;return 0;}
 function useSlot(h,lvl){const s=slotAvail(h,lvl);if(s)h.slots[s-1]--;return s;}
 const canReact=u=>u.reaction&&!u.dead&&!u.down&&(u.side==="h"||u.hp>0)&&!u.st.surprised&&!u.st.turned;
-function foesOf(u){return u.side==="h"?G.mons.filter(m=>m.hp>0&&(C?m.inCombat:true)):heroesUp();}
-function friendsOf(u){return u.side==="h"?heroesUp().filter(h=>h!==u):G.mons.filter(m=>m.hp>0&&m!==u&&(C?m.inCombat:true));}
+function foesOf(u){return u.side==="h"?G.mons.filter(m=>m.hp>0&&(C?m.inCombat&&!m.neutral:true)):targetsOf(u);}
+function friendsOf(u){return u.side==="h"?heroesUp().filter(h=>h!==u):G.mons.filter(m=>m.hp>0&&m!==u&&(C?m.inCombat:true)&&(m.team||"d")===(u.team||"d"));}
 
 // ---------- d20 rolls ----------
 function d20(adv,dis,u){const lucky=u&&u.side==="h"&&u.race==="halfling";const r1=()=>{let v=rnd(20);if(lucky&&v===1)v=rnd(20);return v;};const a=r1();if(adv&&!dis){const b=r1();return {r:Math.max(a,b),pair:[a,b]};}if(dis&&!adv){const b=r1();return {r:Math.min(a,b),pair:[a,b]};}return {r:a,pair:null};}
@@ -214,10 +214,10 @@ async function onEnter(u,x,y,o){o=o||{};const res={stop:false};
 const trapN=()=>1+Math.floor((((G&&G.floor)||1)-1)/2);// trap damage dice: 1 on floors 1-2, 2 on 3-4, 3 on 5+
 async function triggerTrap(t,u){t.found=true;t.done=true;const who=u.side==="h"?`The ${u.name}`:`The ${u.name}`;{const r=await triggerNewTrap(t,u);if(r!==null)return r;}
   if(t.type==="darts"){const r=rnd(20)+5;const hit=r>=acOf(u);fx.push({type:"shot",from:{x:t.x-2,y:t.y},to:{x:t.x,y:t.y},t:now(),col:"#d0d0d0"});
-    await say(`Click! Darts fly from the walls at ${who}: ${r} vs AC ${acOf(u)}. ${hit?"Hit!":"Miss!"}`,950);
+    await say(`Click! Darts fly from the walls at ${who}: ${r} vs AC ${acOf(u)}. ${hit?"Hit!":"Miss!"}`,950);if(!hit)dropDart(t,u);
     if(hit){await dealDamage(u,roll(`${trapN()}d4`).total,"piercing",{trap:true});if(u.hp>0&&!u.down&&!(u.tr&&u.tr.immune&&u.tr.immune.includes("poison"))){const s=saveRoll(u,"con",11);if(!s.ok){u.st.poisoned=3;await say(`The darts were poisoned! (${s.txt})`,800);}}}return false;}
-  if(t.type==="pit"){G.ground[t.y][t.x]=GROUND.rubble;buildTerrain();const s=saveRoll(u,"dex",t.dc);
-    if(s.ok){await say(`A pit trap! ${who} leaps clear as the floor drops. (${s.txt})`,950);return false;}
+  if(t.type==="pit"){openPit(t.x,t.y);const s=await dodgeRoll(u,t.dc);
+    if(s.ok){const p=nearFree(t.x,t.y);if(p&&cheb(p,t)<=1){u.x=p.x;u.y=p.y;}await say(`A pit trap! ${who} leaps clear as the floor drops away into darkness. (${s.txt})`,950);return true;}
     u.st.prone=true;await say(`A pit trap! ${who} falls in. (${s.txt})`,950);await dealDamage(u,roll(`${trapN()}d6`).total,"bludgeoning",{trap:true,fall:true});return true;}
   if(t.type==="fire"){const s=saveRoll(u,"dex",t.dc);const dm=roll(`${trapN()}d6`).total;fx.push({type:"boom",x:t.x,y:t.y,t:now()});
     await say(`Flames roar from a vent under ${who}! (${s.txt})`,950);await dealDamage(u,s.ok?Math.floor(dm/2):dm,"fire",{});

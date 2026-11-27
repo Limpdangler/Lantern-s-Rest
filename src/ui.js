@@ -97,7 +97,7 @@ function draw(t,dt){const sp=dt*TS/115;
     if(img)drawImg(img,sx,sy-(bob&&!it.gold?1:0));else drawIcon(it.item,sx,sy-(bob?1:0));}
   if(G.corpses)for(const c of G.corpses)if(G.explored[c.y][c.x]&&(vis(c.x,c.y)||mode==="explore"))drawCorpse(c,camX,camY);
   const ents=[];
-  for(const o of G.objs){if(o.gone||o.type==="door"||!G.explored[o.y][o.x])continue;ents.push({y:o.deco&&!BLOCKERS[o.type]?-1e9:o.y*TS-1,f:()=>drawObj(o,o.x*TS-camX,o.y*TS-camY,t)});}
+  for(const o of G.objs){if(o.gone||o.type==="door"||!G.explored[o.y][o.x])continue;ents.push({y:o.deco&&(!BLOCKERS[o.type]||o.type==="pit")?-1e9:o.y*TS-1,f:()=>drawObj(o,o.x*TS-camX,o.y*TS-camY,t)});}
   if(G.npc&&vis(G.npc.x,G.npc.y)){const n=G.npc;ents.push({y:n.y*TS,f:()=>{const sx=n.x*TS-camX,sy=n.y*TS-camY-elevAt(n.x,n.y)*3;shadow(sx,sy);drawImg(heroSpr(n.def.id,"f",0,n.race),sx,sy-12-(bob?1:0));if(mode==="explore")qbubble(sx,sy-12,t);}});}
   for(const m of G.mons)if(vis(m.x,m.y)&&(G.demo||!isHiddenMon(m)))ents.push({y:m.dy,f:()=>drawMon(m,camX,camY,t)});
   if(!G.demo)for(const h of G.party)ents.push({y:h.dy+(h.down?-4:0),f:()=>drawHero(h,camX,camY,t)});

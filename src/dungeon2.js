@@ -308,7 +308,10 @@ function spawnRivals(){if(G.demo||G.floor<2||Math.random()>.45)return;const sr=G
     stance:nasty?(q<.55?"teamup":q<.8?"bribe":"threat"):(q<.4?"threat":q<.7?"bribe":"teamup")};
   if(old){co.history=old.history;co.returning=true;G.rivalPast=G.rivalPast.filter(c=>c!==old);
     co.stance=old.history==="allied"?"teamup":old.history==="paid"?"bribe":old.history==="met"?co.stance:"revenge";if(old.history==="paid")co.bribe=Math.ceil((old.bribe||12*G.floor)*1.5);}
-  const n=(G.floor>=4?ri(3,4):ri(2,3))+(co.stance==="revenge"?1:0);let k=0;for(const cls of shuffle(pool).slice(0,n)){const p=interiorFree(r,false);if(!p)continue;const m=makeRival(cls,co,p.x,p.y);if(!k++)m.leader=true;G.mons.push(m);}
+  // some "adventurers" are really bandits: a few act friendly and plan to rob you; others don't bother pretending
+  if(!old){const qb=Math.random();if(qb<.18){co.bandit=true;co.treach=true;if(co.stance==="threat")co.stance=Math.random()<.5?"teamup":"bribe";}
+    else if(qb<.33){co.hostile=true;co.name="a gang of bandits";co.short="Bandit";co.leader=pick(["Scar","One-Eye Jory","Mags","the Knife"]);}}
+  const n=(G.floor>=4?ri(3,4):ri(2,3))+(co.stance==="revenge"?1:0);let k=0;for(const cls of shuffle(pool).slice(0,n)){const p=interiorFree(r,false);if(!p)continue;const m=makeRival(cls,co,p.x,p.y);if(!k++)m.leader=true;if(co.hostile){m.peace=false;m.state=Math.random()<.5?"idle":"patrol";}G.mons.push(m);}
   if(k){G.rivals=(G.rivals||[]).filter(c=>c.floor!==G.floor);G.rivals.push(co);}}
 // rivals saved in an older save get their traits back
 function relinkRivals(){for(const m of G.mons)if(m.rival&&!(m.tr&&m.tr.rival))m.tr=rivalTraits(m.cls||m.sprite);}
@@ -324,7 +327,7 @@ async function rivalMeet(co,first){const mem=rivalMembers(co);if(!mem.length)ret
     :`${co.leader}, leader of ${co.name}, raises an open hand. "Easy! There's something nasty down here, worse than both of us. Team up? We split the gold down the middle."`;
   const ps=bestAt("persuasion"),sk=bestAt("intimidation");const dcP=12+f,dcI=11+f;const easy=st==="teamup";
   const dI=dcI+(rev?3:0);const pay=rev?toll:bribe;
-  const opts=[{t:`PAY THEM ${pay} GOLD`,sub:G.gold>=pay?"They leave this floor to you":`You only have ${G.gold} gold`,dis:G.gold<pay},
+  const opts=[{t:`PAY THEM ${pay} GOLD`,sub:G.gold>=pay?"They say they'll leave this floor to you":`You only have ${G.gold} gold`,dis:G.gold<pay},
     {t:easy?"TEAM UP":"PROPOSE A TEAM-UP",sub:rev?"They're not interested":easy?"They fight beside you on this floor; at the ladder they take half the gold you find from now on":co.triedTeam?"They already said no":`Persuasion DC ${dcP} · ${oddsTag(ps,"persuasion",dcP)} · they'd take half the gold at the ladder`,dis:rev||!easy&&!!co.triedTeam},
     {t:"SCARE THEM OFF",sub:co.triedScare?"They're not falling for that again":`Intimidation DC ${dI} · ${oddsTag(sk,"intimidation",dI)}`,dis:!!co.triedScare},
     {t:"ATTACK THEM",sub:"They're watching you: no surprise"},
@@ -363,7 +366,7 @@ async function rivalSplit(){const allies=G.party.filter(h=>h.rival&&!h.dead);if(
   if(G.party.every(h=>h.rival||h.dead)){for(const h of allies)delete h.rival;co.allied=false;await say(`With no one else left, ${co.leader} shrugs. "Guess we're your party now." ${cap(co.name)} stay with you.`,1600,true);$("tBox").hidden=true;return;}
   const share=Math.max(0,Math.floor((G.gold-(co.gold0||0))/2));
   if(share<=0)await say(`At the ladder, ${co.leader} shrugs. "Nothing much to split. Good fighting with you." ${cap(co.name)} head off their own way.`,1500,true);
-  else{const ps=bestAt("persuasion");const c=await choose(`At the ladder, ${co.leader} holds out a hand. "Our half: ${share} gold. That was the deal."`,[{t:`PAY ${share} GOLD`,sub:"Keep your word"},{t:"REFUSE",sub:`Persuasion DC 15 · ${oddsTag(ps,"persuasion",15)} · if it fails they take even more`}]);
+  else{const ps=bestAt("persuasion");const c=await choose(`At the ladder, ${co.leader} holds out a hand. "Our half: ${share} gold. That was the deal."`,[{t:`PAY ${share} GOLD`,sub:"Keep your word"},{t:"REFUSE",sub:`Persuasion DC 15 · ${oddsTag(ps,"persuasion",15)} · they won't like it`}]);
     if(c!==1){G.gold-=share;co.history="allied";await say(`${co.leader} counts the coins and nods. "A pleasure. Maybe see you deeper down." ${cap(co.name)} head off their own way.`,1500,true);}
     else{const r=await check(ps,"persuasion",15);co.history="cheated";if(r.ok)await say(`The ${ps.name} talks fast and talks well. ${co.leader} spits on the floor. "Don't let us catch you down there." (${r.txt})`,1600,true);
       else{const take=Math.min(G.gold,Math.ceil(share*1.5));G.gold-=take;await say(`"Thought you might try that." Steel comes out, and ${co.name} help themselves to ${take} gold before storming off. (${r.txt})`,1700,true);}}}
@@ -426,11 +429,13 @@ async function allyTurn(u){busy=true;buildPanel();await wait(300);
   finally{if(mode==="combat"&&C&&C.cur===u){busy=true;nextTurn();}}}
 // ...and some were only ever using you
 {const base=victory;victory=async function(){await base();if(mode!=="explore"||G.over)return;const co=(G.rivals||[]).find(c=>c.allied&&c.floor===G.floor);if(!co)return;co.fights=(co.fights||0)+1;
-  const big=G.mons.some(m=>m.hp>0&&(m.boss||m.maxHp>=20));if(co.treach&&!co.betrayed&&(co.fights>=2||!big)&&Math.random()<.6)await rivalBetray(co);};}
-async function rivalBetray(co){const allies=G.party.filter(h=>h.rival===co.id&&!h.dead&&!h.down);if(!allies.length)return;co.betrayed=true;co.allied=false;co.history="betrayer";
+  const big=G.mons.some(m=>m.hp>0&&(m.boss||m.maxHp>=20));if(co.treach&&!co.betrayed&&(co.bandit||(co.fights>=2||!big)&&Math.random()<.6))await rivalBetray(co);};}
+// bandits in disguise never make it to the ladder with you
+{const base=stairsPrompt;stairsPrompt=async function(){const co=(G.rivals||[]).find(c=>c.allied&&c.bandit&&!c.betrayed&&c.floor===G.floor);if(co&&G.party.some(h=>h.rival===co.id&&!h.dead&&!h.down)){await rivalBetray(co);return;}return base();};}
+async function rivalBetray(co){const allies=G.party.filter(h=>h.rival===co.id&&!h.dead&&!h.down);if(!allies.length)return;co.betrayed=true;co.allied=false;co.history="betrayer";const wasName=co.name;if(co.bandit){co.short="Bandit";}
   const mem=[];for(const h of allies){const m=makeRival(h.id,co,h.x,h.y);m.hp=Math.max(1,Math.round(m.maxHp*h.hp/h.maxHp));m.peace=false;m.state="hunt";m.ambusher=true;if(h.nick===co.leader)m.leader=true;mem.push(m);}
   G.party=G.party.filter(h=>h.rival!==co.id);for(const m of mem)G.mons.push(m);hud();
-  await say(`${co.leader} wipes their blade and smiles. "Thanks for the help. We'll take it from here... and your gold with it." ${cap(co.name)} turn on you!`,1800,true);$("tBox").hidden=true;busy=false;startCombat({extra:mem,by:mem});}
+  await say(co.bandit?`${co.leader} whistles, and the others step away from you, weapons out. "${cap(wasName)}? Never heard of 'em. We're just bandits, friend. Hand over the gold." It was a setup all along!`:`${co.leader} wipes their blade and smiles. "Thanks for the help. We'll take it from here... and your gold with it." ${cap(co.name)} turn on you!`,1800,true);$("tBox").hidden=true;busy=false;startCombat({extra:mem,by:mem});}
 
 // ---------- standing on tables: +2 to hit, but you're easier to hit too ----------
 const tableAt=(x,y)=>G.objs.find(o=>o.type==="table"&&o.x===x&&o.y===y&&!o.gone&&!o.flipped);
