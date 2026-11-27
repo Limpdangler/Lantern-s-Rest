@@ -230,7 +230,7 @@ function igniteAt(x,y){if(!inB(x,y))return;const k=y*G.W+x;if(gnd(x,y)===GROUND.
     fx.push({type:"boom",x,y,t:now()});computeLight();if(G.vis)fov();}
   const o=G.objs.find(q=>q.x===x&&q.y===y&&!q.gone&&isWooden(q));if(o)setAlight(o);}
 const WOODEN={wood:1,furniture:1,web:1};// more are added by the room furniture
-const isWooden=o=>!o.burnt&&!o.gone&&((o.type==="door"&&!o.iron&&!o.open)||(o.type==="chest"&&!o.mimic)||!!WOODEN[o.type]);
+const isWooden=o=>!o.burnt&&!o.gone&&((o.type==="door"&&!o.iron&&!o.open)||(o.type==="chest"&&!o.mimic&&!o.armoured)||!!WOODEN[o.type]);
 function setAlight(o){if(o.burn||!isWooden(o))return;o.burn=o.type==="web"?1:o.type==="door"?6:4;G.fire.set(o.y*G.W+o.x,o.burn+1);makeNoise(o.x,o.y,8);
   log(`${o.type==="door"?"The door":o.type==="chest"?"A chest":o.type==="web"?"A web":"The wood"} catches fire! Smoke and light spread through the dark.`,"hurt");computeLight();}
 function burnObjects(){for(const o of G.objs){if(!o.burn||o.gone)continue;o.burn--;G.fire.set(o.y*G.W+o.x,Math.max(2,o.burn+1));

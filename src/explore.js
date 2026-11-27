@@ -72,7 +72,7 @@ function passiveDetect(){for(const h of heroesUp()){const pp=(x,y)=>passive(h,"p
     if(G.secret&&!G.secret.found&&cheb(h,G.secret)<=2&&pp(G.secret.x,G.secret.y)>=15){revealSecret();toast(`The ${h.name} notices a hidden door in the rock!`);log("A secret door!","gold");}
     for(const o of G.objs){if(o.type!=="chest"||o.opened||cheb(h,o)>1)continue;
       if(o.mimic&&!o.suspicious&&pp(o.x,o.y)>=13){o.suspicious=true;toast(`The ${h.name} thinks that chest just... breathed?`);}
-      if(o.trap&&!o.trapFound&&h===G.party[0]&&pp(o.x,o.y)>=o.trap.dc+5){o.trapFound=true;toast(`The ${h.name} notices a tiny needle in that chest's lock.`);}}}}
+      if(o.trap&&!o.trapFound&&h===G.party[0]&&pp(o.x,o.y)>=o.trap.dc+5){o.trapFound=true;toast(`The ${h.name} notices something wrong with that chest: it's trapped.`);}}}}
 async function search(){if(mode!=="explore"||busy||!G)return;const L=G.party[0];const key=areaKey(L.x,L.y);
   if(G.searched.has(key)){toast(G.searchMsg[key]||"Nothing unusual, as far as you can tell.");return;}
   busy=true;G.searched.add(key);const h=bestAt("perception");const help=heroesUp().length>1;const dim=!litAt(L.x,L.y)&&!heroDV(h);toast("");
