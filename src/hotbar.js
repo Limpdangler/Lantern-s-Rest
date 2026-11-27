@@ -151,7 +151,7 @@ function heroCardTop(el,i){const h=G.party[i];const N=G.party.length;
   nav.appendChild(mk("◀",()=>{menuHero=(i-1+N)%N;renderMenu();},N<2));
   const mid=document.createElement("div");mid.className="cardwho";const c=document.createElement("canvas");c.width=16;c.height=CH_H;const cx=c.getContext("2d");if(h.wild)cx.drawImage(wildSpr(h),0,10);else cx.drawImage(heroSpr(h.look||h.id,"f",0,h.race),0,0);mid.appendChild(c);
   const hp=h.wild?`${h.wild.hp}/${h.wild.max} HP as a ${h.wild.form}`:h.dead?"Dead":h.down?"Down":`${h.hp}/${h.maxHp} HP`;
-  mid.insertAdjacentHTML("beforeend",`<div><b>${esc(h.nick||h.name)}</b><br><span class="sm">${esc(RACES[h.race||"human"].name)} ${esc(h.name)}${subOf(h)?" · "+esc(subOf(h).name):""} · ${hp} · AC ${acOf(h)}${i===0?" · LEADER":""}${h.perk&&PERKS[h.perk]?`<br>Trait: ${esc(PERKS[h.perk].name)} (${esc(PERKS[h.perk].desc)})`:""}</span></div>`);nav.appendChild(mid);
+  mid.insertAdjacentHTML("beforeend",`<div><b>${esc(h.nick||h.name)}</b><br><span class="sm">${esc(RACES[h.race||"human"].name)} ${esc(h.name)}${subOf(h)?" · "+esc(subOf(h).name):""} · ${hp} · AC ${acOf(h)}${i===0?" · LEADER":""}${h.perk&&PERKS[h.perk]?`<br>Trait: ${esc(PERKS[h.perk].name)} (${esc(PERKS[h.perk].desc)})`:""}${h.bg&&typeof BACKGROUNDS!=="undefined"&&BACKGROUNDS[h.bg]?`<br>Background: ${esc(BACKGROUNDS[h.bg].name)} (${esc(bgBonusText(h.bg))})`:""}</span></div>`);nav.appendChild(mid);
   nav.appendChild(mk("▶",()=>{menuHero=(i+1)%N;renderMenu();},N<2));el.appendChild(nav);
   const fx=effectsOf(h);if(fx.length){const row=document.createElement("div");row.className="fxrow cardfx";fx.forEach(e=>row.appendChild(effectChip(h,e,false)));el.appendChild(row);}
   const abil=heroWild(h).concat(classActions(h));

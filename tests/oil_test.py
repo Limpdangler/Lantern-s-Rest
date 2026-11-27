@@ -9,7 +9,7 @@ async def main():
     html=open(DIST).read();i=html.rindex("requestAnimationFrame(loop);");html=html[:i]+HOOK+html[i+28:]
     await pg.set_content("<body>"+html+"</body>");await pg.wait_for_timeout(300)
     await pg.evaluate("window.__skipIntro=true");await pg.click("#btnSetOut");await pg.click("#pick-fighter");await pg.click("#pick-race-dwarf");await pg.evaluate("window.__fast=0.01");await pg.wait_for_timeout(500)
-    r=await pg.evaluate("""(async()=>{const t=__t,G=t.G,L=G.party[0];const o={};G.mons=[];
+    r=await pg.evaluate("""(async()=>{const t=__t,G=t.G,L=G.party[0];const o={};G.mons=[];G.objs=G.objs.filter(q=>!q.deco);
       const open=(x,y,n)=>{for(let a=-n;a<=n;a++)for(let b=-n;b<=n;b++){const X=x+a,Y=y+b;if(t.isWall(X,Y)||t.objAt(X,Y)||t.unitAt(X,Y)||t.gnd(X,Y)!==0)return false;}return true;};
       let s=null;for(let y=2;y<G.H-2&&!s;y++)for(let x=2;x<G.W-2;x++)if(open(x,y,1)&&Math.max(Math.abs(x-L.x),Math.abs(y-L.y))>3){s=[x,y];break;}
       const cnt=()=>{let n=0;for(let y=0;y<G.H;y++)for(let x=0;x<G.W;x++)if(t.gnd(x,y)===t.GROUND.oil)n++;return n;};
