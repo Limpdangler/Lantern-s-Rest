@@ -1963,8 +1963,8 @@ function truncatePath(dist,path,budget){const out=[];for(const k of path){const 
 async function monsterTurn(m){const T=m.tr;await wait(200);
   let move=m.speed;if(m.st.prone){delete m.st.prone;move=Math.floor(move/2);float(m,"STANDS","#ffffff");}if(m.st.grappled||m.st.paralysed)move=0;
   if(m.st.restrained){const w=weaponOf(m);const near=heroesUp().filter(h=>inReachW(m,h,w));
-    if(!near.length||Math.random()<.5){const c=saveRoll(m,"str",m.st.restrained.dc);if(c.ok){const by=m.st.restrained.by;delete m.st.restrained;await say(`The ${m.name} tears free of the ${by==="web"?"webbing":"vines"}!`,750);}
-      else{await say(`The ${m.name} struggles against the ${m.st.restrained.by==="web"?"webbing":"vines"}.`,700);return;}}
+    if(!near.length||Math.random()<.5){const c=saveRoll(m,"str",m.st.restrained.dc);if(c.ok){const by=m.st.restrained.by;delete m.st.restrained;await say(`The ${m.name} tears free of the ${({web:"webbing",snare:"snare",tentacle:"tentacle"})[by]||"vines"}!`,750);}
+      else{await say(`The ${m.name} struggles against the ${({web:"webbing",snare:"snare",tentacle:"tentacle"})[m.st.restrained.by]||"vines"}.`,700);return;}}
     move=m.st.restrained?0:move;}
   if(m.st.slowed){move=Math.max(1,Math.floor(move/2));m.st.slowed--;if(m.st.slowed<=0)delete m.st.slowed;}
   if(m.boss&&m.phase===1&&m.hp<=m.maxHp/2){m.phase=2;await bossPhase(m);}
@@ -2193,7 +2193,7 @@ async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&
   const tongue=speakerFor(m),lang=MLANG[m.key];const talk={adv:!!tongue,dis:!tongue&&!!lang};const garbled=!tongue&&!!lang;
   // nobody speaks their language: the party can only read their body language (a secret Insight roll)
   const readIns=heroesUp().filter(h=>h.id!=="beast").sort((a,b)=>skillBonus(b,"insight")-skillBonus(a,"insight"))[0]||heroesUp()[0];const readRoll=rnd(20)+skillBonus(readIns,"insight");const readOk=readRoll>=12;
-  const ins=heroesUp().slice().sort((a,b)=>passive(b,"insight")-passive(a,"insight"))[0];const sensed=liar&&(!!tongue||passive(ins,"insight")-2*exhOf(ins)>=13);
+  const ins=heroesUp().slice().sort((a,b)=>passive(b,"insight")-passive(a,"insight"))[0];const pal=heroesUp().find(h=>h.id==="paladin"&&!h.wild);const sensed=liar&&(!!tongue||!!pal||passive(ins,"insight")-2*exhOf(ins)>=13);
   if(liar&&tongue)log(`${esc(tongue.name)} overhears them muttering in ${esc(lang)} about jumping you once you've paid.`,"miss");else if(sensed)log(`${esc(ins.name)} has a bad feeling about this group.`,"miss");
   const calm=f=>{for(const q of grp){q.peace=true;q.parley=0;q.state="idle";if(f)q.fooled=true;}};
   const fight=async(t)=>{await say(t,1000,true);grp.forEach(q=>{q.parley=0;q.peace=false;});busy=false;startCombat({by:grp});};
@@ -2207,7 +2207,7 @@ async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&
           :`${grp.length>1?`The ${m.name}s mutter to each other`:`The ${m.name} grunts`} in ${lang}. `+(readOk?"Their tone has softened a little.":"You can't tell if that's good or bad."))
       :att===0?`${who} block${grp.length>1?"":"s"} the way: "Halt! Pay ${toll} gold or turn back!"`:`${grp.length>1?`The ${m.name}s look at each other`:`The ${m.name} thinks it over`}. "Fine... ${price} gold and you can pass." (They seem less hostile now.)`)
       +(tongue?` (The ${tongue.name} speaks ${lang}.)`:"")
-      +(sensed&&!tongue?` The ${ins.name} has a bad feeling: they keep glancing at each other and fingering their weapons.`:sensed?` The ${tongue.name} overheard them: they plan to attack once you've paid.`:"");
+      +(sensed&&!tongue&&pal?` The ${pal.name} can feel it: they are lying. They mean to attack once you have paid.`:sensed&&!tongue?` The ${ins.name} has a bad feeling: they keep glancing at each other and fingering their weapons.`:sensed?` The ${tongue.name} overheard them: they plan to attack once you've paid.`:"");
     const c=await choose(q,[{t:"PAY",sub:garbled?`${price} gold seems about right, judging by their fingers`:`${price} gold`,dis:G.gold<price},{t:"PERSUADE",sub:`${garbled?"With gestures only (disadvantage) · ":""}${oddsTag(per,"persuasion",pdc,talk)}`},{t:"DECEIVE",sub:garbled?"You don't share a language to lie in":`${oddsTag(dec,"deception",14)} · "We work for your boss."`,dis:garbled},{t:"INTIMIDATE",sub:oddsTag(inti,"intimidation",14)},{t:"ROAR",sub:roarB?`${roarB.name}: uses a Rage · Intimidation with advantage`:"Needs a barbarian with Rage left",dis:!roarB},{t:"ATTACK",sub:"They're ready for you"}]);
     approve(["toll","persuade","deceive","intimidate","intimidate","attackfirst"][c]||"");
     if(c===0){G.gold-=price;hud();if(liar){await fight("They pocket the gold... and draw their blades. \"Thanks, fools!\"");return;}calm();await say("They pocket the gold and wave you through.",1200,true);break;}
@@ -3938,7 +3938,7 @@ function draw(t,dt){const sp=dt*TS/115;
     if(img)drawImg(img,sx,sy-(bob&&!it.gold?1:0));else drawIcon(it.item,sx,sy-(bob?1:0));}
   if(G.corpses)for(const c of G.corpses)if(G.explored[c.y][c.x]&&(vis(c.x,c.y)||mode==="explore"))drawCorpse(c,camX,camY);
   const ents=[];
-  for(const o of G.objs){if(o.gone||o.type==="door"||!G.explored[o.y][o.x])continue;ents.push({y:o.deco&&(!BLOCKERS[o.type]||o.type==="pit")?-1e9:o.y*TS-1,f:()=>drawObj(o,o.x*TS-camX,o.y*TS-camY,t)});}
+  for(const o of G.objs){if(o.gone||o.type==="door"||!G.explored[o.y][o.x])continue;ents.push({y:o.deco&&(!BLOCKERS[o.type]||o.type==="pit"||o.type==="abyss")?-1e9:o.y*TS-1,f:()=>drawObj(o,o.x*TS-camX,o.y*TS-camY,t)});}
   if(G.npc&&vis(G.npc.x,G.npc.y)){const n=G.npc;ents.push({y:n.y*TS,f:()=>{const sx=n.x*TS-camX,sy=n.y*TS-camY-elevAt(n.x,n.y)*3;shadow(sx,sy);drawImg(heroSpr(n.def.id,"f",0,n.race),sx,sy-12-(bob?1:0));if(mode==="explore")qbubble(sx,sy-12,t);}});}
   for(const m of G.mons)if(vis(m.x,m.y)&&(G.demo||!isHiddenMon(m)))ents.push({y:m.dy,f:()=>drawMon(m,camX,camY,t)});
   if(!G.demo)for(const h of G.party)ents.push({y:h.dy+(h.down?-4:0),f:()=>drawHero(h,camX,camY,t)});
@@ -4440,7 +4440,7 @@ function reachCount(){const sr=G.rooms.find(r=>r.role==="start")||G.rooms[0];con
 function themeRooms(){if(G.demo)return;G.tid=G.tid||0;const base=reachCount();const used=new Set();
   for(const r of G.rooms){if(r.role)continue;const added=[];const add=(type,x,y,extra)=>{if(!d2free(x,y))return null;const o=Object.assign({type,x,y,deco:true},extra||{});G.objs.push(o);added.push(o);return o;};
     let th=null;if(r.w>=10&&r.h>=7)th="hall";
-    else if(Math.random()<.72){const fits=Object.keys(ROOM_THEMES).filter(k=>{const T=ROOM_THEMES[k];return !T.big&&r.w>=T.min[0]&&r.h>=T.min[1]&&(k!=="alchemy"||G.floor>=2);});
+    else if(Math.random()<.72){const fits=Object.keys(ROOM_THEMES).filter(k=>{const T=ROOM_THEMES[k];return !T.big&&T.min&&r.w>=T.min[0]&&r.h>=T.min[1]&&(k!=="alchemy"||G.floor>=2);});
       const fresh=fits.filter(k=>!used.has(k));const pool=fresh.length?fresh:fits;if(pool.length)th=pick(pool);}
     if(th){r.theme=th;used.add(th);FURNISH[th](r,add);if(th==="hall"&&Math.random()<.6){const sub=pick(["mess","chapel","barracks","library","storage"]);r.theme2=sub;FURNISH[sub](r,add);}}
     else{if(r.w>=7&&r.h>=5&&Math.random()<.35)for(const [x,y] of [[r.x+2,r.y+1],[r.x+r.w-3,r.y+r.h-2]])if(!nearDoorway(x,y))add("pillar",x,y);
@@ -5307,6 +5307,244 @@ async function chestLoot(o,breakChance){o.opened=true;const got=[],lost=[];if(o.
 {const base=drawObj;drawObj=function(o,sx,sy,t){base(o,sx,sy,t);if(o.type!=="chest"||o.opened||o.burn||o.gone)return;const X=Math.round(sx),Y=Math.round(sy);
   if(o.armoured){ctx.fillStyle="#5a5a64";ctx.fillRect(X+3,Y+4,2,10);ctx.fillRect(X+11,Y+4,2,10);ctx.fillStyle="#8a8a96";ctx.fillRect(X+3,Y+4,1,10);ctx.fillRect(X+11,Y+4,1,10);}
   if(o.locked&&!o.picked){ctx.fillStyle="#1a1216";ctx.fillRect(X+6,Y+7,4,5);ctx.fillStyle="#d8b040";ctx.fillRect(X+7,Y+8,2,3);ctx.fillStyle="#1a1216";ctx.fillRect(X+7,Y+9,2,1);}};}
+
+// ================= more things only certain classes can do =================
+const wet=(x,y)=>gnd(x,y)===GROUND.water||gnd(x,y)===GROUND.deep;
+const nearWater=u=>[[0,0]].concat(DIRS8).some(([dx,dy])=>wet(u.x+dx,u.y+dy));
+// ---------- electricity and puddles: lightning arcs through water to everyone standing in or beside it ----------
+function puddleFrom(x,y){const start=[[0,0]].concat(DIRS8).map(([dx,dy])=>[x+dx,y+dy]).filter(([a,b])=>inB(a,b)&&wet(a,b));const sn=new Set();const q=[];
+  for(const [a,b] of start){const k=b*G.W+a;if(!sn.has(k)){sn.add(k);q.push(k);}}
+  while(q.length){const k=q.pop();const cx=k%G.W,cy=(k/G.W)|0;for(const [dx,dy] of DIRS8){const nx=cx+dx,ny=cy+dy,nk=ny*G.W+nx;if(inB(nx,ny)&&!sn.has(nk)&&wet(nx,ny)){sn.add(nk);q.push(nk);}}}return sn;}
+{const base=dealDamage;dealDamage=async function(u,amt,type,o){o=o||{};if(type!=="lightning"||o.chain||!G||!nearWater(u))return base(u,amt,type,o);
+  const pool=puddleFrom(u.x,u.y);const touching=v=>[[0,0]].concat(DIRS8).some(([dx,dy])=>pool.has((v.y+dy)*G.W+v.x+dx));
+  const others=G.party.concat(G.mons).filter(v=>v!==u&&!v.dead&&!(v.side==="m"&&v.hp<=0)&&!(v.side==="h"&&v.down)&&touching(v)&&(v.side==="h"||!C||v.inCombat||cheb(v,u)<=8));
+  for(const k of pool){const x=k%G.W,y=(k/G.W)|0;if(Math.random()<.35)fx.push({type:"shot",from:{x,y},to:{x:x+ri(-1,1),y:y+ri(-1,1)},t:now(),col:"#c8f0ff"});}
+  float(u,"ZAP!","#c8f0ff");log(`The lightning crackles through the water${others.length?`, shocking ${others.map(v=>esc(v.name)).join(", ")}`:""}!`,"magic");
+  const r=await base(u,Math.ceil(amt*1.5),type,o);for(const v of others)await base(v,Math.max(1,Math.floor(amt/2)),"lightning",Object.assign({},o,{chain:true}));return r;};}
+// the wizard's Shocking Grasp: the party's electric spell
+{const base=gunButtons;gunButtons=u=>{const B=base(u);if(!C||u.id!=="wizard"||u.wild)return B;const ready=hasAction()&&C.attacksLeft===0;
+  B.push({t:"SHOCKING GRASP",sub:`Action · cantrip · touch, 1d8 lightning${G.level>=5?" (2d8)":""} · arcs through any puddle the target stands in or next to`,cost:"action",dis:!ready,
+    f:()=>targetMode({kind:"enemy",range:1,label:"Shocking Grasp: tap an enemy next to you.",onPick:async(x,y,t)=>{C.actions--;C.attacksLeft=0;busy=true;
+      await attack(u,t,{name:"Shocking Grasp",abil:"int",dice:G.level>=5?"2d8":"1d8",type:"lightning",spell:true,cantrip:true,range:1,melee:true},{});afterAction();}})});return B;};}
+
+// ---------- cleric: blessing water into holy water ----------
+ITEMS.holywater={name:"Holy Water",kind:"use",price:25,floor:9,w:0,desc:"Blessed by a cleric. Throw it at an undead creature (range 5) for 2d6 radiant damage. Ordinary creatures just get wet."};
+{const base=classActions;classActions=h=>{const A=base(h);if(h.id!=="cleric"||h.dead||h.down||h.wild||mode!=="explore")return A;
+  const ok=nearWater(G.party[0]);const used=(G.holyMade||0)>=2;
+  A.push({t:"BLESS WATER",sub:!ok?"Stand in or next to a puddle":(G.bag.bottle||0)<1?"Needs an empty bottle to hold it":used?"You've blessed all the water you can until you rest":"Fill a bottle from the puddle and pray over it: Holy Water",dis:!ok||(G.bag.bottle||0)<1||used,
+    f:async()=>{takeItem("bottle");addItem("holywater");G.holyMade=(G.holyMade||0)+1;G.steps+=6;toast(`The ${h.name} fills a bottle and murmurs a prayer over it. The water glows faintly: Holy Water.`);hud();}});return A;};}
+{const base=applyLongRest;applyLongRest=async function(camp){const r=await base(camp);G.holyMade=0;return r;};}
+{const base=itemButtons;itemButtons=u=>{const B=base(u);if(!(G.bag.holywater>0)||u.wild)return B;const fh=u.sub==="thief";const ok=fh?C.bonus:hasAction()&&C.attacksLeft===0;
+  B.push({t:"THROW HOLY WATER",sub:`${fh?"Bonus action":"Action"} · range 5 · 2d6 radiant to undead · ${G.bag.holywater} left`,dis:!ok,f:()=>targetMode({kind:"enemy",range:5,label:"Throw the holy water: tap an enemy.",onPick:async(x,y,t)=>{
+    if(fh)C.bonus=false;else C.actions--;busy=true;noBottle=true;takeItem("holywater");noBottle=false;fx.push({type:"shot",from:{x:u.x,y:u.y},to:{x:t.x,y:t.y},t:now(),col:"#f0f0ff"});await wait(220);
+    if(t.tr&&(t.tr.undead||t.tr.fiend)){float(t,"SIZZLE!","#fff6b0");await say(`The holy water splashes the ${t.name} and burns like acid!`,800);await dealDamage(t,roll("2d6").total,"radiant",{src:u});}
+    else await say(`The holy water splashes over the ${t.name}. It's just wet now.`,800);afterAction();}})});return B;};}
+
+// ---------- wizard: Minor Illusion makes a noise somewhere else; Comprehend Languages ----------
+{const base=classActions;classActions=h=>{const A=base(h);if(h.id!=="wizard"||h.dead||h.down||h.wild||mode!=="explore")return A;
+  A.push({t:"MINOR ILLUSION",sub:"Cantrip: a noise somewhere else lures monsters away",f:()=>minorIllusion(h)});return A;};}
+async function minorIllusion(h){const L=G.party[0];const opts=[];
+  for(const [nm,dx,dy] of [["NORTH",0,-1],["SOUTH",0,1],["WEST",-1,0],["EAST",1,0]]){let x=L.x,y=L.y,n=0;while(n<8&&!isWall(x+dx,y+dy)){x+=dx;y+=dy;n++;}if(n>=2)opts.push({t:`THE ${nm}`,sub:`${n} squares away`,x,y});}
+  if(!opts.length){toast("No room to throw your voice here.");return;}
+  const c=await choose(`Where should the ${h.name}'s illusion sound from? (Clattering footsteps, a crash, a distant voice...)`,opts.concat([{t:"NEVER MIND"}]));$("tBox").hidden=true;const p=opts[c];if(!p)return;
+  makeNoise(p.x,p.y,12);for(const m of G.mons)if(m.hp>0&&!m.peace&&!m.inCombat&&m.state==="hunt"&&cheb(m,p)<=14){m.state="investigate";m.inv={x:p.x,y:p.y};}
+  G.steps+=1;toast(`A clatter of footsteps echoes from the ${opts[c].t.slice(4).toLowerCase()}. Anything listening will go and look.`);}
+{const base=speakerFor;speakerFor=function(m){const s=base(m);if(s||!MLANG[m.key])return s;return heroesUp().find(h=>h.id==="wizard"&&!h.wild)||null;};}
+
+// ---------- druid: Produce Flame lights anything flammable they can see ----------
+function flameTargets(h){const out=[];for(const t of thaumTargets(h))if(!t.lit)out.push({k:"torch",t,x:t.x,y:t.y,label:`LIGHT THE TORCH TO THE ${dirTo(h,t).toUpperCase()}`});
+  const seenOil=new Set();for(let y=h.y-8;y<=h.y+8;y++)for(let x=h.x-8;x<=h.x+8;x++){if(!inB(x,y)||gnd(x,y)!==GROUND.oil||fireAt(x,y)||!seen(x,y)||!los(h.x,h.y,x,y))continue;const key=[...puddleOil(x,y)][0];if(seenOil.has(key))continue;seenOil.add(key);out.push({k:"oil",x,y,label:`IGNITE THE OIL TO THE ${dirTo(h,{x,y}).toUpperCase()}`});}
+  for(const o of G.objs)if(isWooden(o)&&!o.burn&&o.type!=="door"&&cheb(o,h)<=6&&cheb(o,h)>=1&&seen(o.x,o.y)&&los(h.x,h.y,o.x,o.y))out.push({k:"wood",o,x:o.x,y:o.y,label:`SET FIRE TO THE ${(BUMP_NAME[o.type]||"wood").replace(/^An? /,"").toUpperCase()}`});
+  return out.sort((a,b)=>cheb(a,h)-cheb(b,h)).slice(0,6);}
+function puddleOil(x,y){const sn=new Set([y*G.W+x]);const q=[y*G.W+x];while(q.length){const k=q.pop();const cx=k%G.W,cy=(k/G.W)|0;for(const [dx,dy] of DIRS8){const nx=cx+dx,ny=cy+dy,nk=ny*G.W+nx;if(inB(nx,ny)&&!sn.has(nk)&&gnd(nx,ny)===GROUND.oil){sn.add(nk);q.push(nk);}}}return [Math.min(...sn)];}
+async function produceFlame(h,inFight){const ts=flameTargets(h);if(!ts.length){toast("Nothing in sight that would burn.");return false;}
+  const c=await choose(`A flame flickers to life in the ${h.name}'s palm. What should it light?`,ts.map(t=>({t:t.label,sub:`${cheb(h,t)} squares away`})).concat([{t:"NEVER MIND"}]));if(!inFight)$("tBox").hidden=true;const t=ts[c];if(!t)return false;
+  fx.push({type:"shot",from:{x:h.x,y:h.y},to:{x:t.x,y:t.y},t:now(),col:"#ffa040"});await wait(220);
+  if(t.k==="torch")t.t.o.out=false;else if(t.k==="oil"){igniteAt(t.x,t.y);if(C)await scorch();}else setAlight(t.o);computeLight();fov();hud();return true;}
+{const base=classActions;classActions=h=>{const A=base(h);if(h.id!=="druid"||h.dead||h.down||h.wild||mode!=="explore")return A;A.push({t:"PRODUCE FLAME",sub:"Cantrip: light a torch, oil or wood you can see",f:()=>produceFlame(h,false)});return A;};}
+{const base=gunButtons;gunButtons=u=>{const B=base(u);if(C&&u.id==="druid"&&!u.wild&&flameTargets(u).length)B.push({t:"PRODUCE FLAME",sub:"Action · light a torch, oil or wood you can see",cost:"action",dis:!hasAction()||C.attacksLeft>0,f:async()=>{busy=true;if(await produceFlame(u,true))C.actions--;afterAction();}});return B;};}
+
+// ---------- monk: runs along the wall across pits, never gets stuck in one ----------
+{const base=D2_ACT.pit;D2_ACT.pit=async o=>{const monk=heroesUp().find(h=>h.id==="monk"&&!h.wild);if(!monk)return base(o);const L=G.party[0];let dx=Math.sign(o.x-L.x),dy=Math.sign(o.y-L.y);if(dx&&dy)dy=0;const far={x:o.x+dx,y:o.y+dy};
+  if(isWall(far.x,far.y)||blocksObj(far.x,far.y)||unitAt(far.x,far.y)){return base(o);}
+  const c=await choose("A pit yawns in the floor.",[{t:"THE MONK RUNS THE WALL",sub:"Sprints along the wall, ties off a rope on the far side and helps everyone across · no roll, no fuss"},{t:"OTHER WAYS ACROSS"},{t:"LEAVE IT"}]);$("tBox").hidden=true;
+  if(c===1)return base(o);if(c!==0)return;hop(L);L.x=far.x;L.y=far.y;G.steps+=4;await say(`The ${monk.name} runs three steps along the wall, flips over the pit and has a rope across before anyone blinks.`,1300,true);$("tBox").hidden=true;fov();hud();};}
+{const base=climbOut;climbOut=async function(dx,dy){const L=G.party[0];if(L.id!=="monk")return base(dx,dy);delete L.st.prone;let p={x:L.x+dx,y:L.y+dy};if(isWall(p.x,p.y)||blocksObj(p.x,p.y)||unitAt(p.x,p.y))p=nearFree(L.x,L.y);if(!p)return;
+  L.x=p.x;L.y=p.y;await say(`The ${L.name} kicks off the walls and springs out of the pit.`,900,true);$("tBox").hidden=true;fov();hud();};}
+
+// ---------- paladin: lies ring false ----------
+function liarSense(){return heroesUp().find(h=>h.id==="paladin"&&!h.wild)||null;}
+{const base=rivalJoin;rivalJoin=async function(co){const pal=liarSense();if(pal&&co.treach===undefined)co.treach=Math.random()<(co.stance==="teamup"&&!co.returning?.25:.15);
+  if(pal&&co.treach&&!co.warned){co.warned=true;const c=await choose(`The ${pal.name} feels it like a cold hand on the neck: ${co.leader} is lying. Whatever they're promising, they don't mean it.`,[{t:"TEAM UP ANYWAY",sub:"Keep a hand on your sword"},{t:"CALL IT OFF"}]);$("tBox").hidden=true;if(c===1){toast(`You refuse the deal. ${cap(co.name)} shrug and move on.`);return;}}
+  return base(co);};}
+// bandits faking an injury don't fool a paladin
+{const ev=EVENTS.find(e=>String(e.run).includes("wounded traveller"));if(ev){const run=ev.run;ev.run=async L=>{const pal=liarSense();if(pal){await say(`A figure slumps against the wall, groaning for help. The ${pal.name} stops the party: "They're lying. That's an ambush." You give them a wide berth, and hear muttered cursing behind you.`,1800,true);return;}return run(L);};}}
+
+// ---------- ranger: snares (they use up firewood for stakes and spring-poles) ----------
+TRAPS.snare={name:"snare",w:0};
+{const base=classActions;classActions=h=>{const A=base(h);if(h.id!=="ranger"||h.dead||h.down||h.wild||mode!=="explore")return A;const L=G.party[0];
+  A.push({t:"SET A SNARE",sub:(G.bag.firewood||0)<1?"Needs 1 firewood for the stakes and spring-pole":"Uses 1 firewood · traps the next creature to step there in front of you",dis:(G.bag.firewood||0)<1,f:()=>setSnare(h)});return A;};}
+function snareSpot(){const L=G.party[0];const fd=L.face==="b"?[0,-1]:L.face==="f"?[0,1]:[L.flip?-1:1,0];const x=L.x+fd[0],y=L.y+fd[1];
+  if(isWall(x,y)||blocksObj(x,y)||unitAt(x,y)||doorAt(x,y)||trapAt(x,y)||gnd(x,y)!==0||pitAt(x,y))return null;return {x,y};}
+async function setSnare(h){const p=snareSpot();if(!p){toast("Face an open square of floor to set the snare there.");return;}takeItem("firewood");G.steps+=6;
+  G.traps.push({x:p.x,y:p.y,type:"snare",dc:12+Math.floor(G.level/2),found:true,done:false,ours:true});toast(`The ${h.name} whittles stakes from the firewood and sets a hidden snare.`);hud();}
+{const base=triggerNewTrap;triggerNewTrap=async function(t,u){if(t.type!=="snare")return base(t,u);
+  if(u.side==="h"){t.done=false;return false;}
+  t.done=true;u.st.restrained={dc:t.dc,by:"snare"};float(u,"SNARED!","#ffffff");makeNoise(t.x,t.y,4);
+  if(C)await say(`The ${u.name} steps in the snare and is yanked off its feet! (Escape DC ${t.dc})`,900);else alertParty(`Somewhere ${dirTo(G.party[0],t)}, a snare snaps shut and something yelps!`);return true;};}
+// monsters wandering about outside a fight can blunder into snares too
+{const base=d2Step;d2Step=async function(){await base();if(mode!=="explore"||!G)return;for(const m of G.mons){if(m.hp<=0||m.inCombat||m.peace)continue;const t=trapAt(m.x,m.y);if(t&&t.type==="snare"&&!t.done)await triggerNewTrap(t,m);}};}
+
+// ================= hidden places behind cracked walls =================
+// ---------- new creatures ----------
+const sprite16=draw=>()=>{const c=document.createElement("canvas");c.width=c.height=16;const x=c.getContext("2d");const f=(col,a,b,w,h)=>{x.fillStyle=col;x.fillRect(a,b,w,h);};draw(f,x);return c;};
+MON2.lurker=sprite16(f=>{const K="#10181a";f(K,4,3,8,12);f("#2a5a5a",5,4,6,10);f("#3a7a6a",5,4,2,10);f("#1a3a3a",9,6,2,8);f("#e8e070",6,6,1,1);f("#e8e070",9,6,1,1);f(K,6,9,4,1);f("#f0f0e0",6,10,1,1);f("#f0f0e0",9,10,1,1);f("rgba(120,180,220,.55)",1,13,14,3);});
+MON2.vampire=sprite16(f=>{const K="#140a10";f(K,3,1,10,15);f("#3a0a1a",3,6,10,10);f("#6a1028",4,7,3,8);f("#6a1028",9,7,3,8);f("#e8e0e8",5,2,6,5);f("#c0b8c8",5,6,6,1);f("#e02020",6,4,1,1);f("#e02020",9,4,1,1);f("#ffffff",7,6,1,1);f("#ffffff",8,6,1,1);f("#1a1018",5,1,6,2);f("#d8d0dc",7,8,2,6);});
+MON2.ghost=sprite16(f=>{f("rgba(210,230,255,.55)",4,2,8,11);f("rgba(210,230,255,.45)",3,5,10,6);f("rgba(210,230,255,.35)",3,12,2,3);f("rgba(210,230,255,.35)",7,12,2,4);f("rgba(210,230,255,.35)",11,12,2,3);f("#1a2a4a",6,5,1,2);f("#1a2a4a",9,5,1,2);f("rgba(20,40,80,.6)",7,9,2,2);});
+MON2.tentacle=sprite16(f=>{const K="#140a18";f(K,6,0,5,16);f("#6a2a7a",7,1,3,15);f("#9a4aaa",7,1,1,15);f("#d890e0",9,3,1,1);f("#d890e0",9,7,1,1);f("#d890e0",9,11,1,1);f(K,4,12,9,4);f("#4a1a5a",5,13,7,3);f("#6a2a7a",10,1,2,2);});
+Object.assign(MTRAITS,{
+  lurker:{atk:"Bite",type:"piercing",dv:true,mind:"beast",stealthy:true,abil:{str:3,dex:1,con:2,int:-4,wis:0,cha:-4}},
+  vampire:{atk:"Claws",type:"slashing",dv:true,undead:true,resist:["necrotic"],immune:["poison"],mind:"smart",abil:{str:3,dex:3,con:3,int:0,wis:0,cha:1}},
+  ghost:{atk:"Withering Touch",type:"necrotic",dv:true,undead:true,flyer:true,resist:["piercing","slashing","bludgeoning","acid","fire","lightning"],immune:["poison","necrotic"],mind:"mindless",abil:{str:-2,dex:1,con:0,int:0,wis:0,cha:3}},
+  tentacle:{atk:"Lash",type:"bludgeoning",mind:"mindless",abil:{str:3,dex:1,con:2,int:-5,wis:-2,cha:-5}}});
+const NEW_MONS={lurker:{name:"Pool Lurker",hp:22,ac:13,hit:5,dmg:"2d6+2",range:1,speed:5,xp:20,from:1,sprite:"lurker"},
+  vampire:{name:"Vampire Spawn",hp:38,ac:15,hit:6,dmg:"2d6+3",range:1,speed:6,xp:60,from:1,sprite:"vampire"},
+  ghost:{name:"Ghost",hp:28,ac:11,hit:5,dmg:"2d8",range:1,speed:6,xp:40,from:1,sprite:"ghost"},
+  tentacle:{name:"Writhing Tentacle",hp:16,ac:12,hit:5,dmg:"1d8+2",range:1,speed:0,xp:12,from:1,sprite:"tentacle"}};
+const monT=k=>NEW_MONS[k]||monByKey(k);
+effect("tentacleGrab","Tentacles grab and hold whoever they hit",{onHit:async c=>{if(c.a&&c.a.key==="tentacle"&&c.t&&c.t.side==="h"&&!c.t.st.restrained&&!c.t.down){c.t.st.restrained={dc:12,by:"tentacle"};float(c.t,"GRABBED","#d890e0");}}});
+// ---------- the walls with cracks ----------
+const HIDDEN_KINDS=[["loot",3],["nest",3],["pool",3],["hideout",2],["lush",3],["forgotten",3],["bigpit",2],["crypt",3],["altar",2],["trapped",2],["tentacles",2],["office",1]];
+Object.assign(ROOM_THEMES,{
+  h_loot:{name:"a hidden treasure room",desc:"A hidden room, sealed off for who knows how long. Something glitters in the dark."},
+  h_nest:{name:"a beast's nest",desc:"A reeking den of bones, fur and droppings. Something lives here."},
+  h_pool:{name:"a hidden grotto",desc:"A still black pool fills most of this cave. Water drips from the ceiling."},
+  h_hideout:{name:"a goblin hideout",desc:"Bedrolls, stolen trinkets and the stink of goblin. This is someone's secret hideout."},
+  h_lush:{name:"a lush cave",desc:"Moss and glowing mushrooms carpet this damp little cave. It smells green and alive."},
+  h_forgotten:{name:"a forgotten room",desc:"The doorway caved in long ago. Dust lies thick on everything; nobody has been here in an age."},
+  h_bigpit:{name:"a sinkhole",desc:"Most of this cave is a single enormous pit. A narrow lip of rock runs along the edge."},
+  h_crypt:{name:"a hidden crypt",desc:"Rows of old coffins, their lids carved with faces worn smooth. The air is cold."},
+  h_altar:{name:"a dark shrine",desc:"Red runes form a star on the floor, ringed by skulls and unlit black candles. On the altar, something waits."},
+  h_trapped:{name:"a sealed chamber",desc:"Faces turn towards your light: people have been trapped in here!"},
+  h_tentacles:{name:"a writhing chamber",desc:"The floor is split with cracks, and from them rise slick purple tentacles, writhing and reaching."},
+  h_office:{name:"...an office?",desc:"Damp yellow carpet. Yellow wallpaper. The buzz of lights you can't see. Endless, empty, wrong. This place should not exist."}});
+function carveHidden(){if(G.demo)return;let n=Math.random()<.65?1:0;if(Math.random()<.3)n++;const kinds=[];
+  for(let i=0;i<n;i++){for(let k=0;k<80;k++){const r=pick(G.rooms.filter(r=>!r.role||r.role==="stairs"));if(!r)return;const side=ri(0,3);const [dx,dy]=[[0,-1],[0,1],[-1,0],[1,0]][side];
+      let wx,wy;if(dy){wx=ri(r.x+1,r.x+r.w-2);wy=dy<0?r.y-1:r.y+r.h;}else{wy=ri(r.y+1,r.y+r.h-2);wx=dx<0?r.x-1:r.x+r.w;}
+      const px=Math.abs(dy),py=Math.abs(dx);const depth=ri(3,5),width=ri(4,7),off=ri(1,width-2);let ok=true;
+      for(let d=0;d<=depth+1&&ok;d++)for(let s=-off-1;s<=width-off;s++){const x=wx+dx*d+px*s,y=wy+dy*d+py*s;if(x<1||y<1||x>G.W-2||y>G.H-2||G.t[y][x]!==1){ok=false;break;}}
+      if(!ok||objAt(wx,wy)||doorAt(wx,wy))continue;
+      const tiles=[];for(let d=1;d<=depth;d++)for(let s=-off;s<width-off;s++){const x=wx+dx*d+px*s,y=wy+dy*d+py*s;G.t[y][x]=0;tiles.push({x,y});}
+      const xs=tiles.map(t=>t.x),ys=tiles.map(t=>t.y);const room={x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs)+1,h:Math.max(...ys)-Math.min(...ys)+1,role:"secret",hidden:true};room.cx=room.x+(room.w>>1);room.cy=room.y+(room.h>>1);
+      const fresh=HIDDEN_KINDS.filter(([k])=>!kinds.includes(k));const tot=fresh.reduce((a,[,w])=>a+w,0);let q=Math.random()*tot,kind=fresh[0][0];for(const [kk,w] of fresh){q-=w;if(q<=0){kind=kk;break;}}kinds.push(kind);
+      room.theme="h_"+kind;G.rooms.push(room);G.objs.push({type:"crack",x:wx,y:wy,deco:true,found:false,dc:12+Math.floor(G.floor/2),kind,toward:{dx,dy}});
+      fillHidden(kind,room,tiles,{x:wx+dx,y:wy+dy});break;}}}
+function fillHidden(kind,r,tiles,door){const f=G.floor;const gid=9500+(G.hidN=(G.hidN||0)+1);const free=()=>{const c=shuffle(tiles.slice()).find(t=>!reserved(t.x,t.y)&&!(t.x===door.x&&t.y===door.y));return c||null;};
+  const deco=(type,extra)=>{const p=free();if(p)G.objs.push(Object.assign({type,x:p.x,y:p.y,deco:true},extra||{}));return p;};
+  const mon=(key,extra)=>{const t=monT(key);if(!t)return null;const p=free();if(!p)return null;const m=mkMon(t,p.x,p.y);m.gid=gid;m.state="sleep";Object.assign(m,extra||{});G.mons.push(m);return m;};
+  const chest=(rich)=>{const p=free();if(p){const c={type:"chest",x:p.x,y:p.y,loot:rollLoot(rich),opened:false};G.objs.push(c);kitChest(c);}};
+  if(kind==="loot"){chest(true);if(Math.random()<.6)chest(false);for(let i=0;i<ri(1,3);i++){const p=free();if(p)G.items.push({x:p.x,y:p.y,gold:ri(5,15)*f});}deco("web");}
+  else if(kind==="nest"){const pool=["rat","wolf","spider"].filter(k=>monByKey(k)&&monByKey(k).from<=f);for(let i=0;i<ri(2,3);i++)mon(pick(pool.length?pool:["rat"]));for(let i=0;i<3;i++)deco("animalbones");deco("skeleton",{loot:true});}
+  else if(kind==="pool"){for(const t of tiles){const edge=t.x===r.x||t.x===r.x+r.w-1||t.y===r.y||t.y===r.y+r.h-1;if(!(t.x===door.x&&t.y===door.y)&&Math.abs(t.x-door.x)+Math.abs(t.y-door.y)>1)G.ground[t.y][t.x]=edge?GROUND.water:GROUND.deep;}
+    const wetT=tiles.filter(t=>gnd(t.x,t.y)===GROUND.deep);const loot=Math.random()<.7;const lurk=!loot||Math.random()<.5;
+    if(loot&&wetT.length){const p=pick(wetT);G.objs.push({type:"glint",x:p.x,y:p.y,deco:true,loot:rollLoot(Math.random()<.4)});}
+    if(lurk&&wetT.length){const p=pick(wetT);const m=mkMon(NEW_MONS.lurker,p.x,p.y);m.gid=gid;m.state="idle";m.lurk=true;m.hide=rnd(20)+5;G.mons.push(m);}}
+  else if(kind==="hideout"){const pool=["goblin","archer"].filter(k=>monByKey(k));const asleep=Math.random()<.5;for(let i=0;i<ri(2,3);i++)mon(pick(pool),{state:asleep?"sleep":"idle",fac:"goblins"});for(let i=0;i<2;i++)deco("straw");chest(false);deco("crate");}
+  else if(kind==="lush"){for(let i=0;i<ri(3,5);i++)deco("fungus",{kind:pick(["food","heal","poison","mystery","mystery"])});for(let i=0;i<3;i++){const p=free();if(p)G.ground[p.y][p.x]=GROUND.water;}}
+  else if(kind==="forgotten"){deco("skeleton",{loot:true});deco("furniture");deco("brokenweapons");deco("web");deco("web");if(Math.random()<.6)chest(Math.random()<.3);}
+  else if(kind==="bigpit"){const lip=tiles.filter(t=>Math.abs(t.x-door.x)+Math.abs(t.y-door.y)<=1);const inner=tiles.filter(t=>!lip.includes(t));const lootAt=Math.random()<.6?pick(inner):null;
+    for(const t of inner)G.objs.push({type:"abyss",x:t.x,y:t.y,deco:true,loot:lootAt&&t===lootAt?rollLoot(Math.random()<.5):null});}
+  else if(kind==="crypt"){const n=Math.min(ri(3,5),tiles.length-2);for(let i=0;i<n;i++){const q=Math.random();const inside=q<.3?"loot":q<.55?"skeleton":q<.65&&f>=3?"vampire":q<.8?"ghost":"empty";deco("coffin",{inside});}}
+  else if(kind==="altar"){for(const t of tiles)if(!(t.x===door.x&&t.y===door.y)&&!reserved(t.x,t.y))G.objs.push({type:"pentagram",x:t.x,y:t.y,deco:true,seen:true,rx:t.x-r.cx,ry:t.y-r.cy});
+    const gear=Object.keys(ITEMS).filter(k=>ITEMS[k].kind==="gear"&&ITEMS[k].floor<=Math.max(f,2));const cursedG=gear.filter(k=>ITEMS[k].cursed);const cursed=cursedG.length&&Math.random()<.4;
+    const item=cursed?pick(cursedG):pick(gear.filter(k=>!ITEMS[k].cursed));const p={x:r.cx,y:r.cy};G.objs=G.objs.filter(o=>!(o.type==="pentagram"&&o.x===p.x&&o.y===p.y));G.objs.push({type:"darkaltar",x:p.x,y:p.y,deco:true,item,risen:Math.random()<.4});
+    for(let i=0;i<3;i++)deco("skullpile");}
+  else if(kind==="trapped"){const n=ri(1,3);for(let i=0;i<n;i++)deco("survivor",{look:pick(["fighter","rogue","cleric","wizard","ranger"].filter(c=>S.classes.some(d=>d.id===c)))});deco("animalbones");}
+  else if(kind==="tentacles"){for(let i=0;i<ri(3,4);i++)mon("tentacle",{state:"idle"});chest(Math.random()<.5);}
+  else if(kind==="office"){for(const t of tiles)G.objs.push({type:"office",x:t.x,y:t.y,deco:true,seen:true});for(let i=0;i<ri(1,3);i++){const p=free();if(p){G.objs=G.objs.filter(o=>!(o.type==="office"&&o.x===p.x&&o.y===p.y));G.objs.push({type:"desk",x:p.x,y:p.y,deco:true});}}}}
+{const base=placeDressing;placeDressing=function(){base();carveHidden();};}
+Object.assign(BLOCKERS,{coffin:1,darkaltar:1,survivor:1,abyss:1,desk:1});Object.assign(COVER,{coffin:1,darkaltar:1,desk:1});Object.assign(WOODEN,{coffin:1,desk:1});
+Object.assign(BUMP_NAME,{coffin:"A coffin",darkaltar:"A dark altar",survivor:"A trapped survivor",abyss:"A vast pit",desk:"A desk"});
+const crackAt=(x,y)=>G.objs.find(o=>o.type==="crack"&&o.x===x&&o.y===y&&!o.gone);
+// ---------- finding cracks ----------
+function noticeCracks(){for(const o of G.objs){if(o.type!=="crack"||o.found||o.gone)continue;for(const h of heroesUp()){if(cheb(h,o)>2||h.id==="beast")continue;if(passive(h,"investigation")-2*exhOf(h)>=o.dc+2||passive(h,"perception")-2*exhOf(h)>=o.dc+4){
+    o.found=true;toast(`The ${h.name} notices a crack in the wall to the ${dirTo(G.party[0],o)}. Cold air is breathing through it: there's a space behind!`);log("A crack in the wall with a draught behind it.","gold");break;}}}}
+{const base=search;search=async function(){await base();if(!G||mode!=="explore")return;const L=G.party[0];const near=G.objs.filter(o=>o.type==="crack"&&!o.found&&!o.gone&&cheb(o,L)<=4);if(!near.length)return;
+  const h=bestAt("investigation");for(const o of near){const r=rnd(20)+skillBonus(h,"investigation");if(r>=o.dc){o.found=true;toast(`Tapping along the walls, the ${h.name} finds a hollow-sounding crack to the ${dirTo(L,o)}. There's a space behind it!`);log("Found a crack in the wall.","gold");}}};}
+{const base=d2Step;d2Step=async function(){await base();if(mode==="explore"&&G)noticeCracks();};}
+{const base=aKind;aKind=function(x,y){const c=G&&crackAt(x,y);if(c&&c.found)return "bump";return base(x,y);};}
+{const base=doMove;doMove=async function(dx,dy,act){const L=G&&G.party[0];if(L&&mode==="explore"){const c=crackAt(L.x+dx,L.y+dy);if(c&&c.found){if(!act){hintA("A crack in the wall. Something's behind it.");return;}await crackInteract(c);return;}}return base(dx,dy,act);};}
+async function crackInteract(o){const at=bestAt("athletics");const barb=heroesUp().find(h=>h.id==="barbarian"&&(h.res.rage||0)>0&&!h.wild);const gun=heroesUp().find(h=>h.sub==="gunslinger"&&!h.wild);const dc=14+Math.floor(G.floor/2);
+  const c=await choose("A jagged crack splits the wall. Cold air breathes through it: there's an open space on the other side.",[{t:"BREAK THROUGH",sub:o.fail?"You've tried; it won't give":`Athletics DC ${dc} · ${oddsTag(at,"athletics",dc)} · loud`,dis:!!o.fail},
+    {t:"RAGE AND SMASH IT",sub:barb?`${barb.name}: uses a Rage · always works · loud`:"Needs a barbarian with Rage left",dis:!barb},
+    {t:"BLAST IT WITH GUNPOWDER",sub:gun?((G.bag.bullets||0)>=3?"Uses the powder from 3 bullets · always works · VERY loud":"Needs 3 bullets' worth of powder"):"Needs a gunslinger",dis:!gun||(G.bag.bullets||0)<3},{t:"LEAVE IT"}]);$("tBox").hidden=true;
+  if(c===0){G.steps+=6;makeNoise(o.x,o.y,14);const r=await check(at,"athletics",dc);if(!r.ok){o.fail=true;await say(`The ${at.name} slams into the wall again and again, but it holds. (${r.txt})`,1200,true);$("tBox").hidden=true;return;}await openCrack(o,`With a final heave, the ${at.name} breaks through! (${r.txt})`);}
+  else if(c===1){barb.res.rage--;makeNoise(o.x,o.y,16);await openCrack(o,`The ${barb.name} roars and hurls themself at the wall. Rock explodes inward!`);}
+  else if(c===2){takeItem("bullets",3);makeNoise(o.x,o.y,30);cam.shake=now();fx.push({type:"boom",x:o.x,y:o.y,t:now()});await openCrack(o,`The ${gun.name} packs powder into the crack, lights the fuse and... BOOM! The wall blows apart. That was heard across the whole floor.`);}}
+async function openCrack(o,msg){o.gone=true;G.t[o.y][o.x]=0;G.ground[o.y][o.x]=GROUND.rubble;cam.shake=now();buildTerrain();computeLight();fov();hud();await say(msg,1500,true);$("tBox").hidden=true;}
+D2_DRAW.crack=(f,o)=>{if(!o.found)return;const K="#0a0608";f(K,7,1,1,3);f(K,6,4,1,3);f(K,7,7,1,2);f(K,8,9,1,3);f(K,7,12,1,3);f(K,5,5,1,1);f(K,9,10,1,1);f("rgba(140,200,255,.25)",6,4,3,8);};
+// ---------- what's inside ----------
+D2_ACT.coffin=async o=>{if(o.opened){toast("An open, empty coffin.");return;}const c=await choose("A stone coffin, its lid carved with a worn face.",[{t:"OPEN IT",sub:"Heave the lid aside"},{t:"LEAVE IT"}]);$("tBox").hidden=true;if(c!==0)return;
+  o.opened=true;G.steps+=3;makeNoise(o.x,o.y,5);const L=G.party[0];
+  if(o.inside==="loot"){const g=ri(10,25)*G.floor;G.gold+=g;const it=rollItem(Math.random()<.4);if(it)addItem(it);hud();await say(`Inside, a long-dead noble clutches their grave goods: ${g} gold${it?" and "+itemName(it):""}.`,1500,true);}
+  else if(o.inside==="empty")await say("Empty. Not even bones. Someone got here first... or whoever was in it got up and left.",1400,true);
+  else{const key=o.inside;const p=nearFree(o.x,o.y);if(!p){await say("Bones, nothing more.",900,true);return;}const t=monT(key);if(!t){await say("Dust and bones.",900,true);return;}const m=mkMon(t,p.x,p.y);m.gid=9600+(G.hidN=(G.hidN||0)+1);m.state="combat";G.mons.push(m);fx.push({type:"flash",u:m,t:now()});
+    await say(key==="vampire"?"A pale hand shoots out of the coffin. A VAMPIRE SPAWN rises, eyes burning red and fangs bared!":key==="ghost"?"A cold mist pours out of the coffin and gathers into a shrieking GHOST!":"Bones rattle and a SKELETON sits up, then climbs out!",1500,true);$("tBox").hidden=true;busy=false;startCombat({extra:[m],bumped:m});}
+  $("tBox").hidden=true;};
+D2_ACT.darkaltar=async o=>{if(o.taken){toast("A bare altar ringed by guttering black candles.");return;}const nm=ITEMS[o.item]?(isKnown(o.item)?ITEMS[o.item].name:ITEMS[o.item].unk||"a strange item"):"something";
+  const c=await choose(`On the altar, inside the star of red runes, lies ${aN(nm.toLowerCase())}. It hums faintly. The candles around it are unlit, waiting.`,[{t:"TAKE IT",sub:"Who knows what it does. Or who it belonged to."},{t:"LEAVE IT"}]);$("tBox").hidden=true;if(c!==0)return;
+  o.taken=true;o.lit=true;addItem(o.item);hud();await say("As you lift it, every black candle in the room bursts alight with a red flame. A whisper passes through the room... then silence.",1600,true);
+  if(o.risen){const out=[];for(const sk of G.objs.filter(q=>q.type==="skullpile"&&!q.gone).slice(0,2)){const p=nearFree(sk.x,sk.y);if(!p)continue;const m=mkMon(monByKey("skeleton")||S.monsters[0],p.x,p.y);m.gid=9700;m.state="combat";G.mons.push(m);out.push(m);sk.gone=true;}
+    if(out.length){await say("The skulls around the altar grind together and pull themselves up out of the bones: the guardians have woken!",1400,true);$("tBox").hidden=true;busy=false;startCombat({extra:out,bumped:out[0]});return;}}
+  $("tBox").hidden=true;};
+D2_ACT.survivor=async o=>{const c=await choose(`"You found us! We've been stuck in here for days since the tunnel collapsed!" A filthy, starving ${o.look||"traveller"} grabs your hand.`,[{t:"HELP THEM OUT",sub:"Share some food and point them to the ladder"},{t:"NOT NOW"}]);$("tBox").hidden=true;if(c!==0)return;
+  const others=G.objs.filter(q=>q.type==="survivor"&&!q.gone);for(const q of others)q.gone=true;approve("spare");const full=G.party.filter(h=>h.id!=="beast").length>=S.dungeon.party;const q=Math.random();
+  if(!full&&q<.3){const p=nearFree(o.x,o.y);if(p){await say(`"I owe you my life. If you'll have me, I'll fight at your side."`,1300,true);G.npc={side:"n",def:S.classes.find(d=>d.id===o.look)||pick(S.classes),race:pick(RACE_KEYS),x:p.x,y:p.y};$("tBox").hidden=true;await recruit();return;}}
+  if(q<.6){const g=ri(10,20)*G.floor;G.gold+=g;await say(`"Take this. It's all we have." They press ${g} gold into your hands and hurry off towards the ladder.`,1500,true);}
+  else if(q<.85){const it=rollItem(false)||"potion";addItem(it);await say(`"Here, I won't need this where I'm going: home." They give you ${aN(itemName(it))}.`,1500,true);}
+  else await say("They weep with relief, thank you over and over, and stumble off towards the ladder.",1400,true);hud();$("tBox").hidden=true;};
+D2_ACT.glint=async o=>{if(o.taken){toast("Just black water now.");return;}const h=bestAt("athletics");const c=await choose("Something glints at the bottom of the pool, deep and cold.",[{t:"DIVE FOR IT",sub:`Athletics DC 12 · ${oddsTag(h,"athletics",12)}`},{t:"LEAVE IT"}]);$("tBox").hidden=true;if(c!==0)return;
+  const r=await check(h,"athletics",12);G.steps+=4;makeNoise(o.x,o.y,4);if(!r.ok){await say(`The ${h.name} dives, but the cold drives them back up, gasping. (${r.txt})`,1200,true);await dealDamage(h,roll("1d4").total,"bludgeoning",{});$("tBox").hidden=true;return;}
+  o.taken=true;o.gone=true;const got=[];if(o.loot.gold){G.gold+=o.loot.gold;got.push(o.loot.gold+" gold");}for(const id of o.loot.items){addItem(id);got.push(itemName(id));}hud();await say(`The ${h.name} surfaces with a fistful of treasure: ${got.join(", ")}! (${r.txt})`,1600,true);$("tBox").hidden=true;
+  const lur=G.mons.find(m=>m.key==="lurker"&&m.hp>0&&cheb(m,o)<=6);if(lur&&!lur.inCombat){lur.lurk=false;lur.spotted=true;await say("Something huge moves under the water. The Pool Lurker has noticed you!",1200,true);$("tBox").hidden=true;busy=false;startCombat({extra:[lur],bumped:lur});}};
+D2_ACT.abyss=async o=>{const L=G.party[0];const pitLoot=G.objs.find(q=>q.type==="abyss"&&q.loot&&!q.lootTaken&&cheb(q,o)<=8);const rope=(G.bag.rope||0)>0;
+  const c=await choose(`The floor simply ends. The pit drops away into blackness${pitLoot?". Far below, something catches your light":""}.`,[{t:"CLIMB DOWN WITH THE ROPE",sub:rope?"Safe but exhausting (the party grows wearier)":"You need rope",dis:!rope},{t:"JUMP DOWN",sub:"It's a long way. It will hurt."},{t:"BACK AWAY"}]);$("tBox").hidden=true;if(c===2||c<0)return;
+  if(c===1){for(const h of heroesUp()){const s=await dodgeRoll(h,13);await dealDamage(h,s.ok?Math.floor(roll(`${trapN()+1}d6`).total/2):roll(`${trapN()+1}d6`).total,"bludgeoning",{fall:true});}await say("The party jumps... and lands hard on the rocks below.",1200,true);}
+  G.steps+=25;if(S.rules.fatigue){G.fatigue++;await partyWeary();}
+  if(pitLoot){pitLoot.lootTaken=true;const got=[];if(pitLoot.loot.gold){G.gold+=pitLoot.loot.gold;got.push(pitLoot.loot.gold+" gold");}for(const id of pitLoot.loot.items){addItem(id);got.push(itemName(id));}
+    await say(`At the bottom, among the bones of those who fell, you find: ${got.join(", ")}. Then the long climb back up.`,1700,true);}
+  else await say("At the bottom: bones, rubble, and nothing worth the climb. It's a long way back up.",1500,true);hud();$("tBox").hidden=true;};
+D2_ACT.office=async o=>{toast(pick(["The carpet squelches. It smells like old rain.","The lights buzz. You can't see where they are.","This room goes on further than it should.","You have been here before. Haven't you?"]));};
+D2_ACT.desk=async o=>{if(o.searched){toast("An empty desk. Somehow it's always been here.");return;}o.searched=true;toast(pick(["In the drawer: a stapler, and a mug that reads WORLD'S OKAYEST WIZARD.","A sticky note: 'DO NOT GO DEEPER'. The handwriting looks like yours.","Paperwork. Endless, meaningless paperwork.","A phone of some strange make. When you lift it, it's dial tone, then nothing."]));};
+D2_ACT.pentagram=async o=>toast("Red runes, painted in something that isn't paint.");
+D2_ACT.skullpile=async o=>toast("A heap of human skulls. Their empty eyes all face the altar.");
+// mysterious mushrooms
+{const base=D2_ACT.fungus;D2_ACT.fungus=async o=>{if(o.kind!=="mystery"||o.picked)return base(o);const h=bestAt("nature");const L=G.party[0];
+  const c=await choose("A cluster of mushrooms unlike any you know: spiralled caps that shift colour as you watch.",[{t:"EXAMINE THEM",sub:`Nature DC 15 · ${oddsTag(h,"nature",15)}`},{t:"EAT ONE",sub:"Who knows?"},{t:"LEAVE THEM"}]);$("tBox").hidden=true;if(c===2||c<0)return;
+  if(c===0){const r=await check(h,"nature",15);if(!r.ok){await say(`Nobody has ever written about these. (${r.txt})`,1000,true);$("tBox").hidden=true;return;}await say(`The ${h.name} has read about these: "wandercaps". Unpredictable. Usually harmless. Usually. (${r.txt})`,1500,true);$("tBox").hidden=true;return;}
+  o.picked=true;o.seen=true;const e=ri(0,5);const who=L;
+  if(e===0){who.hp=who.maxHp;await say(`The ${who.name} feels warmth spread through every limb. Fully healed!`,1300,true);}
+  else if(e===1){reduceExh(who);await say(`A rush of energy! The ${who.name} feels less weary.`,1200,true);}
+  else if(e===2){G.steps+=20;await say(`The ${who.name} sits down, giggles, and falls fast asleep. The others wait, not very patiently, for them to wake.`,1500,true);}
+  else if(e===3){makeNoise(who.x,who.y,12);await say(`The ${who.name} bursts into uncontrollable, echoing laughter. Everything nearby heard that.`,1400,true);}
+  else if(e===4){revealAround(who.x,who.y,16);await say(`The walls turn transparent. For a dizzy moment the ${who.name} sees the tunnels all around... and remembers them. (Your map fills in nearby.)`,1700,true);}
+  else{who.thp=Math.max(who.thp||0,ri(4,8));await say(`The ${who.name}'s skin goes hard and grey as stone for a while. (Temporary HP.)`,1300,true);}
+  hud();$("tBox").hidden=true;};}
+// ---------- drawing ----------
+Object.assign(D2_DRAW,{
+  coffin:(f,o)=>{f("#1a1216",2,1,12,14);f("#6a6460",3,2,10,12);f("#8a8478",3,2,10,2);f("#4a4440",7,4,2,8);f("#4a4440",5,6,6,2);if(o.opened){f("#0a0608",4,4,8,8);f("#cfc6ae",6,7,4,1);}},
+  darkaltar:(f,o,t)=>{f("#1a1216",1,4,14,11);f("#3a2a2e",2,5,12,9);f("#5a3a3e",2,5,12,2);if(!o.taken){f("#c8a0ff",7,2,2,3);f(`rgba(200,140,255,${.4+.3*Math.sin(t/200)})`,6,1,4,5);}
+    for(const [x,y] of [[1,1],[13,1],[1,13],[13,13]]){f("#1a1014",x,y,2,3);if(o.lit){const g=Math.floor(t/120)%2;f("#ff3a2a",x,y-1-g,2,2);}}},
+  pentagram:(f,o)=>{const c="rgba(200,30,30,.55)";const a=(o.rx+o.ry)&1;if(a)f(c,0,7,16,2);else f(c,7,0,2,16);f(c,3,3,2,2);f(c,11,11,2,2);},
+  skullpile:(f)=>{f("#cfc6ae",3,9,4,4);f("#e0d8c4",8,8,5,5);f("#1a1216",4,10,1,1);f("#1a1216",6,10,1,1);f("#1a1216",9,10,1,1);f("#1a1216",11,10,1,1);f("#b0a890",5,13,6,2);},
+  survivor:(f,o,t)=>{const b=Math.floor(t/400)%2;f("#1a1216",4,2-b,8,14);f("#c89a70",5,3-b,6,4);f("#7a6a5a",5,7-b,6,8);f("#1a1216",6,4-b,1,1);f("#1a1216",9,4-b,1,1);f("#5a4a3a",5,2-b,6,1);},
+  glint:(f,o,t)=>{if(o.taken)return;const g=.5+.5*Math.sin(t/180+o.x);f(`rgba(255,230,120,${.3+.5*g})`,7,7,2,2);f(`rgba(255,250,200,${.6*g})`,8,6,1,1);},
+  abyss:(f)=>{f("#000000",0,0,16,16);f("#0a0608",2,2,12,12);},
+  office:(f,o,t)=>{f("#c8b45a",0,0,16,16);f("#b8a44a",0,0,16,1);f("#b8a44a",0,8,16,1);f("#a8943e",(o.x*5+o.y*3)%14,(o.x*3+o.y*7)%14,2,2);if(Math.floor(t/1700+o.x)%9===0)f("rgba(255,255,220,.15)",0,0,16,16);},
+  desk:(f)=>{f("#1a1216",1,4,14,10);f("#9a8a6a",2,5,12,4);f("#b8a888",2,5,12,1);f("#6a5a4a",3,9,2,4);f("#6a5a4a",11,9,2,4);f("#d8d8d0",4,6,3,2);f("#5a5a68",9,5,3,2);}});
+// things rooted to the floor stay where they are
+{const base=d2Step;d2Step=async function(){for(const m of G.mons)if(m.speed===0&&!m.anchor)m.anchor={x:m.x,y:m.y};await base();if(!G)return;for(const m of G.mons)if(m.speed===0&&m.anchor&&!m.inCombat){m.x=m.anchor.x;m.y=m.anchor.y;m.dx=m.x*TS;m.dy=m.y*TS;}};}
+{const base=stepToward;stepToward=function(m,gx,gy){if(m.speed===0)return;return base(m,gx,gy);};}
 
 // ================= settings storage, controls, start-up =================
 const KEY="lantern-crawl-settings-v4";

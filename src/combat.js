@@ -280,8 +280,8 @@ function truncatePath(dist,path,budget){const out=[];for(const k of path){const 
 async function monsterTurn(m){const T=m.tr;await wait(200);
   let move=m.speed;if(m.st.prone){delete m.st.prone;move=Math.floor(move/2);float(m,"STANDS","#ffffff");}if(m.st.grappled||m.st.paralysed)move=0;
   if(m.st.restrained){const w=weaponOf(m);const near=heroesUp().filter(h=>inReachW(m,h,w));
-    if(!near.length||Math.random()<.5){const c=saveRoll(m,"str",m.st.restrained.dc);if(c.ok){const by=m.st.restrained.by;delete m.st.restrained;await say(`The ${m.name} tears free of the ${by==="web"?"webbing":"vines"}!`,750);}
-      else{await say(`The ${m.name} struggles against the ${m.st.restrained.by==="web"?"webbing":"vines"}.`,700);return;}}
+    if(!near.length||Math.random()<.5){const c=saveRoll(m,"str",m.st.restrained.dc);if(c.ok){const by=m.st.restrained.by;delete m.st.restrained;await say(`The ${m.name} tears free of the ${({web:"webbing",snare:"snare",tentacle:"tentacle"})[by]||"vines"}!`,750);}
+      else{await say(`The ${m.name} struggles against the ${({web:"webbing",snare:"snare",tentacle:"tentacle"})[m.st.restrained.by]||"vines"}.`,700);return;}}
     move=m.st.restrained?0:move;}
   if(m.st.slowed){move=Math.max(1,Math.floor(move/2));m.st.slowed--;if(m.st.slowed<=0)delete m.st.slowed;}
   if(m.boss&&m.phase===1&&m.hp<=m.maxHp/2){m.phase=2;await bossPhase(m);}

@@ -26,7 +26,7 @@ async def main():
       // stomping out a fire
       const k=(L.y)*G.W+L.x+1;G.fire.set(k,3);o.stompable=t.stompable(L.x+1,L.y);t.stompFire(L.x+1,L.y);o.stomped=!G.fire.has(k);
       // a mimic next to a fire reveals itself
-      let spot=null;for(const [dx,dy] of [[2,0],[-2,0],[0,2],[0,-2]]){const x=L.x+dx,y=L.y+dy;if(!t.isWall(x,y)&&!t.objAt(x,y)&&!t.unitAt(x,y)){spot=[x,y];break;}}
+      let spot=null;for(let y=2;y<G.H-2&&!spot;y++)for(let x=2;x<G.W-3;x++)if([0,1,2].every(k=>!t.isWall(x+k,y)&&!t.objAt(x+k,y)&&!t.unitAt(x+k,y))){spot=[x,y];break;}
       const ch={type:'chest',x:spot[0],y:spot[1],mimic:true,loot:[],opened:false};G.objs.push(ch);G.fire.set(spot[1]*G.W+spot[0]+1,3);await t.scorch();o.mimic=ch.gone&&G.mons.some(m=>/Mimic/.test(m.name));
       // recruits can be any class, including one already in the party
       const seen=new Set();for(let s=1;s<=60;s++){G.seed=s*7;G.floor=1;t.genFloor();if(G.npc)seen.add(G.npc.def.id);}o.recruitDruid=seen.has('druid');o.classes=seen.size;

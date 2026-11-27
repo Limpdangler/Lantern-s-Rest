@@ -161,7 +161,7 @@ async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&
   const tongue=speakerFor(m),lang=MLANG[m.key];const talk={adv:!!tongue,dis:!tongue&&!!lang};const garbled=!tongue&&!!lang;
   // nobody speaks their language: the party can only read their body language (a secret Insight roll)
   const readIns=heroesUp().filter(h=>h.id!=="beast").sort((a,b)=>skillBonus(b,"insight")-skillBonus(a,"insight"))[0]||heroesUp()[0];const readRoll=rnd(20)+skillBonus(readIns,"insight");const readOk=readRoll>=12;
-  const ins=heroesUp().slice().sort((a,b)=>passive(b,"insight")-passive(a,"insight"))[0];const sensed=liar&&(!!tongue||passive(ins,"insight")-2*exhOf(ins)>=13);
+  const ins=heroesUp().slice().sort((a,b)=>passive(b,"insight")-passive(a,"insight"))[0];const pal=heroesUp().find(h=>h.id==="paladin"&&!h.wild);const sensed=liar&&(!!tongue||!!pal||passive(ins,"insight")-2*exhOf(ins)>=13);
   if(liar&&tongue)log(`${esc(tongue.name)} overhears them muttering in ${esc(lang)} about jumping you once you've paid.`,"miss");else if(sensed)log(`${esc(ins.name)} has a bad feeling about this group.`,"miss");
   const calm=f=>{for(const q of grp){q.peace=true;q.parley=0;q.state="idle";if(f)q.fooled=true;}};
   const fight=async(t)=>{await say(t,1000,true);grp.forEach(q=>{q.parley=0;q.peace=false;});busy=false;startCombat({by:grp});};
@@ -175,7 +175,7 @@ async function parley(m){const gid=m.gid;const grp=G.mons.filter(q=>q.gid===gid&
           :`${grp.length>1?`The ${m.name}s mutter to each other`:`The ${m.name} grunts`} in ${lang}. `+(readOk?"Their tone has softened a little.":"You can't tell if that's good or bad."))
       :att===0?`${who} block${grp.length>1?"":"s"} the way: "Halt! Pay ${toll} gold or turn back!"`:`${grp.length>1?`The ${m.name}s look at each other`:`The ${m.name} thinks it over`}. "Fine... ${price} gold and you can pass." (They seem less hostile now.)`)
       +(tongue?` (The ${tongue.name} speaks ${lang}.)`:"")
-      +(sensed&&!tongue?` The ${ins.name} has a bad feeling: they keep glancing at each other and fingering their weapons.`:sensed?` The ${tongue.name} overheard them: they plan to attack once you've paid.`:"");
+      +(sensed&&!tongue&&pal?` The ${pal.name} can feel it: they are lying. They mean to attack once you have paid.`:sensed&&!tongue?` The ${ins.name} has a bad feeling: they keep glancing at each other and fingering their weapons.`:sensed?` The ${tongue.name} overheard them: they plan to attack once you've paid.`:"");
     const c=await choose(q,[{t:"PAY",sub:garbled?`${price} gold seems about right, judging by their fingers`:`${price} gold`,dis:G.gold<price},{t:"PERSUADE",sub:`${garbled?"With gestures only (disadvantage) · ":""}${oddsTag(per,"persuasion",pdc,talk)}`},{t:"DECEIVE",sub:garbled?"You don't share a language to lie in":`${oddsTag(dec,"deception",14)} · "We work for your boss."`,dis:garbled},{t:"INTIMIDATE",sub:oddsTag(inti,"intimidation",14)},{t:"ROAR",sub:roarB?`${roarB.name}: uses a Rage · Intimidation with advantage`:"Needs a barbarian with Rage left",dis:!roarB},{t:"ATTACK",sub:"They're ready for you"}]);
     approve(["toll","persuade","deceive","intimidate","intimidate","attackfirst"][c]||"");
     if(c===0){G.gold-=price;hud();if(liar){await fight("They pocket the gold... and draw their blades. \"Thanks, fools!\"");return;}calm();await say("They pocket the gold and wave you through.",1200,true);break;}

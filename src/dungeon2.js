@@ -56,7 +56,7 @@ function reachCount(){const sr=G.rooms.find(r=>r.role==="start")||G.rooms[0];con
 function themeRooms(){if(G.demo)return;G.tid=G.tid||0;const base=reachCount();const used=new Set();
   for(const r of G.rooms){if(r.role)continue;const added=[];const add=(type,x,y,extra)=>{if(!d2free(x,y))return null;const o=Object.assign({type,x,y,deco:true},extra||{});G.objs.push(o);added.push(o);return o;};
     let th=null;if(r.w>=10&&r.h>=7)th="hall";
-    else if(Math.random()<.72){const fits=Object.keys(ROOM_THEMES).filter(k=>{const T=ROOM_THEMES[k];return !T.big&&r.w>=T.min[0]&&r.h>=T.min[1]&&(k!=="alchemy"||G.floor>=2);});
+    else if(Math.random()<.72){const fits=Object.keys(ROOM_THEMES).filter(k=>{const T=ROOM_THEMES[k];return !T.big&&T.min&&r.w>=T.min[0]&&r.h>=T.min[1]&&(k!=="alchemy"||G.floor>=2);});
       const fresh=fits.filter(k=>!used.has(k));const pool=fresh.length?fresh:fits;if(pool.length)th=pick(pool);}
     if(th){r.theme=th;used.add(th);FURNISH[th](r,add);if(th==="hall"&&Math.random()<.6){const sub=pick(["mess","chapel","barracks","library","storage"]);r.theme2=sub;FURNISH[sub](r,add);}}
     else{if(r.w>=7&&r.h>=5&&Math.random()<.35)for(const [x,y] of [[r.x+2,r.y+1],[r.x+r.w-3,r.y+r.h-2]])if(!nearDoorway(x,y))add("pillar",x,y);
