@@ -264,7 +264,7 @@ async function grudgeTick(){const L=G.party[0];const g=(G.grudges||[]).find(q=>!
   for(let i=0;i<n;i++){const p=nearFree(s0.x,s0.y);if(!p)break;if(co)spawn({cls:pick(["fighter","rogue","ranger","wizard","cleric"].filter(c=>S.classes.some(d=>d.id===c)))},p.x,p.y);
     else{const opts=grp?grp.list.filter(k=>monByKey(k)&&monByKey(k).from<=G.floor):[];spawn({key:opts.length?pick(opts):g.list[0].key},p.x,p.y);}}
   if(!out.length)return false;const extra=out.length-g.list.length;if(co)G.rivalPast=(G.rivalPast||[]).filter(c=>c.name!==co.name);
-  await say(`Footsteps rush out of the dark to the ${dirTo(L,s0)}: the ${g.name} that fled earlier is back${extra>0?`, and it has brought ${extra===1?"a friend":extra+" friends"}`:""}!`,1400,true);
+  await say(g.betray?`Footsteps in the dark to the ${dirTo(L,s0)}: it's ${g.name}, the "friends" from the campfire. Their weapons are out, and they aren't smiling.`:`Footsteps rush out of the dark to the ${dirTo(L,s0)}: the ${g.name} that fled earlier is back${extra>0?`, and it has brought ${extra===1?"a friend":extra+" friends"}`:""}!`,1400,true);
   $("tBox").hidden=true;busy=false;startCombat({extra:out,by:out});return true;}
 
 // ---------- chance events while exploring ----------
@@ -318,7 +318,7 @@ function relinkRivals(){for(const m of G.mons)if(m.rival&&!(m.tr&&m.tr.rival))m.
 async function rivalMeet(co,first){const mem=rivalMembers(co);if(!mem.length)return;const f=G.floor;for(const m of mem)m.bubble=now()+900;
   const bribe=co.bribe||(co.bribe=(12+ri(0,8))*f);const st=co.stance;
   const rev=st==="revenge";if(rev)co.bribe=bribe*2;const toll=co.bribe;
-  const intro=!first?`${co.leader} of ${co.name} eyes you. "Well? Changed your mind about something?"`
+  const intro=co.introOverride&&first?co.introOverride:!first?`${co.leader} of ${co.name} eyes you. "Well? Changed your mind about something?"`
     :rev?`It's ${co.leader} and ${co.name} again, with fresh blood in their ranks. "${co.history==="paid"?"Your coin ran out fast. Pay again":"Remember us? We owe you one"}," ${co.leader} snarls. "${toll} gold, or we take it off your corpses."`
     :co.returning&&co.history==="paid"?`${co.leader} of ${co.name} again, grinning wider than ever. "You paid last time. Toll's gone up: ${bribe} gold."`
     :co.returning&&co.history==="allied"&&st==="teamup"?`${co.leader} of ${co.name} waves. "Partners! Fancy working together again? Same deal: half the gold."`
