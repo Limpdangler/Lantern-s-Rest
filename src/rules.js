@@ -78,6 +78,7 @@ function coverOf(a,t){if(cheb(a,t)<=1)return 0;const cs=[[.05,.05],[.95,.05],[.0
 function attackMods(a,t,w,o){o=o||{};const adv=[],dis=[],notes=[];let bonus=atkBonus(a,w);const ranged=!w.melee;
   if(t.st.restrained)adv.push("target restrained");if(t.st.asleep)adv.push("target asleep");
   if(t.st.prone){if(cheb(a,t)<=1)adv.push("target prone");else dis.push("target prone, far away");}
+  if(w.melee&&(w.reach||1)>1&&cheb(a,t)<=1)dis.push("too close for a reach weapon");
   if(t.st.helped&&(!t.st.helpFor||t.st.helpFor===a))adv.push("ally helping");if(t.st.guided)adv.push("Guiding Bolt");if(t.st.reckless)adv.push("target reckless");
   if(a.st.hidden)adv.push("you're hidden");if(o.adv)adv.push(o.adv);
   if(a.side==="h"&&C&&C.cur===a&&C.reckless&&w.melee&&!w.spell)adv.push("reckless");
@@ -251,7 +252,7 @@ async function breakBarrel(o,fire,dx,dy){o.gone=true;const tiles=[[o.x,o.y]];
 async function walk(u,path,o){o=o||{};
   for(const k of path){const x=k%G.W,y=(k/G.W)|0;
     if(C&&!o.noOA){const dis=(C.cur===u&&C.disengaged)||u.disengaged;
-      if(!dis){const threats=foesOf(u).filter(e=>cheb(e,u)===1&&cheb(e,{x,y})>1&&canReact(e)&&canMelee(e)&&!e.fleeing&&!e.st.prone&&!(e.side==="h"&&e.down)&&!(u.tr&&u.tr.flyby));// prone creatures can't make opportunity attacks
+      if(!dis){const threats=foesOf(u).filter(e=>{const rr=(meleeWeapon(e)||{}).reach||1;return cheb(e,u)<=rr&&cheb(e,{x,y})>rr;}).filter(e=>canReact(e)&&canMelee(e)&&!e.fleeing&&!e.st.prone&&!(e.side==="h"&&e.down)&&!(u.tr&&u.tr.flyby));// prone creatures can't make opportunity attacks
         for(const e of threats){if(e.side==="h"&&!await askReact(e,`The ${u.name} is moving away from the ${e.name}. Take an opportunity attack?`))continue;e.reaction=false;await say(`The ${e.name} lashes out as the ${u.name} moves away!`,650);const r=await attack(e,u,meleeWeapon(e),{});if(u.hp<=0&&u.side==="m"||u.down||u.dead)return false;
           if(r&&r.hit&&(hasFeat(e,"sentinel")||(e.side==="h"&&e.id==="fighter"))){await say(`The ${e.name} holds the line: the ${u.name} is stopped in its tracks!`,850);return false;}}}}
     const d=doorAt(x,y);if(d&&!d.open){d.open=true;computeLight();}

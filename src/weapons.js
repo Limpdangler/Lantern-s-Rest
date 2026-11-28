@@ -88,8 +88,7 @@ const isCommonWeapon=id=>{const p=parseWeapon(id);return !!(p&&!p.plus&&!p.speci
       for(const h of G.party.filter(h=>!h.dead&&h.id!=="beast")){const b=document.createElement("button");b.type="button";b.className="chip";const pro=proficientWith(h,p.key);
         b.textContent=`EQUIP: ${h.name.toUpperCase()}${pro?"":" (not trained: no proficiency bonus)"}`;b.addEventListener("click",()=>{const msg=equipWeapon(h,id);renderMenu();alertMenu(msg);});acts.appendChild(b);}}}}catch(e){console.warn(e);}return r;};}
 function heldWeaponLine(h){if(!h.wpn)return "";registerWeapon(h.wpn);const p=parseWeapon(h.wpn);return `Holding: ${ITEMS[h.wpn].name}${proficientWith(h,p.key)?"":" (not trained: no proficiency bonus)"}${castsMain(h)?" (as their second weapon)":""}`;}
-{const base=renderGear;renderGear=function(el,h,withWear){base(el,h,withWear);if(!h.wpn)return;const box=el.lastElementChild;const b=document.createElement("button");b.type="button";b.className="gslot";
-  b.innerHTML=`<span class="slotname">Weapon</span><b>${esc(ITEMS[h.wpn].name)}</b><small>${esc(heldWeaponLine(h))} · tap to put it back in the bag</small>`;b.addEventListener("click",()=>{unequipWeapon(h);renderMenu();});(box||el).appendChild(b);};}
+// (the held weapon is shown in the equipment panel: gear.js)
 // loading a save
 {const base=unpackRun;unpackRun=function(...a){const r=base(...a);try{registerAllWeapons();}catch(e){}return r;};}
 // weapon icons in the bag and shop

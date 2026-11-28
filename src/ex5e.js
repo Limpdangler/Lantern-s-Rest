@@ -106,7 +106,7 @@ const floorCleared=()=>!G.mons.some(m=>m.hp>0&&!m.peace);
 function campRisk(type){const n=G.mons.filter(m=>!m.peace&&m.hp>0).length;if(!n)return 0;if(type==="short")return Math.min(.35,.05*n);const base=Math.min(.8,.2+.07*n);return type==="fire"?base:base*.45;}
 async function campFlow(atLadder){// returns the camp settings, or null if cancelled
   const up=heroesUp(),food=G.bag.ration||0,wood=G.bag.firewood||0;
-  const hungry=food?"":` · NO FOOD: exhaustion, HP only back to half${(G.hungry||0)>=1?", and you are STARVING (extra exhaustion)":""}`;
+  const hungry=food?"":` · NO FOOD: no healing tonight${(G.hungry||0)>=1?", and you're STARVING: everyone loses a little HP":""}`;
   const c1=await choose(atLadder?"At the foot of the ladder, the party makes camp. It's safe here.":"Make camp here?",[
     {t:"FIRE CAMP",sub:wood?`Full rest · uses 1 firewood${food?" + 1 ration":""}${atLadder?"":" · fire draws attention ("+Math.round(campRisk("fire")*100)+"% ambush)"}${hungry}`:"You have no firewood",dis:!wood},
     {t:"COLD CAMP",sub:`No fire: HP only back to half, no Hit Dice or exhaustion recovered${G.coldUsed?" · ALREADY COLD-CAMPED: everyone gains exhaustion":""}${atLadder?"":" · "+Math.round(campRisk("cold")*100)+"% ambush"}${hungry}`},
@@ -128,7 +128,7 @@ async function applyLongRest(camp){const food=(G.bag.ration||0)>0;const light=an
     h.relentlessUsed=false;if(camp.sanct)h.hdLeft=Math.min(h.hdMax,h.hdLeft+1);}
   for(const h of G.party)if(h.sub==="beastmaster"&&!h.dead&&!G.party.some(b=>b.id==="beast"&&!b.dead))summonBeast(h);
   G.party=G.party.filter(h=>!(h.id==="beast"&&h.dead));
-  if(!food){for(const h of G.party)if(!h.dead)await addExh(h,1,"went to sleep hungry");lines.push("No food: everyone gains exhaustion.");}
+  // (going to bed hungry is handled in dungeon2.js: no healing, and it starts to hurt)
   if(camp.type==="cold"){if(G.coldUsed){for(const h of G.party)if(!h.dead)await addExh(h,1,"another cold, miserable night");lines.push("A second cold night in a row: everyone gains exhaustion.");}G.coldUsed=true;}
   else G.coldUsed=false;
   G.fatigue=0;G.shortRests=0;if(G.idTried)G.idTried.clear();hud();return lines;}

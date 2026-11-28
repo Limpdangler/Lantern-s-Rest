@@ -4,7 +4,7 @@ effect("conditions","Blinded, invisible, paralysed, outlined and grappled creatu
   if(a.st.blinded)c.dis.push("blinded");if(t.st.blinded)c.adv.push("target blinded");
   if(t.st.invisible&&!t.st.outlined)c.dis.push("target invisible");if(a.st.invisible&&!a.st.outlined)c.adv.push("you're invisible");
   if(t.st.paralysed)c.adv.push("target paralysed");if(t.st.outlined)c.adv.push("target outlined");if(t.st.grappled&&!c.w.melee)c.notes.push("target grappled");}});
-effect("paralysedCrit","Melee hits on a paralysed creature are critical hits",{critCheck:c=>{if(c.hit&&c.t.st.paralysed&&cheb(c.a,c.t)<=1)c.crit=true;}});
+// (crits only come from the dice now: no automatic crits on paralysed targets)
 effect("invisibleBreaks","Attacking ends Invisibility",{afterAttack:async c=>{if(c.a.st.invisible){delete c.a.st.invisible;if(c.a.conc&&c.a.conc.type==="invis")endConc(c.a);for(const h of G.party)if(h.conc&&h.conc.type==="invis"&&h.conc.target===c.a)endConc(h);}}});
 // ---------- long range & arrows ----------
 const isBow=w=>!!w&&!w.melee&&!w.spell&&!w.thrown&&/bow/i.test(w.name);

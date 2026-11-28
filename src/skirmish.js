@@ -139,3 +139,6 @@ async function skTick(){const L=G.party[0];for(const sk of G.skirmishes||[]){if(
 {const base=victory;victory=async function(){const left=C&&C.neutralLeft;const r=await base();if(left&&left.length&&mode==="explore"){for(const m of left)m.bubble=now()+900;
     const sk=(G.skirmishes||[]).find(s=>s.id===left[0].skirmish);if(sk){sk.state="done";sk.winner=left[0].team;sk.friendly=true;sk.talked=true;}
     await say(`The surviving ${sk?sk.sides.find(s=>s.team===left[0].team).label:"fighters"} nod to you, breathing hard. "Thanks for the help. Take what you want from the bodies."`,1600,true);$("tBox").hidden=true;}return r;};}
+
+// attack a sleeping creature and its sleeping friends wake up
+{const base=attack;attack=async function(a,t,w,o){if(t&&t.side==="m"){for(const q of G.mons)if(q!==t&&q.gid===t.gid&&q.hp>0&&cheb(q,t)<=12&&(q.st.asleep||q.state==="sleep")){delete q.st.asleep;if(q.state==="sleep")q.state=C&&q.inCombat?"combat":"hunt";q.st.surprised=false;float(q,"AWAKE!","#ffffff");}}return base(a,t,w,o);};}

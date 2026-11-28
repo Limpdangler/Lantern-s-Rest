@@ -355,6 +355,21 @@ body{font-variant-ligatures:none;font-feature-settings:"liga" 0,"lnum" 1}
 .app.port>.top,.app.land>.top{display:none}
 .app.port{padding-top:max(6px,env(safe-area-inset-top,0px))}
 
+.slotgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px;margin:4px 0}
+.gtile{display:flex;align-items:center;gap:7px;background:#163436;border:1px solid #3a6a6c;border-radius:6px;color:var(--cream);text-align:left;padding:5px 7px;font-family:var(--body);min-width:0}
+button.gtile{cursor:pointer}
+.gtile .gicon{width:28px;height:28px;image-rendering:pixelated;flex:0 0 28px;background:#0e2224;border-radius:4px}
+.gtile .gtxt{min-width:0;line-height:1.15}
+.gtile .gtxt b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gtile small{display:block;color:var(--muted);font-size:11px}
+.gtile.empty{opacity:.45;border-style:dashed}
+.gtile.base{background:#12292b}
+.gtile.pend{border-style:dashed;border-color:#8aa}
+.gtile.cursed{border-color:#a84a4a}
+.gtot{margin:4px 0 6px}
+.sheet .gearlist{grid-column:1/-1}
+.gtile .slotname{display:block;font-family:var(--pixel);font-size:7px;color:var(--gold);margin:0 0 2px}
+
 </style>
 
 <div class="app" id="app">
@@ -1130,7 +1145,7 @@ function genFloorInner(){
     if(Math.random()<.08*hz)blob(r,GROUND.acid,ri(1,2));
     if(Math.random()<.12*hz)scatter(r,GROUND.crack,ri(1,2));
     if(Math.random()<.15*hz){const p=interiorFree(r,true);if(p)G.objs.push({type:"barrel",x:p.x,y:p.y,hp:4});}
-    if(Math.random()<.45){const n=ri(1,3);for(let i=0;i<n;i++){const p=interiorFree(r,true);if(p)G.objs.push({type:"boulder",x:p.x,y:p.y});}}
+    if(Math.random()<.45){const area=r.w*r.h;const n=area<=20?(Math.random()<.5?1:0):area<=40?ri(1,2):ri(1,3);for(let i=0;i<n;i++){const p=interiorFree(r,true);if(p)G.objs.push({type:"boulder",x:p.x,y:p.y});}}
   }
   // light: torches on the wall above some rooms (start, boss and vault rooms are always lit)
   for(const r of rooms){if(!(r.role==="start"||r.role==="boss"||r.role==="vault"||Math.random()<.45))continue;
@@ -1485,6 +1500,7 @@ function coverOf(a,t){if(cheb(a,t)<=1)return 0;const cs=[[.05,.05],[.95,.05],[.0
 function attackMods(a,t,w,o){o=o||{};const adv=[],dis=[],notes=[];let bonus=atkBonus(a,w);const ranged=!w.melee;
   if(t.st.restrained)adv.push("target restrained");if(t.st.asleep)adv.push("target asleep");
   if(t.st.prone){if(cheb(a,t)<=1)adv.push("target prone");else dis.push("target prone, far away");}
+  if(w.melee&&(w.reach||1)>1&&cheb(a,t)<=1)dis.push("too close for a reach weapon");
   if(t.st.helped&&(!t.st.helpFor||t.st.helpFor===a))adv.push("ally helping");if(t.st.guided)adv.push("Guiding Bolt");if(t.st.reckless)adv.push("target reckless");
   if(a.st.hidden)adv.push("you're hidden");if(o.adv)adv.push(o.adv);
   if(a.side==="h"&&C&&C.cur===a&&C.reckless&&w.melee&&!w.spell)adv.push("reckless");
@@ -1658,7 +1674,7 @@ async function breakBarrel(o,fire,dx,dy){o.gone=true;const tiles=[[o.x,o.y]];
 async function walk(u,path,o){o=o||{};
   for(const k of path){const x=k%G.W,y=(k/G.W)|0;
     if(C&&!o.noOA){const dis=(C.cur===u&&C.disengaged)||u.disengaged;
-      if(!dis){const threats=foesOf(u).filter(e=>cheb(e,u)===1&&cheb(e,{x,y})>1&&canReact(e)&&canMelee(e)&&!e.fleeing&&!e.st.prone&&!(e.side==="h"&&e.down)&&!(u.tr&&u.tr.flyby));// prone creatures can't make opportunity attacks
+      if(!dis){const threats=foesOf(u).filter(e=>{const rr=(meleeWeapon(e)||{}).reach||1;return cheb(e,u)<=rr&&cheb(e,{x,y})>rr;}).filter(e=>canReact(e)&&canMelee(e)&&!e.fleeing&&!e.st.prone&&!(e.side==="h"&&e.down)&&!(u.tr&&u.tr.flyby));// prone creatures can't make opportunity attacks
         for(const e of threats){if(e.side==="h"&&!await askReact(e,`The ${u.name} is moving away from the ${e.name}. Take an opportunity attack?`))continue;e.reaction=false;await say(`The ${e.name} lashes out as the ${u.name} moves away!`,650);const r=await attack(e,u,meleeWeapon(e),{});if(u.hp<=0&&u.side==="m"||u.down||u.dead)return false;
           if(r&&r.hit&&(hasFeat(e,"sentinel")||(e.side==="h"&&e.id==="fighter"))){await say(`The ${e.name} holds the line: the ${u.name} is stopped in its tracks!`,850);return false;}}}}
     const d=doorAt(x,y);if(d&&!d.open){d.open=true;computeLight();}
@@ -2322,8 +2338,11 @@ function stirSleepers(){if(G.sneak)return;const up=heroesUp();const done=new Set
 async function pushMenu(o,dx,dy){if(dx&&dy){dx=0;}if(!dx&&!dy)return;const barrel=o.type==="barrel";o.fills=o.fills===undefined?3:o.fills;
   const strong=G.party.filter(h=>!h.dead&&!h.down).sort((a,b)=>skillBonus(b,"athletics")-skillBonus(a,"athletics"))[0];
   const opts=barrel?[{t:"PUSH IT",sub:"Roll it one square away from you"},{t:"FILL A BOTTLE",sub:o.fills<=0?"It's run dry":(G.bag.bottle||0)<1?"You need an empty bottle (drink a potion first, or buy one)":`Makes an oil flask · ${G.bag.bottle} empty bottle${G.bag.bottle>1?"s":""} · ${o.fills} fill${o.fills>1?"s":""} left`,dis:o.fills<=0||(G.bag.bottle||0)<1},{t:"SMASH IT",sub:"Spill the oil on the floor"},{t:"LEAVE IT",sub:"It could be useful in a fight"}]
-    :[{t:"PUSH IT",sub:`Athletics DC 13 · ${oddsTag(strong,"athletics",13)} · noisy`},{t:"LEAVE IT",sub:"Good cover from arrows"}];
+    :[{t:"PUSH IT",sub:`Athletics DC 13 · ${oddsTag(strong,"athletics",13)} · noisy`},{t:"BREAK IT UP",sub:"Slow, tiring work, but it always works (the party grows wearier) · noisy"},
+      {t:"RAGE AND SMASH",sub:"Barbarian: uses a Rage, instant, loud",dis:!heroesUp().some(b=>b.id==="barbarian"&&(b.res.rage||0)>0)},{t:"LEAVE IT",sub:"Good cover from arrows"}];
   const c=await choose(barrel?"An old barrel, sloshing with lamp oil.":"A heavy boulder.",opts);$("tBox").hidden=true;
+  if(!barrel&&c===1){o.gone=true;G.ground[o.y][o.x]=GROUND.rubble;G.steps+=40;burnFuel(40);makeNoise(o.x,o.y,8);if(S.rules.fatigue){G.fatigue++;await partyWeary();}buildTerrain();await say("Chip by chip, the party breaks the boulder into rubble. Slow, sweaty work.",1400,true);$("tBox").hidden=true;computeLight();fov();hud();return;}
+  if(!barrel&&c===2){const b=heroesUp().find(b=>b.id==="barbarian"&&(b.res.rage||0)>0);b.res.rage--;o.gone=true;G.ground[o.y][o.x]=GROUND.rubble;makeNoise(o.x,o.y,12);cam.shake=now();buildTerrain();await say(`The ${b.name} roars and smashes the boulder to pieces!`,1200,true);$("tBox").hidden=true;computeLight();fov();return;}
   if(c===0)await pushObj(o,dx,dy);else if(barrel&&c===1){if((G.bag.bottle||0)<1)return;o.fills--;takeItem("bottle");addItem("oil");toast(`You fill an empty bottle with lamp oil. (${o.fills} more in the barrel)`);hud();}else if(barrel&&c===2)await breakBarrel(o,false,0,0);}
 
 // you struck a chest first and it turns out to be a mimic: it's surprised and you get the first round
@@ -2451,7 +2470,7 @@ const floorCleared=()=>!G.mons.some(m=>m.hp>0&&!m.peace);
 function campRisk(type){const n=G.mons.filter(m=>!m.peace&&m.hp>0).length;if(!n)return 0;if(type==="short")return Math.min(.35,.05*n);const base=Math.min(.8,.2+.07*n);return type==="fire"?base:base*.45;}
 async function campFlow(atLadder){// returns the camp settings, or null if cancelled
   const up=heroesUp(),food=G.bag.ration||0,wood=G.bag.firewood||0;
-  const hungry=food?"":` · NO FOOD: exhaustion, HP only back to half${(G.hungry||0)>=1?", and you are STARVING (extra exhaustion)":""}`;
+  const hungry=food?"":` · NO FOOD: no healing tonight${(G.hungry||0)>=1?", and you're STARVING: everyone loses a little HP":""}`;
   const c1=await choose(atLadder?"At the foot of the ladder, the party makes camp. It's safe here.":"Make camp here?",[
     {t:"FIRE CAMP",sub:wood?`Full rest · uses 1 firewood${food?" + 1 ration":""}${atLadder?"":" · fire draws attention ("+Math.round(campRisk("fire")*100)+"% ambush)"}${hungry}`:"You have no firewood",dis:!wood},
     {t:"COLD CAMP",sub:`No fire: HP only back to half, no Hit Dice or exhaustion recovered${G.coldUsed?" · ALREADY COLD-CAMPED: everyone gains exhaustion":""}${atLadder?"":" · "+Math.round(campRisk("cold")*100)+"% ambush"}${hungry}`},
@@ -2473,7 +2492,7 @@ async function applyLongRest(camp){const food=(G.bag.ration||0)>0;const light=an
     h.relentlessUsed=false;if(camp.sanct)h.hdLeft=Math.min(h.hdMax,h.hdLeft+1);}
   for(const h of G.party)if(h.sub==="beastmaster"&&!h.dead&&!G.party.some(b=>b.id==="beast"&&!b.dead))summonBeast(h);
   G.party=G.party.filter(h=>!(h.id==="beast"&&h.dead));
-  if(!food){for(const h of G.party)if(!h.dead)await addExh(h,1,"went to sleep hungry");lines.push("No food: everyone gains exhaustion.");}
+  // (going to bed hungry is handled in dungeon2.js: no healing, and it starts to hurt)
   if(camp.type==="cold"){if(G.coldUsed){for(const h of G.party)if(!h.dead)await addExh(h,1,"another cold, miserable night");lines.push("A second cold night in a row: everyone gains exhaustion.");}G.coldUsed=true;}
   else G.coldUsed=false;
   G.fatigue=0;G.shortRests=0;if(G.idTried)G.idTried.clear();hud();return lines;}
@@ -3158,7 +3177,7 @@ effect("protect","Fighter: reaction to protect an adjacent ally (disadvantage on
   if(f&&await askReact(f,`Protect the ${t.name} from the ${a.name}'s attack? (uses the ${f.name}'s reaction: disadvantage)`)){f.reaction=false;c.mode=c.mode>0?0:-1;await say(`The ${f.name} steps in to protect the ${t.name}! (disadvantage)`,800);}}});
 effect("critRange","Champion crits on 19–20; sleeping and surprised-by-assassin targets take crits",{critCheck:c=>{
   if(c.d>=critMin(c.a))c.crit=true;
-  if(c.hit&&(c.t.st.asleep&&cheb(c.a,c.t)<=1||(isHero(c.a)&&c.a.sub==="assassin"&&c.t.st.surprised)))c.crit=true;}});
+  if(c.hit&&isHero(c.a)&&c.a.sub==="assassin"&&c.t.st.surprised)c.crit=true;}});
 effect("shield","Wizard: Shield reaction (+5 AC) can turn a hit into a miss",{beforeHit:async c=>{const t=c.t;
   if(!c.crit&&isHero(t)&&t.id==="wizard"&&!t.wild&&isPrepared(t,"shield")&&canReact(t)&&slotAvail(t,1)&&c.total<c.ac+5&&await askReact(t,`The ${c.a.name} rolled ${c.total} against the Wizard's AC ${c.ac}. Cast Shield (+5 AC, uses a level 1 slot) to make it miss?`)){
     useSlot(t,1);t.reaction=false;t.st.shieldSpell=true;fx.push({type:"ring",u:t,col:"#9fd0ff",t:now()});if(t.sub==="abjurer")t.ward=Math.min(wardMax(t),(t.ward||0)+2);
@@ -3195,7 +3214,7 @@ effect("conditions","Blinded, invisible, paralysed, outlined and grappled creatu
   if(a.st.blinded)c.dis.push("blinded");if(t.st.blinded)c.adv.push("target blinded");
   if(t.st.invisible&&!t.st.outlined)c.dis.push("target invisible");if(a.st.invisible&&!a.st.outlined)c.adv.push("you're invisible");
   if(t.st.paralysed)c.adv.push("target paralysed");if(t.st.outlined)c.adv.push("target outlined");if(t.st.grappled&&!c.w.melee)c.notes.push("target grappled");}});
-effect("paralysedCrit","Melee hits on a paralysed creature are critical hits",{critCheck:c=>{if(c.hit&&c.t.st.paralysed&&cheb(c.a,c.t)<=1)c.crit=true;}});
+// (crits only come from the dice now: no automatic crits on paralysed targets)
 effect("invisibleBreaks","Attacking ends Invisibility",{afterAttack:async c=>{if(c.a.st.invisible){delete c.a.st.invisible;if(c.a.conc&&c.a.conc.type==="invis")endConc(c.a);for(const h of G.party)if(h.conc&&h.conc.type==="invis"&&h.conc.target===c.a)endConc(h);}}});
 // ---------- long range & arrows ----------
 const isBow=w=>!!w&&!w.melee&&!w.spell&&!w.thrown&&/bow/i.test(w.name);
@@ -3687,17 +3706,48 @@ function attuneAll(){const lines=[];for(const h of G.party){if(h.dead||!h.pendin
 {const base=gearFx;gearFx=h=>{if(!h.pending||!h.pending.length)return base(h);const keep=h.gear;h.gear=h.gear.filter(id=>!h.pending.includes(id));try{return base(h);}finally{h.gear=keep;}};}
 {const base=shortRest;shortRest=async function(){await base();const l=attuneAll();if(l.length)await say(l.join(" "),1800,true);};}
 {const base=applyLongRest;applyLongRest=async camp=>{const out=await base(camp);return out.concat(attuneAll());};}
-// the list of worn gear (character card and full sheet)
+// the equipment panel: one box per body slot with an icon, what's in it and what it does
+const SLOT_ORDER=["weapon","armour","head","neck","cloak","hands","wrists","ring","feet","held"];
+const SLOT_LABEL={weapon:"Weapon rune",armour:"Armour rune",head:"Head",neck:"Neck",cloak:"Cloak",hands:"Hands",wrists:"Wrists",ring:"Ring",feet:"Feet",held:"Held"};
+function fxText(it){const f=it.fx||{};const out=[];if(f.ac)out.push(`${f.ac>0?"+":""}${f.ac} AC`);if(f.save)out.push(`${f.save>0?"+":""}${f.save} saves`);if(f.hit)out.push(`+${f.hit} to hit`);if(f.dmg)out.push(`+${f.dmg} damage`);
+  if(f.rdmg)out.push(`+${f.rdmg} ranged damage`);if(f.speed)out.push(`${f.speed>0?"+":""}${f.speed} speed`);if(f.thieves)out.push(`+${f.thieves} lockpicking`);if(f.stealth)out.push("stealth advantage");
+  for(const k of Object.keys(f))if(k.startsWith("set"))out.push(`${k.slice(3).toUpperCase()} ${f[k]}`);if(f.periapt)out.push("stable when downed");if(f.wand)out.push("Magic Missile charges");return out.join(" · ")||it.desc;}
+const GEAR_ICONS={feet:x=>{x.fillStyle="#1a1216";x.fillRect(3,4,6,10);x.fillRect(3,11,11,4);x.fillStyle="#7a5030";x.fillRect(4,5,4,8);x.fillRect(4,12,9,2);},
+  ring:x=>{x.fillStyle="#d8b040";x.fillRect(5,5,6,1);x.fillRect(5,11,6,1);x.fillRect(4,6,1,5);x.fillRect(11,6,1,5);x.fillStyle="#8ae0ff";x.fillRect(7,3,2,2);},
+  cloak:x=>{x.fillStyle="#1a1216";x.fillRect(4,2,8,13);x.fillRect(3,8,10,7);x.fillStyle="#3a6a4a";x.fillRect(5,3,6,11);x.fillRect(4,9,8,5);x.fillStyle="#d8b040";x.fillRect(7,3,2,1);},
+  hands:x=>{x.fillStyle="#1a1216";x.fillRect(4,3,8,11);x.fillStyle="#9a8a7a";x.fillRect(5,4,6,9);x.fillStyle="#6a5a4a";for(let i=0;i<4;i++)x.fillRect(5+i*2-(i?1:0)+1,4,1,4);},
+  head:x=>{x.fillStyle="#c8ccd4";x.fillRect(3,7,10,2);x.fillStyle="#8ae0ff";x.fillRect(7,5,2,2);x.fillStyle="#8a929c";x.fillRect(3,9,10,1);},
+  neck:x=>{x.fillStyle="#d8b040";x.fillRect(4,2,1,6);x.fillRect(11,2,1,6);x.fillRect(5,8,1,1);x.fillRect(10,8,1,1);x.fillRect(6,9,4,1);x.fillStyle="#d04050";x.fillRect(6,10,4,4);},
+  wrists:x=>{x.fillStyle="#1a1216";x.fillRect(3,4,10,8);x.fillStyle="#8a5a30";x.fillRect(4,5,8,6);x.fillStyle="#d8b040";x.fillRect(4,7,8,1);},
+  held:x=>{x.fillStyle="#6a4428";x.fillRect(4,11,8,2);x.fillRect(5,10,6,1);x.fillStyle="#d8c8a0";x.fillRect(7,2,2,9);x.fillStyle="#c8a0ff";x.fillRect(7,1,2,2);},
+  weapon:x=>{x.fillStyle="#5a5a64";x.fillRect(3,4,10,9);x.fillStyle="#8ae0ff";x.fillRect(6,6,4,1);x.fillRect(7,7,2,3);},
+  armour:x=>{x.fillStyle="#5a5a64";x.fillRect(3,4,10,9);x.fillStyle="#8ae0ff";x.fillRect(5,6,6,1);x.fillRect(5,6,1,4);x.fillRect(10,6,1,4);x.fillRect(5,10,6,1);}};
+function slotIcon(id,draw){const c=document.createElement("canvas");c.width=c.height=16;c.className="gicon";try{const x=c.getContext("2d");if(id&&ITEMS[id]&&ITEMS[id].kind==="gear"&&GEAR_ICONS[slotOf(id)])GEAR_ICONS[slotOf(id)](x);else if(id)drawIconTo(c,id);else if(draw)draw(x);}catch(e){}return c;}
+const ICON_SWORD=x=>{x.fillStyle="#1a1216";x.fillRect(7,1,3,12);x.fillStyle="#b8c0c8";x.fillRect(8,1,1,10);x.fillStyle="#6a4428";x.fillRect(5,11,7,2);x.fillRect(8,13,1,3);};
+const ICON_ARMOUR=x=>{x.fillStyle="#1a1216";x.fillRect(3,2,10,13);x.fillStyle="#8a929c";x.fillRect(4,3,8,11);x.fillStyle="#b8c0c8";x.fillRect(4,3,8,2);x.fillStyle="#5a626c";x.fillRect(7,5,2,9);};
+const ICON_SHIELD=x=>{x.fillStyle="#1a1216";x.fillRect(3,2,10,12);x.fillRect(5,14,6,1);x.fillStyle="#7a5030";x.fillRect(4,3,8,10);x.fillStyle="#b8c0c8";x.fillRect(7,3,2,10);x.fillRect(4,7,8,2);};
 function renderGear(el,h,withWear){const box=document.createElement("div");box.className="gearlist";
-  box.insertAdjacentHTML("beforeend",`<h3>EQUIPPED GEAR <span class="sm">${h.gear.length}/${MAX_ATTUNED} attunement</span></h3>`);
-  box.insertAdjacentHTML("beforeend",`<p class="help gearbase">Always: ${esc(weaponOf(h,"main").name)}${h.info.alt&&!h.info.alt.save?" + "+esc(weaponOf(h,"alt").name):""} · ${h.info.armour==="heavy"?"heavy armour":h.info.armour==="none"?"no armour":h.info.armour==="medium"?"medium armour":"light armour"}${SHIELD_USERS.includes(h.id)?(h.shieldBroken?" · shield BROKEN":" · shield"):""}${h.armourOff?" (taken off)":""}</p>`);
-  if(!h.gear.length)box.insertAdjacentHTML("beforeend",`<p class="help">No magic items worn.</p>`);
-  for(const id of h.gear){const it=ITEMS[id];const pend=isPending(h,id);const nm=isKnown(id)?it.name:it.unk||it.name;const b=document.createElement("button");b.type="button";b.className="gslot"+(pend?" pend":"");
-    b.innerHTML=`<span class="slotname">${GEAR_SLOTS[slotOf(id)]}</span><b>${esc(nm)}</b><small>${pend?"Not attuned yet: rest to make it work":isKnown(id)?esc(it.desc):""} · ${it.cursed&&!pend?"cursed: it won't come off":"tap to take off"}</small>`;
-    b.addEventListener("click",()=>{const why=removeItem(h,id);if(why)alertMenu(why);else renderMenu();});box.appendChild(b);}
+  box.insertAdjacentHTML("beforeend",`<h3>EQUIPMENT <span class="sm">${h.gear.length}/${MAX_ATTUNED} magic items attuned</span></h3>`);
+  const grid=document.createElement("div");grid.className="slotgrid";box.appendChild(grid);
+  const tile=(label,icon,name,info,cls,onTap)=>{const b=document.createElement(onTap?"button":"div");if(onTap)b.type="button";b.className="gtile "+(cls||"");b.appendChild(icon);
+    const t=document.createElement("div");t.className="gtxt";t.innerHTML=`<span class="slotname">${label}</span><b>${esc(name)}</b>${info?`<small>${esc(info)}</small>`:""}`;b.appendChild(t);if(onTap)b.addEventListener("click",onTap);grid.appendChild(b);};
+  // what they fight with
+  const mw=weaponOf(h,"main"),aw=h.info.alt&&!h.info.alt.save?weaponOf(h,"alt"):null;
+  if(h.wpn){registerWeapon(h.wpn);const p=parseWeapon(h.wpn);tile("Wielding",slotIcon(h.wpn),ITEMS[h.wpn].name,`${ITEMS[h.wpn].desc.split(" · ")[0]}${proficientWith(h,p.key)?"":" · NOT TRAINED: no proficiency bonus"} · tap to unequip`,"",()=>{unequipWeapon(h);renderMenu();});}
+  else tile("Wielding",slotIcon(null,ICON_SWORD),mw.name,`${mw.dice} ${mw.type}${aw?" · also "+aw.name:""}`,"base");
+  // armour and shield
+  tile("Body",slotIcon(null,ICON_ARMOUR),h.armourOff?"Armour off":h.info.armour==="heavy"?"Heavy armour":h.info.armour==="medium"?"Medium armour":h.info.armour==="none"?"No armour":"Light armour",`AC ${acOf(h)}`,"base");
+  if(SHIELD_USERS.includes(h.id))tile("Shield",slotIcon(null,ICON_SHIELD),h.shieldBroken?"Shield (BROKEN)":"Shield",h.shieldBroken?"−2 AC until repaired":"+2 AC (in the AC above)","base");
+  // magic item slots
+  for(const s of SLOT_ORDER){const id=gearInSlot(h,s);if(!id){tile(SLOT_LABEL[s],slotIcon(null,x=>{x.strokeStyle="rgba(200,220,220,.25)";x.strokeRect(2.5,2.5,11,11);}),"—","","empty");continue;}
+    const it=ITEMS[id];const pend=isPending(h,id);const known=isKnown(id);
+    tile(SLOT_LABEL[s],slotIcon(id),known?it.name:it.unk||it.name,pend?"Not attuned yet: rest to make it work":known?fxText(it):"Unidentified",`${pend?"pend":""}${it.cursed&&known?" cursed":""}`,()=>{const why=removeItem(h,id);if(why)alertMenu(why);else renderMenu();});}
+  // the totals
+  const fx=gearFx(h);const tot=[`AC ${acOf(h)}`,`Attack ${(atkBonus(h,mw)>=0?"+":"")+atkBonus(h,mw)} (${mw.name})`,`Speed ${speedOf(h)}`];if(fx.save)tot.push(`${fx.save>0?"+":""}${fx.save} to all saves`);
+  box.insertAdjacentHTML("beforeend",`<p class="help gtot">${tot.map(esc).join(" · ")}</p>`);
   if(withWear){const bagGear=Object.keys(G.bag).filter(id=>G.bag[id]>0&&ITEMS[id]&&ITEMS[id].kind==="gear");
     for(const id of bagGear){const why=wearBlock(h,id);const b=document.createElement("button");b.type="button";b.className="big alt";
-      b.innerHTML=`PUT ON: ${esc(isKnown(id)?ITEMS[id].name:ITEMS[id].unk||ITEMS[id].name)}<br><small>${esc(GEAR_SLOTS[slotOf(id)])}${why?" · "+esc(why):" · works after a rest"}</small>`;b.disabled=!!why;
+      b.innerHTML=`PUT ON: ${esc(isKnown(id)?ITEMS[id].name:ITEMS[id].unk||ITEMS[id].name)}<br><small>${esc(SLOT_LABEL[slotOf(id)])} slot${why?" · "+esc(why):" · works after a rest"}</small>`;b.disabled=!!why;
       b.addEventListener("click",()=>{const msg=wearItem(h,id);renderMenu();hud();alertMenu(msg);});box.appendChild(b);}}
   el.appendChild(box);}
 
@@ -4902,10 +4952,10 @@ async function barricade(o,d){const what=BARRICADE[o.type];if(o.type==="table")f
   ctx.fillStyle="#8a5c34";ctx.fillRect(X+1,Y+4,14,2);ctx.fillRect(X+1,Y+10,14,2);ctx.fillStyle="#5a3a22";ctx.fillRect(X+3,Y+4,1,2);ctx.fillRect(X+12,Y+10,1,2);};}
 
 // ---------- hunger: sleeping on an empty stomach ----------
-{const base=applyLongRest;applyLongRest=async function(camp){const hungry=!((G.bag.ration||0)>0);const out=await base(camp);
+{const base=applyLongRest;applyLongRest=async function(camp){const hungry=!((G.bag.ration||0)>0);const before=new Map(G.party.map(h=>[h,h.hp]));const out=await base(camp);
   if(!hungry){G.hungry=0;}
-  else{G.hungry=(G.hungry||0)+1;for(const h of G.party)if(!h.dead)h.hp=Math.min(h.hp,Math.max(1,Math.ceil(h.maxHp/2)));out.push("Nobody recovers properly on an empty stomach: HP only back to half.");
-    if(G.hungry>=2){for(const h of G.party)if(!h.dead)await addExh(h,1,"starving");out.push(`STARVING (${G.hungry} nights without food): everyone gains another level of exhaustion.`);}
+  else{G.hungry=(G.hungry||0)+1;for(const h of G.party)if(!h.dead&&before.has(h))h.hp=Math.min(h.maxHp,before.get(h));out.push("No food: everyone sleeps off their tiredness, but nobody heals.");
+    if(G.hungry>=2){for(const h of G.party)if(!h.dead&&!h.down){const d=Math.min(h.hp-1,ri(1,3)+G.hungry-2);if(d>0){h.hp-=d;}}out.push(`STARVING (${G.hungry} nights without food): everyone loses a little HP.`);}
     let grumble=false;for(const h of G.party)if(!h.dead&&!h.isYou&&h.trait){h.appr=Math.max(-10,(h.appr||0)-1);grumble=true;}if(grumble)out.push("Your companions grumble about their empty bellies (they like you a little less).");}
   hud();return out;};}
 
@@ -5251,6 +5301,9 @@ async function skTick(){const L=G.party[0];for(const sk of G.skirmishes||[]){if(
 {const base=victory;victory=async function(){const left=C&&C.neutralLeft;const r=await base();if(left&&left.length&&mode==="explore"){for(const m of left)m.bubble=now()+900;
     const sk=(G.skirmishes||[]).find(s=>s.id===left[0].skirmish);if(sk){sk.state="done";sk.winner=left[0].team;sk.friendly=true;sk.talked=true;}
     await say(`The surviving ${sk?sk.sides.find(s=>s.team===left[0].team).label:"fighters"} nod to you, breathing hard. "Thanks for the help. Take what you want from the bodies."`,1600,true);$("tBox").hidden=true;}return r;};}
+
+// attack a sleeping creature and its sleeping friends wake up
+{const base=attack;attack=async function(a,t,w,o){if(t&&t.side==="m"){for(const q of G.mons)if(q!==t&&q.gid===t.gid&&q.hp>0&&cheb(q,t)<=12&&(q.st.asleep||q.state==="sleep")){delete q.st.asleep;if(q.state==="sleep")q.state=C&&q.inCombat?"combat":"hunt";q.st.surprised=false;float(q,"AWAKE!","#ffffff");}}return base(a,t,w,o);};}
 
 // ================= chests: locks, iron bands, empty ones and junk, smashing and burning, all kinds of traps =================
 const CHEST_TRAPS={needle:"a poison needle in the lock",dart:"a dart launcher behind the keyhole",fire:"a flask of alchemist's fire wired to the lid",gas:"a glass vial of poison gas under the lid",
@@ -5656,8 +5709,7 @@ const isCommonWeapon=id=>{const p=parseWeapon(id);return !!(p&&!p.plus&&!p.speci
       for(const h of G.party.filter(h=>!h.dead&&h.id!=="beast")){const b=document.createElement("button");b.type="button";b.className="chip";const pro=proficientWith(h,p.key);
         b.textContent=`EQUIP: ${h.name.toUpperCase()}${pro?"":" (not trained: no proficiency bonus)"}`;b.addEventListener("click",()=>{const msg=equipWeapon(h,id);renderMenu();alertMenu(msg);});acts.appendChild(b);}}}}catch(e){console.warn(e);}return r;};}
 function heldWeaponLine(h){if(!h.wpn)return "";registerWeapon(h.wpn);const p=parseWeapon(h.wpn);return `Holding: ${ITEMS[h.wpn].name}${proficientWith(h,p.key)?"":" (not trained: no proficiency bonus)"}${castsMain(h)?" (as their second weapon)":""}`;}
-{const base=renderGear;renderGear=function(el,h,withWear){base(el,h,withWear);if(!h.wpn)return;const box=el.lastElementChild;const b=document.createElement("button");b.type="button";b.className="gslot";
-  b.innerHTML=`<span class="slotname">Weapon</span><b>${esc(ITEMS[h.wpn].name)}</b><small>${esc(heldWeaponLine(h))} · tap to put it back in the bag</small>`;b.addEventListener("click",()=>{unequipWeapon(h);renderMenu();});(box||el).appendChild(b);};}
+// (the held weapon is shown in the equipment panel: gear.js)
 // loading a save
 {const base=unpackRun;unpackRun=function(...a){const r=base(...a);try{registerAllWeapons();}catch(e){}return r;};}
 // weapon icons in the bag and shop

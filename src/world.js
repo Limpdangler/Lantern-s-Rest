@@ -90,7 +90,7 @@ function genFloorInner(){
     if(Math.random()<.08*hz)blob(r,GROUND.acid,ri(1,2));
     if(Math.random()<.12*hz)scatter(r,GROUND.crack,ri(1,2));
     if(Math.random()<.15*hz){const p=interiorFree(r,true);if(p)G.objs.push({type:"barrel",x:p.x,y:p.y,hp:4});}
-    if(Math.random()<.45){const n=ri(1,3);for(let i=0;i<n;i++){const p=interiorFree(r,true);if(p)G.objs.push({type:"boulder",x:p.x,y:p.y});}}
+    if(Math.random()<.45){const area=r.w*r.h;const n=area<=20?(Math.random()<.5?1:0):area<=40?ri(1,2):ri(1,3);for(let i=0;i<n;i++){const p=interiorFree(r,true);if(p)G.objs.push({type:"boulder",x:p.x,y:p.y});}}
   }
   // light: torches on the wall above some rooms (start, boss and vault rooms are always lit)
   for(const r of rooms){if(!(r.role==="start"||r.role==="boss"||r.role==="vault"||Math.random()<.45))continue;

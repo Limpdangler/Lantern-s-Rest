@@ -35,7 +35,7 @@ effect("protect","Fighter: reaction to protect an adjacent ally (disadvantage on
   if(f&&await askReact(f,`Protect the ${t.name} from the ${a.name}'s attack? (uses the ${f.name}'s reaction: disadvantage)`)){f.reaction=false;c.mode=c.mode>0?0:-1;await say(`The ${f.name} steps in to protect the ${t.name}! (disadvantage)`,800);}}});
 effect("critRange","Champion crits on 19–20; sleeping and surprised-by-assassin targets take crits",{critCheck:c=>{
   if(c.d>=critMin(c.a))c.crit=true;
-  if(c.hit&&(c.t.st.asleep&&cheb(c.a,c.t)<=1||(isHero(c.a)&&c.a.sub==="assassin"&&c.t.st.surprised)))c.crit=true;}});
+  if(c.hit&&isHero(c.a)&&c.a.sub==="assassin"&&c.t.st.surprised)c.crit=true;}});
 effect("shield","Wizard: Shield reaction (+5 AC) can turn a hit into a miss",{beforeHit:async c=>{const t=c.t;
   if(!c.crit&&isHero(t)&&t.id==="wizard"&&!t.wild&&isPrepared(t,"shield")&&canReact(t)&&slotAvail(t,1)&&c.total<c.ac+5&&await askReact(t,`The ${c.a.name} rolled ${c.total} against the Wizard's AC ${c.ac}. Cast Shield (+5 AC, uses a level 1 slot) to make it miss?`)){
     useSlot(t,1);t.reaction=false;t.st.shieldSpell=true;fx.push({type:"ring",u:t,col:"#9fd0ff",t:now()});if(t.sub==="abjurer")t.ward=Math.min(wardMax(t),(t.ward||0)+2);

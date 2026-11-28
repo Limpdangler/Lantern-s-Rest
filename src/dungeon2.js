@@ -506,10 +506,10 @@ async function barricade(o,d){const what=BARRICADE[o.type];if(o.type==="table")f
   ctx.fillStyle="#8a5c34";ctx.fillRect(X+1,Y+4,14,2);ctx.fillRect(X+1,Y+10,14,2);ctx.fillStyle="#5a3a22";ctx.fillRect(X+3,Y+4,1,2);ctx.fillRect(X+12,Y+10,1,2);};}
 
 // ---------- hunger: sleeping on an empty stomach ----------
-{const base=applyLongRest;applyLongRest=async function(camp){const hungry=!((G.bag.ration||0)>0);const out=await base(camp);
+{const base=applyLongRest;applyLongRest=async function(camp){const hungry=!((G.bag.ration||0)>0);const before=new Map(G.party.map(h=>[h,h.hp]));const out=await base(camp);
   if(!hungry){G.hungry=0;}
-  else{G.hungry=(G.hungry||0)+1;for(const h of G.party)if(!h.dead)h.hp=Math.min(h.hp,Math.max(1,Math.ceil(h.maxHp/2)));out.push("Nobody recovers properly on an empty stomach: HP only back to half.");
-    if(G.hungry>=2){for(const h of G.party)if(!h.dead)await addExh(h,1,"starving");out.push(`STARVING (${G.hungry} nights without food): everyone gains another level of exhaustion.`);}
+  else{G.hungry=(G.hungry||0)+1;for(const h of G.party)if(!h.dead&&before.has(h))h.hp=Math.min(h.maxHp,before.get(h));out.push("No food: everyone sleeps off their tiredness, but nobody heals.");
+    if(G.hungry>=2){for(const h of G.party)if(!h.dead&&!h.down){const d=Math.min(h.hp-1,ri(1,3)+G.hungry-2);if(d>0){h.hp-=d;}}out.push(`STARVING (${G.hungry} nights without food): everyone loses a little HP.`);}
     let grumble=false;for(const h of G.party)if(!h.dead&&!h.isYou&&h.trait){h.appr=Math.max(-10,(h.appr||0)-1);grumble=true;}if(grumble)out.push("Your companions grumble about their empty bellies (they like you a little less).");}
   hud();return out;};}
 

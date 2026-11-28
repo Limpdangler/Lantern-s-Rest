@@ -278,8 +278,11 @@ function stirSleepers(){if(G.sneak)return;const up=heroesUp();const done=new Set
 async function pushMenu(o,dx,dy){if(dx&&dy){dx=0;}if(!dx&&!dy)return;const barrel=o.type==="barrel";o.fills=o.fills===undefined?3:o.fills;
   const strong=G.party.filter(h=>!h.dead&&!h.down).sort((a,b)=>skillBonus(b,"athletics")-skillBonus(a,"athletics"))[0];
   const opts=barrel?[{t:"PUSH IT",sub:"Roll it one square away from you"},{t:"FILL A BOTTLE",sub:o.fills<=0?"It's run dry":(G.bag.bottle||0)<1?"You need an empty bottle (drink a potion first, or buy one)":`Makes an oil flask · ${G.bag.bottle} empty bottle${G.bag.bottle>1?"s":""} · ${o.fills} fill${o.fills>1?"s":""} left`,dis:o.fills<=0||(G.bag.bottle||0)<1},{t:"SMASH IT",sub:"Spill the oil on the floor"},{t:"LEAVE IT",sub:"It could be useful in a fight"}]
-    :[{t:"PUSH IT",sub:`Athletics DC 13 · ${oddsTag(strong,"athletics",13)} · noisy`},{t:"LEAVE IT",sub:"Good cover from arrows"}];
+    :[{t:"PUSH IT",sub:`Athletics DC 13 · ${oddsTag(strong,"athletics",13)} · noisy`},{t:"BREAK IT UP",sub:"Slow, tiring work, but it always works (the party grows wearier) · noisy"},
+      {t:"RAGE AND SMASH",sub:"Barbarian: uses a Rage, instant, loud",dis:!heroesUp().some(b=>b.id==="barbarian"&&(b.res.rage||0)>0)},{t:"LEAVE IT",sub:"Good cover from arrows"}];
   const c=await choose(barrel?"An old barrel, sloshing with lamp oil.":"A heavy boulder.",opts);$("tBox").hidden=true;
+  if(!barrel&&c===1){o.gone=true;G.ground[o.y][o.x]=GROUND.rubble;G.steps+=40;burnFuel(40);makeNoise(o.x,o.y,8);if(S.rules.fatigue){G.fatigue++;await partyWeary();}buildTerrain();await say("Chip by chip, the party breaks the boulder into rubble. Slow, sweaty work.",1400,true);$("tBox").hidden=true;computeLight();fov();hud();return;}
+  if(!barrel&&c===2){const b=heroesUp().find(b=>b.id==="barbarian"&&(b.res.rage||0)>0);b.res.rage--;o.gone=true;G.ground[o.y][o.x]=GROUND.rubble;makeNoise(o.x,o.y,12);cam.shake=now();buildTerrain();await say(`The ${b.name} roars and smashes the boulder to pieces!`,1200,true);$("tBox").hidden=true;computeLight();fov();return;}
   if(c===0)await pushObj(o,dx,dy);else if(barrel&&c===1){if((G.bag.bottle||0)<1)return;o.fills--;takeItem("bottle");addItem("oil");toast(`You fill an empty bottle with lamp oil. (${o.fills} more in the barrel)`);hud();}else if(barrel&&c===2)await breakBarrel(o,false,0,0);}
 
 // you struck a chest first and it turns out to be a mimic: it's surprised and you get the first round

@@ -2,7 +2,7 @@
 import asyncio,os
 from playwright.async_api import async_playwright
 DIST=os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","dist","lantern-crawl.html")
-HOOK="""window.__t={get G(){return G},get C(){return C},get choosing(){return choosing},get sayState(){return sayState},get mode(){return mode},say,stairsPrompt,doorInteract,startWild,mkMon,monByKey,isWall,objAt,unitAt,doorAt,scorch,stompFire,stompable,genFloor,S:()=>S,kinTalk,isKin};requestAnimationFrame(loop);"""
+HOOK="""window.__t={get G(){return G},get C(){return C},get choosing(){return choosing},get sayState(){return sayState},get mode(){return mode},say,stairsPrompt,doorInteract,startWild,mkMon,monByKey,isWall,objAt,unitAt,doorAt,scorch,stompFire,stompable,genFloor,S:()=>S,kinTalk,isKin,calm:()=>{C=null;mode='explore';busy=false;G.mons=[];}};requestAnimationFrame(loop);"""
 async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch(executable_path="/usr/bin/google-chrome");pg=await b.new_page(viewport={"width":412,"height":800});errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
@@ -22,7 +22,7 @@ async def main():
       // a wolf can't open doors
       L.res.wildshape=2;t.startWild(L,'wolf');const d={type:'door',x:1,y:1,open:false,locked:false,heard:true};await t.doorInteract(d);o.wolfDoor=!d.open;
       // wolves treat a wolf-shaped druid as kin
-      G.mons=[];const w=t.mkMon(t.monByKey('wolf'),L.x+2,L.y);G.mons.push(w);o.kin=t.isKin(w);
+      t.calm();const w=t.mkMon(t.monByKey('wolf'),L.x+2,L.y);G.mons.push(w);o.kin=t.isKin(w);
       // stomping out a fire
       const k=(L.y)*G.W+L.x+1;G.fire.set(k,3);o.stompable=t.stompable(L.x+1,L.y);t.stompFire(L.x+1,L.y);o.stomped=!G.fire.has(k);
       // a mimic next to a fire reveals itself
